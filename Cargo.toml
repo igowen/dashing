@@ -1,0 +1,16 @@
+[package]
+name = "rlb"
+version = "0.1.0"
+authors = ["igowen"]
+
+[dependencies]
+gfx = "*"
+gfx_core = "*"
+gfx_device_gl = "*"
+gfx_window_sdl = "*"
+#glutin = "*"
+image = "*"
+log = "*"
+pretty_logger = "*"
+sdl2 = { version = "*", features=["use-pkgconfig"] }
+time = "*"
