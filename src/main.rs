@@ -1,4 +1,5 @@
 #![deny(warnings)]
+#![allow(dead_code)]
 
 #[macro_use]
 extern crate log;
@@ -41,11 +42,22 @@ gfx_defines!{
         font_dim: [f32; 2] = "u_FontCharDim",
     }
 
+    constant ScreenLocals {
+        frame_counter: u32 = "u_FrameCounter",
+    }
+
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
         instance: gfx::InstanceBuffer<Instance> = (),
         tex: gfx::TextureSampler<[f32; 4]> = "t_Texture",
+        screen_target: gfx::RenderTarget<ColorFormat> = "IntermediateTarget",
         locals: gfx::ConstantBuffer<Locals> = "Locals",
+    }
+
+    pipeline screen_pipe {
+        vbuf: gfx::VertexBuffer<Vertex> = (),
+        screen_tex: gfx::TextureSampler<[f32; 4]> = "t_ScreenTexture",
+        locals: gfx::ConstantBuffer<ScreenLocals> = "Locals",
         out: gfx::RenderTarget<ColorFormat> = "Target0",
     }
 }
@@ -95,6 +107,25 @@ const QUAD_VERTICES: [Vertex; 4] = [
     Vertex {
         pos: [1.0, 1.0],
         uv: [1.0, 0.0],
+    },
+];
+
+const SCREEN_QUAD_VERTICES: [Vertex; 4] = [
+    Vertex {
+        pos: [1.0, -1.0],
+        uv: [1.0, 0.0],
+    },
+    Vertex {
+        pos: [-1.0, -1.0],
+        uv: [0.0, 0.0],
+    },
+    Vertex {
+        pos: [-1.0, 1.0],
+        uv: [0.0, 1.0],
+    },
+    Vertex {
+        pos: [1.0, 1.0],
+        uv: [1.0, 1.0],
     },
 ];
 
@@ -164,12 +195,17 @@ struct LLEngine {
     #[allow(dead_code)]
     depth_view: gfx_core::handle::DepthStencilView<gfx_device_gl::Resources, DepthFormat>,
     pipeline: gfx::pso::PipelineState<gfx_device_gl::Resources, pipe::Meta>,
+    #[allow(dead_code)]
+    screen_pipeline: gfx::pso::PipelineState<gfx_device_gl::Resources, screen_pipe::Meta>,
     encoder: gfx::Encoder<gfx_device_gl::Resources, gfx_device_gl::CommandBuffer>,
 
     // GPU-side resources.
     vertex_slice: gfx::Slice<gfx_device_gl::Resources>,
+    screen_vertex_slice: gfx::Slice<gfx_device_gl::Resources>,
     upload_buffer: gfx::handle::Buffer<gfx_device_gl::Resources, Instance>,
     pipeline_data: pipe::Data<gfx_device_gl::Resources>,
+    #[allow(dead_code)]
+    screen_pipeline_data: screen_pipe::Data<gfx_device_gl::Resources>,
 
     // CPU-side resources.
     width: u32,
@@ -177,7 +213,7 @@ struct LLEngine {
     #[allow(dead_code)]
     instance_count: u32,
     instances: Box<[Instance]>,
-    i: u32,
+    frame_counter: u32,
 }
 
 #[derive(Debug)]
@@ -238,10 +274,20 @@ impl LLEngine {
                 include_bytes!("shader/cell.glslf"),
                 pipe::new(),
             )?;
+        let screen_pso: gfx::pso::PipelineState<
+            gfx_device_gl::Resources,
+            screen_pipe::Meta,
+        > = factory.create_pipeline_simple(
+            include_bytes!("shader/screen.glslv"),
+            include_bytes!("shader/screen.glslf"),
+            screen_pipe::new(),
+        )?;
 
         let encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
         let (vertex_buffer, mut slice) =
             factory.create_vertex_buffer_with_slice(&QUAD_VERTICES, &QUAD_INDICES[..]);
+        let (screen_vertex_buffer, screen_slice) =
+            factory.create_vertex_buffer_with_slice(&SCREEN_QUAD_VERTICES, &QUAD_INDICES[..]);
         let instance_count = width * height;
 
         slice.instances = Some((instance_count, 0));
@@ -250,7 +296,6 @@ impl LLEngine {
             dim: [width as f32, height as f32],
             font_dim: [16.0, 16.0],
         };
-
 
         let sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
             gfx::texture::FilterMethod::Scale,
@@ -289,14 +334,32 @@ impl LLEngine {
             gfx::Bind::empty(),
         )?;
 
+        let screen_locals_buffer = factory.create_constant_buffer(1);
+
+        let (_, screen_texture, render_target) = factory.create_render_target(
+            screen_width as u16,
+            screen_height as u16,
+        )?;
+        let screen_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+            gfx::texture::FilterMethod::Scale,
+            gfx::texture::WrapMode::Clamp,
+        ));
+
         let texture = gfx_load_texture(&mut factory);
 
-        let data = pipe::Data {
+        let intermediate_data = pipe::Data {
             vbuf: vertex_buffer,
             instance: instance_buffer,
             tex: (texture, sampler),
+            screen_target: render_target,
             locals: locals_buffer,
+        };
+
+        let final_data = screen_pipe::Data {
+            vbuf: screen_vertex_buffer,
+            screen_tex: (screen_texture, screen_sampler),
             out: color_view.clone(),
+            locals: screen_locals_buffer,
         };
 
         Ok(LLEngine {
@@ -309,17 +372,20 @@ impl LLEngine {
             color_view: color_view,
             depth_view: depth_view,
             pipeline: pso,
+            screen_pipeline: screen_pso,
             encoder: encoder,
 
             vertex_slice: slice,
+            screen_vertex_slice: screen_slice,
             upload_buffer: upload,
-            pipeline_data: data,
+            pipeline_data: intermediate_data,
+            screen_pipeline_data: final_data,
 
             width: width,
             height: height,
             instance_count: instance_count,
             instances: instance_templates.into_boxed_slice(),
-            i: 0,
+            frame_counter: 0,
         })
     }
 
@@ -327,24 +393,24 @@ impl LLEngine {
         {
             let mut writer = self.factory.write_mapping(&self.upload_buffer)?;
             writer.copy_from_slice(&self.instances[..]);
-            if self.i % 10 == 0 {
-                for x in 0..self.width {
-                    for y in 0..self.height {
-                        self.instances[(y * self.width + x) as usize].character =
-                            (x + y + self.i / 10) % 256;
-                    }
-                }
-            }
+            //if self.i % 10 == 0 {
+            //    for x in 0..self.width {
+            //        for y in 0..self.height {
+            //            self.instances[(y * self.width + x) as usize].character =
+            //                (x + y + self.i / 10) % 256;
+            //        }
+            //    }
+            //}
             //writer[420].character = 1;
             //writer[420].color = [0.0, 0.0, 0.0, 1.0];
             //writer[420].bg_color = [0.0, 1.0, 0.0, 1.0];
         }
-        self.i += 1;
 
         self.encoder.clear(
-            &self.pipeline_data.out,
+            &self.pipeline_data.screen_target,
             [0.2, 0.0, 0.0, 1.0],
         );
+
         self.encoder.copy_buffer(
             &self.upload_buffer,
             &self.pipeline_data.instance,
@@ -358,9 +424,29 @@ impl LLEngine {
             &self.pipeline,
             &self.pipeline_data,
         ); // draw commands with buffer data and attached pso
+
+        self.encoder.update_constant_buffer(
+            &self.screen_pipeline_data.locals,
+            &ScreenLocals { frame_counter: self.frame_counter },
+        );
+
+        self.encoder.clear(
+            &self.screen_pipeline_data.out,
+            [0.0, 0.2, 0.0, 1.0],
+        );
+
+        self.encoder.draw(
+            &self.screen_vertex_slice,
+            &self.screen_pipeline,
+            &self.screen_pipeline_data,
+        );
+
         self.encoder.flush(&mut self.device); // execute draw commands
+
         self.window.gl_swap_window();
         self.device.cleanup();
+        self.frame_counter += 1;
+
         Ok(())
     }
 
