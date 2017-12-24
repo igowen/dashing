@@ -153,10 +153,14 @@ pub struct LLEngine {
     last_render_time_ns: u64,
 }
 
+/// LLEngineError represents an error that occurred in the low-level engine.
 #[derive(Debug)]
 pub enum LLEngineError {
+    /// Generic error.
     GeneralError(String),
+    /// Error from the SDL subsystem.
     SDLError(String),
+    /// Error from the OpenGL subsystem.
     OpenGLError(String),
 }
 
@@ -182,6 +186,8 @@ impl<'a> From<&'a mid::CharCell> for Instance {
 }
 
 impl LLEngine {
+    /// Create a new `LLEngine` with the given width and height (measured in characters, not
+    /// pixels).
     pub fn new(width: u32, height: u32) -> Result<Self, LLEngineError> {
         let sdl_context = sdl2::init()?;
         let video = sdl_context.video()?;
@@ -345,6 +351,8 @@ impl LLEngine {
         })
     }
 
+    /// Render one frame, and return an iterator over the events that have elapsed since the last
+    /// frame.
     pub fn render(&mut self) -> Result<sdl2::event::EventPollIterator, LLEngineError> {
         {
             let mut writer = self.factory.write_mapping(&self.upload_buffer)?;
@@ -406,6 +414,8 @@ impl LLEngine {
 
         Ok(self.event_pump.poll_iter())
     }
+
+    /// Update the character matrix with the provided data.
     pub fn update<T, U>(&mut self, data: T)
     where
         T: Iterator<Item = U>,
@@ -418,9 +428,14 @@ impl LLEngine {
             i.character = d2.character;
         }
     }
+
+    /// Get the current frames per second. This is based on a rolling average, not the
+    /// instantaneous measurement.
     pub fn get_fps(&self) -> f64 {
         self.fps
     }
+
+    /// Get the number of frames that have been rendered.
     pub fn get_frame_counter(&self) -> u32 {
         self.frame_counter
     }

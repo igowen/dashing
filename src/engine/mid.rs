@@ -3,6 +3,7 @@ use sdl2;
 
 use engine::ll;
 
+/// CharCell shouldn't be public, really.
 #[derive(Copy, Clone, Debug)]
 pub struct CharCell {
     character: u32,
@@ -12,15 +13,19 @@ pub struct CharCell {
 }
 
 impl CharCell {
+    /// Get this cell's character code.
     pub fn get_character(&self) -> u32 {
         self.character
     }
+    /// Get this cell's foreground color.
     pub fn get_fg_color(&self) -> [f32; 4] {
         self.fg_color
     }
+    /// Get this cell's background color.
     pub fn get_bg_color(&self) -> [f32; 4] {
         self.bg_color
     }
+    /// Returns whether this cell is transparent (i.e., visible) or not.
     pub fn is_transparent(&self) -> bool {
         self.transparent
     }
@@ -85,6 +90,8 @@ impl MidEngineLayer {
     }
 }
 
+/// `MidEngine` is the 'mid-level' engine. It doesn't interact with OpenGL et al. at all, but
+/// provides an additional layer of abstraction on top of the low-level engine.
 pub struct MidEngine {
     ll_engine: ll::LLEngine,
     layers: Box<[MidEngineLayer]>,
@@ -92,6 +99,8 @@ pub struct MidEngine {
 }
 
 impl MidEngine {
+    /// Create a new `MidEngine` with the given width and height (in characters) and number of
+    /// layers.
     pub fn new(width: u32, height: u32, layers: u32) -> Result<Self, ll::LLEngineError> {
         Ok(MidEngine {
             ll_engine: ll::LLEngine::new(width, height)?,
@@ -100,18 +109,24 @@ impl MidEngine {
         })
     }
 
+    /// Set the character at (x,y,z).
     pub fn set(&mut self, x: usize, y: usize, z: usize, character: u32) {
         self.layers[z].set(x, y, character);
     }
 
+    /// Set the foreground color at (x,y,z).
     pub fn set_color(&mut self, x: usize, y: usize, z: usize, color: [f32; 3]) {
         self.layers[z].set_color(x, y, color);
     }
 
+    /// Set the background color at (x,y,z).
     pub fn set_background_color(&mut self, x: usize, y: usize, z: usize, color: [f32; 3]) {
         self.layers[z].set_background_color(x, y, color);
     }
 
+    /// Render one frame, and return an iterator over the events that have elapsed since the last
+    /// frame.
+    /// TODO: Don't use sdl2 types here.
     pub fn render(&mut self) -> Result<sdl2::event::EventPollIterator, ll::LLEngineError> {
         self.base_layer.reset();
         for layer in self.layers.iter().rev() {
@@ -120,9 +135,12 @@ impl MidEngine {
         self.ll_engine.update(self.base_layer.iter());
         self.ll_engine.render()
     }
+    /// Get the current frames per second. This is based on a rolling average, not the
+    /// instantaneous measurement.
     pub fn get_fps(&self) -> f64 {
         self.ll_engine.get_fps()
     }
+    /// Get the number of frames that have been rendered.
     pub fn get_frame_counter(&self) -> u32 {
         self.ll_engine.get_frame_counter()
     }
