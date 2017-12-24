@@ -1,5 +1,5 @@
 [package]
-name = "rlb"
+name = "dashing"
 version = "0.1.0"
 authors = ["igowen"]
 
@@ -8,7 +8,6 @@ gfx = "*"
 gfx_core = "*"
 gfx_device_gl = "*"
 gfx_window_sdl = "*"
-#glutin = "*"
 image = "*"
 log = "*"
 pretty_logger = "*"
