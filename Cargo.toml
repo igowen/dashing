@@ -11,5 +11,5 @@ gfx_window_sdl = "*"
 image = "*"
 log = "*"
 pretty_logger = "*"
-sdl2 = { version = "*", features=["use-pkgconfig"] }
+sdl2 = { version = "0.30.0", features=["use-pkgconfig"] }
 time = "*"
