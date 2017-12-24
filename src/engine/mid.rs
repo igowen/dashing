@@ -85,7 +85,7 @@ impl MidEngineLayer {
     }
 }
 
-struct MidEngine {
+pub struct MidEngine {
     ll_engine: ll::LLEngine,
     layers: Box<[MidEngineLayer]>,
     base_layer: MidEngineLayer,
