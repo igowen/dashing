@@ -15,3 +15,6 @@ extern crate time;
 
 /// The `engine` module contains the interface for doing graphics, input, and sound.
 pub mod engine;
+
+//// The `resources` module contains methods for managing game data files, like textures and sounds.
+//pub mod resources;

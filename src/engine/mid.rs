@@ -6,10 +6,14 @@ use engine::ll;
 /// CharCell shouldn't be public, really.
 #[derive(Copy, Clone, Debug)]
 pub struct CharCell {
-    character: u32,
-    fg_color: [f32; 4],
-    bg_color: [f32; 4],
-    transparent: bool,
+    /// Character in the cell.
+    pub character: u32,
+    /// Foreground color.
+    pub fg_color: [f32; 4],
+    /// Background color.
+    pub bg_color: [f32; 4],
+    /// Is this cell visible?
+    pub transparent: bool,
 }
 
 impl CharCell {
@@ -137,7 +141,7 @@ impl MidEngine {
     }
     /// Get the current frames per second. This is based on a rolling average, not the
     /// instantaneous measurement.
-    pub fn get_fps(&self) -> f64 {
+    pub fn get_fps(&self) -> f32 {
         self.ll_engine.get_fps()
     }
     /// Get the number of frames that have been rendered.

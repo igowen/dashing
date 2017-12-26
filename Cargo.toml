@@ -13,3 +13,6 @@ log = "*"
 pretty_logger = "*"
 sdl2 = { version = "0.30.0", features=["use-pkgconfig"] }
 time = "*"
+
+[dev-dependencies]
+img_hash = "*"
