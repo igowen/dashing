@@ -47,7 +47,7 @@ where
     let (width, height) = img.dimensions();
     let kind = gfx::texture::Kind::D2(width as u16, height as u16, gfx::texture::AaMode::Single);
     let (_, view) = factory
-        .create_texture_immutable_u8::<Rgba8>(kind, &[&img])
+        .create_texture_immutable_u8::<Rgba8>(kind, gfx::texture::Mipmap::Provided, &[&img])
         .unwrap();
     view
 }
@@ -249,7 +249,7 @@ where
             instance_count as usize,
             gfx::buffer::Role::Vertex,
             gfx::memory::Usage::Data,
-            gfx::TRANSFER_DST,
+            gfx::memory::Bind::TRANSFER_DST,
         )?;
 
         let mut instance_templates = vec![Instance::default(); (width * height) as usize];
@@ -274,7 +274,7 @@ where
         let locals_buffer = factory.create_buffer_immutable(
             &[locals],
             gfx::buffer::Role::Constant,
-            gfx::Bind::empty(),
+            gfx::memory::Bind::empty(),
         )?;
 
         let screen_locals_buffer = factory.create_constant_buffer(1);

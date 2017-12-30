@@ -69,7 +69,7 @@ impl LLEngine {
         // TODO: HiDPI check for the x2 factor here.
         let builder = video.window("rlb", screen_width * 2, screen_height * 2);
         let window_result =
-            gfx_window_sdl::init::<renderer::ColorFormat, renderer::DepthFormat>(builder);
+            gfx_window_sdl::init::<renderer::ColorFormat, renderer::DepthFormat>(&video, builder);
         let (window, gl_context, device, mut factory, color_view, depth_view);
         match window_result {
             Err(e) => {

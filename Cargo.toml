@@ -4,14 +4,14 @@ version = "0.1.0"
 authors = ["igowen"]
 
 [dependencies]
-gfx = "*"
-gfx_core = "*"
-gfx_device_gl = "*"
-gfx_window_sdl = "*"
+gfx = "^0.17"
+gfx_core = "^0.8"
+gfx_device_gl = "^0.15"
+gfx_window_sdl = "^0.8"
 image = "*"
 log = "*"
 pretty_logger = "*"
-sdl2 = { version = "0.30.0", features=["use-pkgconfig"] }
+sdl2 = { version = "*", features=["use-pkgconfig"] }
 time = "*"
 
 [dev-dependencies]
