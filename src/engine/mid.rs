@@ -105,9 +105,14 @@ pub struct MidEngine {
 impl MidEngine {
     /// Create a new `MidEngine` with the given width and height (in characters) and number of
     /// layers.
-    pub fn new(width: u32, height: u32, layers: u32) -> Result<Self, ll::LLEngineError> {
+    pub fn new(
+        window_title: &str,
+        width: u32,
+        height: u32,
+        layers: u32,
+    ) -> Result<Self, ll::LLEngineError> {
         Ok(MidEngine {
-            ll_engine: ll::LLEngine::new(width, height)?,
+            ll_engine: ll::LLEngine::new(window_title, width, height)?,
             layers: vec![MidEngineLayer::new(width, height); layers as usize].into_boxed_slice(),
             base_layer: MidEngineLayer::new(width, height),
         })

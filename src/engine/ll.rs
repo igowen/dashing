@@ -54,7 +54,7 @@ impl std::convert::From<renderer::RenderError> for LLEngineError {
 impl LLEngine {
     /// Create a new `LLEngine` with the given width and height (measured in characters, not
     /// pixels).
-    pub fn new(width: u32, height: u32) -> Result<Self, LLEngineError> {
+    pub fn new(window_title: &str, width: u32, height: u32) -> Result<Self, LLEngineError> {
         let sdl_context = sdl2::init()?;
         let video = sdl_context.video()?;
         {
@@ -67,7 +67,8 @@ impl LLEngine {
         let screen_height = height * renderer::FONT_HEIGHT as u32;
 
         // TODO: HiDPI check for the x2 factor here.
-        let builder = video.window("rlb", screen_width * 2, screen_height * 2);
+        // TODO: Don't create a window bigger than the display.
+        let builder = video.window(window_title, screen_width * 2, screen_height * 2);
         let window_result =
             gfx_window_sdl::init::<renderer::ColorFormat, renderer::DepthFormat>(&video, builder);
         let (window, gl_context, device, mut factory, color_view, depth_view);

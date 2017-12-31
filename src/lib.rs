@@ -40,12 +40,14 @@
 //! * Graphics improvements
 //!   * Palettized sprites
 //!   * User-specified shaders
+//!   * Animated sprites
 //! * Resource management system
 //!   * Build sprite map textures at runtime
 //! * Audio
 //!
 //! ## Refactoring
 //! * Replace references to `Character` with `Sprite`
+//! * Get rid of different engine "levels"
 
 #![deny(warnings)]
 #![deny(missing_docs)]
@@ -63,7 +65,10 @@ extern crate log;
 extern crate sdl2;
 extern crate time;
 
-/// The `engine` module contains the interface for doing graphics, input, and sound.
+/// The `engine` module contains the interface for doing graphics, input, and sound. It has minimal
+/// dependencies on other parts of the library, so if you just want an OpenGL-based sprite grid,
+/// you could theoretically use it by itself without using the higher-level functionality provided
+/// by other modules.
 pub mod engine;
 
 // Libraries used in tests.
@@ -77,3 +82,6 @@ extern crate euclid;
 extern crate pretty_logger;
 #[cfg(test)]
 extern crate spectral;
+#[cfg(test)]
+#[macro_use]
+extern crate lazy_static;
