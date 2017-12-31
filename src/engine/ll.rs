@@ -76,8 +76,8 @@ impl LLEngine {
                 return Err(LLEngineError::SDLError(format!("SDL init error: {:?}", e)));
             }
             Ok((w, c, d, f, cv, dv)) => {
-                // Make sure we hold on to all of these -- if the GL context gets dropped, we can't do any GL
-                // operations, even though we don't interact with it directly.
+                // Make sure we hold on to all of these -- if the GL context gets dropped, we can't
+                // do any GL operations, even though we don't interact with it directly.
                 window = w;
                 gl_context = c;
                 device = d;

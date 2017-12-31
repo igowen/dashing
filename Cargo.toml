@@ -15,4 +15,8 @@ sdl2 = { version = "*", features=["use-pkgconfig"] }
 time = "*"
 
 [dev-dependencies]
-img_hash = "*"
+gleam = "*"
+offscreen_gl_context = "*"
+pretty_logger = "*"
+euclid = "*"
+spectral = "*"

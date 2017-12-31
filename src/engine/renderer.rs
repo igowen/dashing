@@ -43,6 +43,7 @@ where
     R: gfx::Resources,
 {
     use gfx::format::Rgba8;
+    // TODO: load using resource module instead of directly.
     let img = image::open("resources/12x12.png").unwrap().to_rgba();
     let (width, height) = img.dimensions();
     let kind = gfx::texture::Kind::D2(width as u16, height as u16, gfx::texture::AaMode::Single);
@@ -52,6 +53,8 @@ where
     view
 }
 
+// The gfx_defines! macro makes the output structs public, so we put them in an internal,
+// non-public module to avoid cluttering up the public interface.
 mod internal {
     use gfx;
     gfx_defines!{
@@ -69,17 +72,20 @@ mod internal {
             character: u32 = "a_Character",
         }
 
+        // Uniforms for the character cell PSO.
         constant Locals {
             dim: [f32; 2] = "u_ScreenCharDim",
             font_dim: [f32; 2] = "u_FontCharDim",
         }
 
+        // Uniforms for the screen PSO.
         constant ScreenLocals {
             screen_dimensions: [f32; 2] = "u_ScreenDimensions",
             frame_counter: u32 = "u_FrameCounter",
             elapsed_time: f32 = "u_ElapsedTime",
         }
 
+        // Character cell pipeline.
         pipeline pipe {
             vbuf: gfx::VertexBuffer<Vertex> = (),
             instance: gfx::InstanceBuffer<Instance> = (),
@@ -88,6 +94,7 @@ mod internal {
             locals: gfx::ConstantBuffer<Locals> = "Locals",
         }
 
+        // Final screen pipeline.
         pipeline screen_pipe {
             vbuf: gfx::VertexBuffer<Vertex> = (),
             screen_tex: gfx::TextureSampler<[f32; 4]> = "t_ScreenTexture",
@@ -432,5 +439,119 @@ where
             i.bg_color = c.bg_color;
             i.character = c.character;
         }
+    }
+}
+
+// TODO: Probably want to move this into its own file since there's so much support code.
+#[cfg(test)]
+mod tests {
+    use euclid::Size2D;
+    use gfx::Factory;
+    use gfx_core::memory::Typed;
+    use gfx_device_gl;
+    use gleam::gl::GlType;
+    use offscreen_gl_context::{ColorAttachmentType, GLContext, NativeGLContext,
+                               NativeGLContextMethods, GLVersion, GLContextAttributes};
+    #[allow(unused)]
+    use pretty_logger;
+    use spectral::prelude::*;
+    use std::os::raw::c_void;
+    use super::*;
+
+    fn get_proc_address(s: &str) -> *const c_void {
+        let p = NativeGLContext::get_proc_address(s);
+        p as *const c_void
+    }
+
+    #[test]
+    fn render_one_cell() {
+        //pretty_logger::init_to_defaults().unwrap();
+        // Ideally we'd be able to use OSMesa here, but i couldn't get it to successfully create a
+        // context with a GL version > 3.0.
+        let _gl_context = GLContext::<NativeGLContext>::new(
+            Size2D::new(12, 12),
+            GLContextAttributes::any(),
+            ColorAttachmentType::Texture,
+            GlType::Gl,
+            GLVersion::MajorMinor(3, 2),
+            None,
+        ).unwrap();
+        let (device, mut factory) = gfx_device_gl::create(get_proc_address);
+        // Set up a texture to use as the render target. We can't just use
+        // gfx::Factory::create_render_target because we need to se the TRANSFER_SRC bind flag so
+        // we can copy the data back to CPU space.
+        let texture: gfx::handle::Texture<_, gfx::format::R8_G8_B8_A8> = factory
+            .create_texture(
+                gfx::texture::Kind::D2(12, 12, gfx::texture::AaMode::Single),
+                1,
+                gfx::memory::Bind::RENDER_TARGET | gfx::memory::Bind::SHADER_RESOURCE |
+                    gfx::memory::Bind::TRANSFER_SRC,
+                gfx::memory::Usage::Data,
+                Some(gfx::format::ChannelType::Srgb),
+            )
+            .unwrap();
+        // Get a render target view of the texture.
+        let render_target = factory
+            .view_texture_as_render_target(&texture, 0, None)
+            .unwrap();
+
+        let command_buffer = factory.create_command_buffer();
+        let depth_view = factory.create_depth_stencil_view_only(12, 12).unwrap();
+        let mut renderer = Renderer::new(
+            device,
+            factory,
+            command_buffer,
+            render_target,
+            depth_view,
+            1,
+            1,
+        ).unwrap();
+
+        renderer.update(
+            [
+                mid::CharCell {
+                    fg_color: [1.0, 1.0, 1.0, 1.0],
+                    bg_color: [0.0, 0.0, 0.0, 1.0],
+                    character: 1,
+                    transparent: false,
+                },
+            ].iter(),
+        );
+
+        // Render the frame.
+        renderer.render().unwrap();
+
+        // Set up a download buffer to retrieve the image from the GPU.
+        let info = texture.get_info().to_raw_image_info(
+            gfx::format::ChannelType::Srgb,
+            0,
+        );
+        let buffer = renderer
+            .factory
+            .create_download_buffer::<u8>(info.get_byte_count())
+            .unwrap();
+
+        // Copy the texture to the download buffer, and flush the command buffer.
+        renderer
+            .encoder
+            .copy_texture_to_buffer_raw(&texture.raw(), None, info, &buffer.raw(), 0)
+            .unwrap();
+        renderer.encoder.flush(&mut renderer.device);
+
+        // Finally, read the rendered image from the download buffer.
+        let reader = renderer.factory.read_mapping(&buffer).unwrap();
+        let data = reader.to_vec();
+        let mut flipped_image: Vec<u8> = vec![];
+
+        // OpenGL stores textures upside down from what we would expect, so flip it before doing
+        // the comparison.
+        for row in data.chunks(12 * 4).rev() {
+            flipped_image.extend(row);
+        }
+        let expected_image = image::load_from_memory(include_bytes!("testdata/one_cell.png"))
+            .unwrap()
+            .to_rgba()
+            .into_raw();
+        assert_that(&flipped_image).is_equal_to(&expected_image);
     }
 }
