@@ -445,6 +445,8 @@ where
 // TODO: Probably want to move this into its own file since there's so much support code.
 #[cfg(test)]
 mod tests {
+    // The output of the renderer is intended to be pixel-perfect, so the tests are written with
+    // that in mind.
     use euclid::Size2D;
     use gfx::Factory;
     use gfx_core::memory::Typed;
