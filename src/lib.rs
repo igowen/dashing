@@ -1,4 +1,4 @@
-//! Dashing is a library for building roguelike games.
+//! `dashing` is a library for building roguelike games.
 //!
 //! # Example
 //!
@@ -9,14 +9,21 @@
 //! const WIDTH: u32 = 21;
 //! const HEIGHT: u32 = 3;
 //! pub fn main() {
-//!     let mut engine = dashing::engine::MidEngine::new("dashing", WIDTH, HEIGHT, 1).unwrap();
+//!     let mut window = dashing::engine::window::WindowBuilder::new("dashing", WIDTH, HEIGHT)
+//!         .build()
+//!         .unwrap();
 //!     let message = String::from("Swash your buckles!");
-//!     for (i, c) in message.chars().enumerate() {
-//!         engine.set(i + 1, 1, 0, c as u32);
-//!         engine.set_color(i + 1, 1, 0, [0.0, 1.0, 0.0]);
-//!     }
 //!     'main: loop {
-//!         for event in engine.render().unwrap() {
+//!         let mut s = vec![dashing::engine::renderer::SpriteMeta::default(); 21 * 3];
+//!         for (i, c) in message.chars().enumerate() {
+//!             s[22 + i] = dashing::engine::renderer::SpriteMeta {
+//!                 fg_color: [0.0, 1.0, 0.0, 1.0],
+//!                 bg_color: [0.0, 0.0, 0.0, 1.0],
+//!                 sprite: c as u32,
+//!             };
+//!         }
+//!         window.renderer_mut().update(s.iter());
+//!         for event in window.render().unwrap() {
 //!             match event {
 //!                 sdl2::event::Event::Quit { .. } => {
 //!                     break 'main;
@@ -31,6 +38,7 @@
 //!
 //! # Roadmap
 //! ## Features to be implemented
+//!
 //! * Input handling
 //!   * Don't use SDL event types in the public interface
 //! * GUI library
@@ -44,8 +52,10 @@
 //! * Resource management system
 //!   * Build sprite map textures at runtime
 //! * Audio
+//! * Parallelism
 //!
 //! ## Refactoring
+//!
 //! * ~~Replace references to `Character` with `Sprite`~~
 //! * ~~Get rid of different engine "levels"~~
 
@@ -70,6 +80,12 @@ extern crate time;
 /// you could theoretically use it by itself without using the higher-level functionality provided
 /// by other modules.
 pub mod engine;
+
+/// Functionality for loading and managing game data, such as sprite textures.
+pub mod resources;
+
+/// Functionality for building in-game UIs.
+pub mod ui;
 
 // Libraries used in tests.
 #[cfg(test)]

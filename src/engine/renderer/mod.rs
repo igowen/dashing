@@ -444,8 +444,12 @@ where
 }
 
 /// Sprite metadata
+#[derive(Copy, Clone, Default, Debug)]
 pub struct SpriteMeta {
-    fg_color: [f32; 4],
-    bg_color: [f32; 4],
-    sprite: u32,
+    /// Foreground color.
+    pub fg_color: [f32; 4],
+    /// Background color.
+    pub bg_color: [f32; 4],
+    /// Sprite index.
+    pub sprite: u32,
 }

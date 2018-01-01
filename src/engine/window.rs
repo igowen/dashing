@@ -8,20 +8,6 @@ use engine::renderer;
 const GL_MAJOR_VERSION: u8 = 3;
 const GL_MINOR_VERSION: u8 = 2;
 
-/// `Window` is responsible for creating and managing the game window and underlying GL context.
-pub struct Window {
-    // Handles to device resources we need to hold onto.
-    sdl_context: sdl2::Sdl,
-    event_pump: sdl2::EventPump,
-    video: sdl2::VideoSubsystem,
-    window: sdl2::video::Window,
-    gl_context: sdl2::video::GLContext,
-    renderer: renderer::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
-
-    width: u32,
-    height: u32,
-}
-
 /// `WindowError` represents an error that occurred in the window system.
 #[derive(Debug)]
 pub enum WindowError {
@@ -33,6 +19,7 @@ pub enum WindowError {
     RenderError(renderer::RenderError),
 }
 
+// TODO: Get rid of this, it really sucks.
 impl<S> std::convert::From<S> for WindowError
 where
     S: std::string::ToString,
@@ -48,10 +35,44 @@ impl std::convert::From<renderer::RenderError> for WindowError {
     }
 }
 
-impl Window {
-    /// Create a new `Window` with the given width and height (measured in characters, not
+/// Helper for constructing windows.
+pub struct WindowBuilder<'a> {
+    window_title: &'a str,
+    width: u32,
+    height: u32,
+    enable_vsync: bool,
+    full_screen: bool,
+}
+
+impl<'a> WindowBuilder<'a> {
+    /// Create a new `WindowBuilder` with the given width and height (measured in sprites, not
     /// pixels).
-    pub fn new(window_title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
+    pub fn new(window_title: &'a str, width: u32, height: u32) -> Self {
+        WindowBuilder {
+            window_title: window_title,
+            width: width,
+            height: height,
+            enable_vsync: true,
+            full_screen: false,
+        }
+    }
+
+    /// Disable vsync.
+    pub fn disable_vsync(&'a mut self) -> &'a mut Self {
+        self.enable_vsync = false;
+
+        self
+    }
+
+    /// Enable full screen mode.
+    pub fn enable_full_screen(&'a mut self) -> &'a mut Self {
+        self.full_screen = true;
+
+        self
+    }
+
+    /// Build the window.
+    pub fn build(&self) -> Result<Window, WindowError> {
         let sdl_context = sdl2::init()?;
         let video = sdl_context.video()?;
         {
@@ -60,18 +81,23 @@ impl Window {
             gl.set_context_version(GL_MAJOR_VERSION, GL_MINOR_VERSION);
         }
 
-        let screen_width = width * renderer::FONT_WIDTH as u32;
-        let screen_height = height * renderer::FONT_HEIGHT as u32;
+        let screen_width = self.width * renderer::FONT_WIDTH as u32;
+        let screen_height = self.height * renderer::FONT_HEIGHT as u32;
 
         // TODO: HiDPI check for the x2 factor here.
         // TODO: Don't create a window bigger than the display.
-        let builder = video.window(window_title, screen_width * 2, screen_height * 2);
+        let mut builder = video.window(self.window_title, screen_width * 2, screen_height * 2);
+        if self.full_screen {
+            builder.fullscreen_desktop();
+        }
         let window_result =
             gfx_window_sdl::init::<renderer::ColorFormat, renderer::DepthFormat>(&video, builder);
         let (window, gl_context, device, mut factory, color_view, depth_view);
         match window_result {
             Err(e) => {
-                return Err(WindowError::SDLError(format!("SDL init error: {:?}", e)));
+                return Err(WindowError::SDLError(
+                    format!("Couldn't initialize SDL: {:?}", e),
+                ));
             }
             Ok((w, c, d, f, cv, dv)) => {
                 // Make sure we hold on to all of these -- if the GL context gets dropped, we can't
@@ -86,7 +112,11 @@ impl Window {
         };
 
         // Disable vsync.
-        //video.gl_set_swap_interval(0);
+        if self.enable_vsync {
+            video.gl_set_swap_interval(sdl2::video::SwapInterval::VSync);
+        } else {
+            video.gl_set_swap_interval(sdl2::video::SwapInterval::Immediate);
+        }
 
         let event_pump = sdl_context.event_pump()?;
 
@@ -98,8 +128,8 @@ impl Window {
             command_buffer,
             color_view,
             depth_view,
-            width as usize,
-            height as usize,
+            self.width as usize,
+            self.height as usize,
         )?;
 
         Ok(Window {
@@ -110,16 +140,44 @@ impl Window {
             gl_context: gl_context,
             renderer: renderer,
 
-            width: width,
-            height: height,
+            width: self.width,
+            height: self.height,
         })
     }
+}
 
+/// `Window` is responsible for creating and managing the game window and underlying GL context.
+pub struct Window {
+    // Handles to device resources we need to hold onto.
+    sdl_context: sdl2::Sdl,
+    event_pump: sdl2::EventPump,
+    video: sdl2::VideoSubsystem,
+    window: sdl2::video::Window,
+    gl_context: sdl2::video::GLContext,
+    renderer: renderer::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
+
+    width: u32,
+    height: u32,
+}
+
+impl Window {
     /// Render one frame, and return an iterator over the events that have elapsed since the last
     /// frame.
     pub fn render(&mut self) -> Result<sdl2::event::EventPollIterator, WindowError> {
         self.renderer.render()?;
         self.window.gl_swap_window();
         Ok(self.event_pump.poll_iter())
+    }
+
+    /// Get a mutable reference to the underlying renderer.
+    pub fn renderer_mut(
+        &mut self,
+    ) -> &mut renderer::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
+        &mut self.renderer
+    }
+
+    /// Get an immutable reference to the underlying renderer.
+    pub fn renderer(&self) -> &renderer::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
+        &self.renderer
     }
 }
