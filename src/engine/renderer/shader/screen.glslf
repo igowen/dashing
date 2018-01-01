@@ -2,9 +2,10 @@
 
 uniform sampler2D t_ScreenTexture;
 
-uniform Locals {
+uniform ScreenGlobals {
   vec2 u_ScreenDimensions;
   int u_FrameCounter;
+  float u_ElapsedTime;
 };
 
 in vec2 v_Uv;

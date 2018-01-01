@@ -34,7 +34,10 @@ struct RenderTestSupportHarness {
 
 impl RenderTestSupportHarness {
     fn new(width: usize, height: usize) -> RenderTestSupportHarness {
+        // Get an exclusive lock on the global offscreen GL mutex, so only one test case can be
+        // running at a time.
         let guard = OFFSCREEN_GL_MUTEX.lock().unwrap();
+
         // Ideally we'd be able to use OSMesa here, but i couldn't get it to successfully create
         // a context with a GL version > 3.0.
         let gl_context = GLContext::<NativeGLContext>::new(

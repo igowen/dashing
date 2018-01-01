@@ -76,13 +76,13 @@ mod internal {
         }
 
         // Uniforms for the character cell PSO.
-        constant Locals {
+        constant CellGlobals {
             dim: [f32; 2] = "u_ScreenCharDim",
             font_dim: [f32; 2] = "u_FontCharDim",
         }
 
         // Uniforms for the screen PSO.
-        constant ScreenLocals {
+        constant ScreenGlobals {
             screen_dimensions: [f32; 2] = "u_ScreenDimensions",
             frame_counter: u32 = "u_FrameCounter",
             elapsed_time: f32 = "u_ElapsedTime",
@@ -92,16 +92,16 @@ mod internal {
         pipeline pipe {
             vbuf: gfx::VertexBuffer<Vertex> = (),
             instance: gfx::InstanceBuffer<Instance> = (),
-            tex: gfx::TextureSampler<[f32; 4]> = "t_Texture",
+            tex: gfx::TextureSampler<[f32; 4]> = "t_SpriteTexture",
             screen_target: gfx::RenderTarget<super::super::ColorFormat> = "IntermediateTarget",
-            locals: gfx::ConstantBuffer<Locals> = "Locals",
+            globals: gfx::ConstantBuffer<CellGlobals> = "CellGlobals",
         }
 
         // Final screen pipeline.
         pipeline screen_pipe {
             vbuf: gfx::VertexBuffer<Vertex> = (),
             screen_tex: gfx::TextureSampler<[f32; 4]> = "t_ScreenTexture",
-            locals: gfx::ConstantBuffer<ScreenLocals> = "Locals",
+            globals: gfx::ConstantBuffer<ScreenGlobals> = "ScreenGlobals",
             out: gfx::RenderTarget<super::super::ColorFormat> = "Target0",
         }
     }
@@ -118,7 +118,7 @@ mod internal {
     }
 }
 
-use self::internal::{Vertex, Instance, Locals, ScreenLocals, pipe, screen_pipe};
+use self::internal::{Vertex, Instance, CellGlobals, ScreenGlobals, pipe, screen_pipe};
 
 // Vertices for character cell quads.
 const QUAD_VERTICES: [Vertex; 4] = [
@@ -245,7 +245,7 @@ where
 
         cell_slice.instances = Some((instance_count as u32, 0));
 
-        let locals = Locals {
+        let cell_globals = CellGlobals {
             dim: [width as f32, height as f32],
             font_dim: [16.0, 16.0],
         };
@@ -281,13 +281,13 @@ where
             instance_count as usize,
         )?;
 
-        let locals_buffer = factory.create_buffer_immutable(
-            &[locals],
+        let cell_globals_buffer = factory.create_buffer_immutable(
+            &[cell_globals],
             gfx::buffer::Role::Constant,
             gfx::memory::Bind::empty(),
         )?;
 
-        let screen_locals_buffer = factory.create_constant_buffer(1);
+        let screen_globals_buffer = factory.create_constant_buffer(1);
 
         let screen_width = width * FONT_WIDTH;
         let screen_height = height * FONT_HEIGHT;
@@ -309,14 +309,14 @@ where
             instance: instance_buffer,
             tex: (texture, sampler),
             screen_target: render_target,
-            locals: locals_buffer,
+            globals: cell_globals_buffer,
         };
 
         let final_data = screen_pipe::Data {
             vbuf: screen_vertex_buffer,
             screen_tex: (screen_texture, screen_sampler),
             out: color_view.clone(),
-            locals: screen_locals_buffer,
+            globals: screen_globals_buffer,
         };
 
         Ok(Renderer {
@@ -373,8 +373,8 @@ where
         );
 
         self.encoder.update_constant_buffer(
-            &self.screen_pipeline_data.locals,
-            &ScreenLocals {
+            &self.screen_pipeline_data.globals,
+            &ScreenGlobals {
                 screen_dimensions: [
                     (self.width * FONT_WIDTH) as f32,
                     (self.height * FONT_HEIGHT) as f32,

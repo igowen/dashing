@@ -9,7 +9,7 @@
 //! const WIDTH: u32 = 21;
 //! const HEIGHT: u32 = 3;
 //! pub fn main() {
-//!     let mut engine = dashing::engine::MidEngine::new(WIDTH, HEIGHT, 1).unwrap();
+//!     let mut engine = dashing::engine::MidEngine::new("dashing", WIDTH, HEIGHT, 1).unwrap();
 //!     let message = String::from("Swash your buckles!");
 //!     for (i, c) in message.chars().enumerate() {
 //!         engine.set(i + 1, 1, 0, c as u32);

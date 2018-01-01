@@ -8,7 +8,7 @@ in vec4 a_FgColor;
 in vec4 a_BgColor;
 in uint a_Character;
 
-uniform Locals {
+uniform CellGlobals {
   vec2 u_ScreenCharDim;
   vec2 u_FontCharDim;
 };
