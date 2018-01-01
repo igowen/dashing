@@ -2,8 +2,8 @@
 
 uniform sampler2D t_SpriteTexture;
 uniform CellGlobals {
-  vec2 u_ScreenCharDim;
-  vec2 u_FontCharDim;
+  vec2 u_ScreenSizeInSprites;
+  vec2 u_SpriteMapDimensions;
 };
 
 in vec2 v_Uv;
@@ -14,6 +14,7 @@ out vec4 IntermediateTarget;
 
 void main() {
   vec4 t = texture(t_SpriteTexture, v_Uv);
+
   if (t.x == 1.0 && t.y == 1.0 && t.z == 1.0) {
     IntermediateTarget = v_FgColor;
   } else {

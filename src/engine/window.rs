@@ -3,16 +3,13 @@ use gfx_window_sdl;
 use sdl2;
 use std;
 
-use engine::mid;
 use engine::renderer;
 
 const GL_MAJOR_VERSION: u8 = 3;
 const GL_MINOR_VERSION: u8 = 2;
 
-/// LLEngine provides the lowest level abstraction on the graphics subsystem. You hopefully won't
-/// need to interact with it directly, but most of the functionality is public just in case.
-// TODO(igowen): should this be generic over resource types?
-pub struct LLEngine {
+/// `Window` is responsible for creating and managing the game window and underlying GL context.
+pub struct Window {
     // Handles to device resources we need to hold onto.
     sdl_context: sdl2::Sdl,
     event_pump: sdl2::EventPump,
@@ -25,9 +22,9 @@ pub struct LLEngine {
     height: u32,
 }
 
-/// LLEngineError represents an error that occurred in the low-level engine.
+/// `WindowError` represents an error that occurred in the window system.
 #[derive(Debug)]
-pub enum LLEngineError {
+pub enum WindowError {
     /// Generic error.
     GeneralError(String),
     /// Error from the SDL subsystem.
@@ -36,25 +33,25 @@ pub enum LLEngineError {
     RenderError(renderer::RenderError),
 }
 
-impl<S> std::convert::From<S> for LLEngineError
+impl<S> std::convert::From<S> for WindowError
 where
     S: std::string::ToString,
 {
     fn from(s: S) -> Self {
-        LLEngineError::GeneralError(s.to_string())
+        WindowError::GeneralError(s.to_string())
     }
 }
 
-impl std::convert::From<renderer::RenderError> for LLEngineError {
+impl std::convert::From<renderer::RenderError> for WindowError {
     fn from(e: renderer::RenderError) -> Self {
-        LLEngineError::RenderError(e)
+        WindowError::RenderError(e)
     }
 }
 
-impl LLEngine {
-    /// Create a new `LLEngine` with the given width and height (measured in characters, not
+impl Window {
+    /// Create a new `Window` with the given width and height (measured in characters, not
     /// pixels).
-    pub fn new(window_title: &str, width: u32, height: u32) -> Result<Self, LLEngineError> {
+    pub fn new(window_title: &str, width: u32, height: u32) -> Result<Self, WindowError> {
         let sdl_context = sdl2::init()?;
         let video = sdl_context.video()?;
         {
@@ -74,7 +71,7 @@ impl LLEngine {
         let (window, gl_context, device, mut factory, color_view, depth_view);
         match window_result {
             Err(e) => {
-                return Err(LLEngineError::SDLError(format!("SDL init error: {:?}", e)));
+                return Err(WindowError::SDLError(format!("SDL init error: {:?}", e)));
             }
             Ok((w, c, d, f, cv, dv)) => {
                 // Make sure we hold on to all of these -- if the GL context gets dropped, we can't
@@ -105,7 +102,7 @@ impl LLEngine {
             height as usize,
         )?;
 
-        Ok(LLEngine {
+        Ok(Window {
             sdl_context: sdl_context,
             event_pump: event_pump,
             video: video,
@@ -120,31 +117,9 @@ impl LLEngine {
 
     /// Render one frame, and return an iterator over the events that have elapsed since the last
     /// frame.
-    pub fn render(&mut self) -> Result<sdl2::event::EventPollIterator, LLEngineError> {
+    pub fn render(&mut self) -> Result<sdl2::event::EventPollIterator, WindowError> {
         self.renderer.render()?;
         self.window.gl_swap_window();
         Ok(self.event_pump.poll_iter())
-    }
-
-    /// Get the current frames per second. This is based on a rolling average, not the
-    /// instantaneous measurement.
-    pub fn get_fps(&self) -> f32 {
-        self.renderer.get_fps()
-    }
-
-    /// Get the number of frames that have been rendered.
-    pub fn get_frame_counter(&self) -> u32 {
-        self.renderer.get_frame_counter()
-    }
-}
-
-impl<'a> LLEngine {
-    /// Update the character matrix with the provided data.
-    pub fn update<T, U>(&mut self, data: T)
-    where
-        T: Iterator<Item = U>,
-        U: Into<&'a mid::CharCell>,
-    {
-        self.renderer.update(data);
     }
 }

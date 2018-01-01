@@ -4,8 +4,6 @@ use image;
 use std;
 use time;
 
-use engine::mid;
-
 use gfx::traits::FactoryExt;
 
 #[cfg(test)]
@@ -72,18 +70,18 @@ mod internal {
             translate: [f32; 2] = "a_Translate",
             color: [f32; 4] = "a_FgColor",
             bg_color: [f32; 4] = "a_BgColor",
-            character: u32 = "a_Character",
+            sprite: u32 = "a_Sprite",
         }
 
-        // Uniforms for the character cell PSO.
+        // Uniforms for the sprite cell PSO.
         constant CellGlobals {
-            dim: [f32; 2] = "u_ScreenCharDim",
-            font_dim: [f32; 2] = "u_FontCharDim",
+            screen_size_in_sprites: [f32; 2] = "u_ScreenSizeInSprites",
+            sprite_map_dimensions: [f32; 2] = "u_SpriteMapDimensions",
         }
 
         // Uniforms for the screen PSO.
         constant ScreenGlobals {
-            screen_dimensions: [f32; 2] = "u_ScreenDimensions",
+            screen_size: [f32; 2] = "u_ScreenSizeInPixels",
             frame_counter: u32 = "u_FrameCounter",
             elapsed_time: f32 = "u_ElapsedTime",
         }
@@ -112,7 +110,7 @@ mod internal {
                 translate: [0.0, 0.0],
                 color: [1.0, 1.0, 1.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 0,
+                sprite: 0,
             }
         }
     }
@@ -120,7 +118,7 @@ mod internal {
 
 use self::internal::{Vertex, Instance, CellGlobals, ScreenGlobals, pipe, screen_pipe};
 
-// Vertices for character cell quads.
+// Vertices for sprite cell quads.
 const QUAD_VERTICES: [Vertex; 4] = [
     Vertex {
         pos: [1.0, 0.0],
@@ -164,13 +162,13 @@ const SCREEN_QUAD_VERTICES: [Vertex; 4] = [
 // Triangulation for the above vertices, shared by both the cell quads and the screen quad.
 const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
-/// `Renderer` is responsible for rendering the grid of character cells. It's the lowest level
+/// `Renderer` is responsible for rendering the grid of sprite cells. It's the lowest level
 /// abstraction on top of the graphics subsystem, and you generally shouldn't need to interact with
 /// it much, if at all, but it's still public just in case.
 ///
-/// From a type perspective, this could fairly easily be made generic over different gfx backends,
-/// but we would need some way of switching out the shader code, and I don't really anticipate
-/// supporting any backend other than OpenGL.
+/// From a type perspective, this could fairly easily be made generic over different gfx backends.
+/// To do that, howerver, we would need some way of switching out the shader code, and I don't
+/// really anticipate supporting any backend other than OpenGL.
 pub struct Renderer<D, F>
 where
     D: gfx::Device,
@@ -211,7 +209,7 @@ where
     F: gfx::Factory<D::Resources>,
 {
     /// Create a new `Renderer` with the given device resources and dimensions, which are measured
-    /// in characters.
+    /// in sprites.
     pub fn new(
         device: D,
         mut factory: F,
@@ -246,8 +244,8 @@ where
         cell_slice.instances = Some((instance_count as u32, 0));
 
         let cell_globals = CellGlobals {
-            dim: [width as f32, height as f32],
-            font_dim: [16.0, 16.0],
+            screen_size_in_sprites: [width as f32, height as f32],
+            sprite_map_dimensions: [16.0, 16.0],
         };
 
         let sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
@@ -272,7 +270,7 @@ where
                     ],
                     color: [1.0, 1.0, 1.0, 1.0],
                     bg_color: [0.0, 0.0, 0.0, 1.0],
-                    character: 0,
+                    sprite: 0,
                 }
             }
         }
@@ -375,7 +373,7 @@ where
         self.encoder.update_constant_buffer(
             &self.screen_pipeline_data.globals,
             &ScreenGlobals {
-                screen_dimensions: [
+                screen_size: [
                     (self.width * FONT_WIDTH) as f32,
                     (self.height * FONT_HEIGHT) as f32,
                 ],
@@ -430,17 +428,24 @@ where
     D: gfx::Device,
     F: gfx::Factory<D::Resources>,
 {
-    /// Update the character matrix with the provided data.
+    /// Update the sprite matrix with the provided data.
     pub fn update<T, U>(&mut self, data: T)
     where
         T: Iterator<Item = U>,
-        U: Into<&'a mid::CharCell>,
+        U: Into<&'a SpriteMeta>,
     {
         for (i, d) in self.instances.iter_mut().zip(data) {
-            let c: &mid::CharCell = d.into();
+            let c: &SpriteMeta = d.into();
             i.color = c.fg_color;
             i.bg_color = c.bg_color;
-            i.character = c.character;
+            i.sprite = c.sprite;
         }
     }
+}
+
+/// Sprite metadata
+pub struct SpriteMeta {
+    fg_color: [f32; 4],
+    bg_color: [f32; 4],
+    sprite: u32,
 }

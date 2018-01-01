@@ -1,8 +1,4 @@
-/// `ll` has all the low-level engine stuff.
-pub mod ll;
-/// `mid` has all the mid-level engine stuff.
-pub mod mid;
+/// The `window` module has all of the functionality for dealing with the windowing system.
+pub mod window;
 /// `renderer` contains the low-level rendering subsystem.
 pub mod renderer;
-
-pub use self::mid::*;

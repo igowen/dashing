@@ -41,10 +41,7 @@ impl RenderTestSupportHarness {
         // Ideally we'd be able to use OSMesa here, but i couldn't get it to successfully create
         // a context with a GL version > 3.0.
         let gl_context = GLContext::<NativeGLContext>::new(
-            Size2D::new(
-                (width * super::FONT_WIDTH) as i32,
-                (height * super::FONT_HEIGHT) as i32,
-            ),
+            Size2D::new((width * FONT_WIDTH) as i32, (height * FONT_HEIGHT) as i32),
             GLContextAttributes::any(),
             ColorAttachmentType::Texture,
             GlType::Gl,
@@ -61,8 +58,8 @@ impl RenderTestSupportHarness {
         let texture: gfx::handle::Texture<_, gfx::format::R8_G8_B8_A8> = factory
             .create_texture(
                 gfx::texture::Kind::D2(
-                    (width * super::FONT_WIDTH) as u16,
-                    (height * super::FONT_HEIGHT) as u16,
+                    (width * FONT_WIDTH) as u16,
+                    (height * FONT_HEIGHT) as u16,
                     gfx::texture::AaMode::Single,
                 ),
                 1,
@@ -143,11 +140,10 @@ fn render_one_cell() {
 
     harness.renderer.update(
         [
-            mid::CharCell {
+            SpriteMeta {
                 fg_color: [1.0, 1.0, 1.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 1,
-                transparent: false,
+                sprite: 1,
             },
         ].iter(),
     );
@@ -165,16 +161,15 @@ fn render_one_cell() {
 }
 
 #[test]
-fn render_one_cell_character_change() {
+fn render_one_cell_sprite_change() {
     let mut harness = RenderTestSupportHarness::new(1, 1);
 
     harness.renderer.update(
         [
-            mid::CharCell {
+            SpriteMeta {
                 fg_color: [1.0, 1.0, 0.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 2,
-                transparent: false,
+                sprite: 2,
             },
         ].iter(),
     );
@@ -194,11 +189,10 @@ fn render_one_cell_character_change() {
 
     harness.renderer.update(
         [
-            mid::CharCell {
+            SpriteMeta {
                 fg_color: [1.0, 1.0, 1.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 1,
-                transparent: false,
+                sprite: 1,
             },
         ].iter(),
     );
@@ -218,29 +212,25 @@ fn render_2x2_with_color() {
 
     harness.renderer.update(
         [
-            mid::CharCell {
+            SpriteMeta {
                 fg_color: [1.0, 0.0, 1.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 72,
-                transparent: false,
+                sprite: 72,
             },
-            mid::CharCell {
+            SpriteMeta {
                 fg_color: [0.0, 1.0, 1.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 105,
-                transparent: false,
+                sprite: 105,
             },
-            mid::CharCell {
+            SpriteMeta {
                 fg_color: [1.0, 1.0, 0.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 33,
-                transparent: false,
+                sprite: 33,
             },
-            mid::CharCell {
+            SpriteMeta {
                 fg_color: [0.0, 1.0, 0.0, 1.0],
                 bg_color: [0.0, 0.0, 0.0, 1.0],
-                character: 19,
-                transparent: false,
+                sprite: 19,
             },
         ].iter(),
     );
