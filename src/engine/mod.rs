@@ -1,4 +1,4 @@
-/// The `window` module has all of the functionality for dealing with the windowing system.
+/// Functionality for dealing with the windowing system.
 pub mod window;
-/// `renderer` contains the low-level rendering subsystem.
+/// Low-level rendering subsystem.
 pub mod renderer;

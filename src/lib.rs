@@ -46,8 +46,8 @@
 //! * Audio
 //!
 //! ## Refactoring
-//! * Replace references to `Character` with `Sprite`
-//! * Get rid of different engine "levels"
+//! * ~~Replace references to `Character` with `Sprite`~~
+//! * ~~Get rid of different engine "levels"~~
 
 #![deny(warnings)]
 #![deny(missing_docs)]
