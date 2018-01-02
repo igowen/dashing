@@ -125,20 +125,20 @@ mod tests {
     let sprites = vec![
       #[cfg_attr(rustfmt, rustfmt_skip)]
       Sprite{
-                id: 0,
-                pixels: Box::new([0, 1, 1, 0,
-                                  1, 0, 0, 1,
-                                  0, 0, 1, 1,
-                                  0, 0, 0, 1]),
-            },
+        id: 0,
+        pixels: Box::new([0, 1, 1, 0,
+                          1, 0, 0, 1,
+                          0, 0, 1, 1,
+                          0, 0, 0, 1]),
+      },
       #[cfg_attr(rustfmt, rustfmt_skip)]
       Sprite{
-                id: 1,
-                pixels: Box::new([1, 1, 1, 1,
-                                  1, 1, 1, 0,
-                                  1, 1, 0, 0,
-                                  1, 0, 0, 0]),
-            },
+        id: 1,
+        pixels: Box::new([1, 1, 1, 1,
+                          1, 1, 1, 0,
+                          1, 1, 0, 0,
+                          1, 0, 0, 0]),
+      },
     ];
     let collection = TestSpriteCollection {
       sprites: sprites.into_boxed_slice(),
@@ -153,10 +153,10 @@ mod tests {
     let expected_texture: Vec<u8> = {
       #[cfg_attr(rustfmt, rustfmt_skip)]
       vec![0, 1, 1, 0, 1, 1, 1, 1,
-                 1, 0, 0, 1, 1, 1, 1, 0,
-                 0, 0, 1, 1, 1, 1, 0, 0,
-                 0, 0, 0, 1, 1, 0, 0, 0,
-            ]
+           1, 0, 0, 1, 1, 1, 1, 0,
+           0, 0, 1, 1, 1, 1, 0, 0,
+           0, 0, 0, 1, 1, 0, 0, 0,
+      ]
     };
     assert_that!(&texture.pixels).is_equal_to(expected_texture.into_boxed_slice());
   }
@@ -166,28 +166,28 @@ mod tests {
     let sprites = vec![
       #[cfg_attr(rustfmt, rustfmt_skip)]
       Sprite{
-                id: 0,
-                pixels: Box::new([0, 0, 0, 0,
-                                  0, 0, 0, 1,
-                                  0, 0, 1, 1,
-                                  0, 1, 1, 1]),
-            },
+        id: 0,
+        pixels: Box::new([0, 0, 0, 0,
+                          0, 0, 0, 1,
+                          0, 0, 1, 1,
+                          0, 1, 1, 1]),
+      },
       #[cfg_attr(rustfmt, rustfmt_skip)]
       Sprite{
-                id: 1,
-                pixels: Box::new([1, 1, 1, 1,
-                                  1, 1, 1, 0,
-                                  1, 1, 0, 0,
-                                  1, 0, 0, 0]),
-            },
+        id: 1,
+        pixels: Box::new([1, 1, 1, 1,
+                          1, 1, 1, 0,
+                          1, 1, 0, 0,
+                          1, 0, 0, 0]),
+      },
       #[cfg_attr(rustfmt, rustfmt_skip)]
       Sprite{
-                id: 2,
-                pixels: Box::new([1, 1, 1, 1,
-                                  0, 1, 1, 0,
-                                  0, 1, 1, 0,
-                                  1, 1, 1, 1]),
-            },
+        id: 2,
+        pixels: Box::new([1, 1, 1, 1,
+                          0, 1, 1, 0,
+                          0, 1, 1, 0,
+                          1, 1, 1, 1]),
+      },
     ];
     let collection = TestSpriteCollection {
       sprites: sprites.into_boxed_slice(),
@@ -202,14 +202,14 @@ mod tests {
     let expected_texture: Vec<u8> = {
       #[cfg_attr(rustfmt, rustfmt_skip)]
       vec![0, 0, 0, 0, 1, 1, 1, 1,
-                 0, 0, 0, 1, 1, 1, 1, 0,
-                 0, 0, 1, 1, 1, 1, 0, 0,
-                 0, 1, 1, 1, 1, 0, 0, 0,
-                 1, 1, 1, 1, 0, 0, 0, 0,
-                 0, 1, 1, 0, 0, 0, 0, 0,
-                 0, 1, 1, 0, 0, 0, 0, 0,
-                 1, 1, 1, 1, 0, 0, 0, 0,
-            ]
+           0, 0, 0, 1, 1, 1, 1, 0,
+           0, 0, 1, 1, 1, 1, 0, 0,
+           0, 1, 1, 1, 1, 0, 0, 0,
+           1, 1, 1, 1, 0, 0, 0, 0,
+           0, 1, 1, 0, 0, 0, 0, 0,
+           0, 1, 1, 0, 0, 0, 0, 0,
+           1, 1, 1, 1, 0, 0, 0, 0,
+      ]
     };
     assert_that!(&texture.pixels).is_equal_to(expected_texture.into_boxed_slice());
   }
