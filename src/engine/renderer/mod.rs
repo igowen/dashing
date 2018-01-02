@@ -17,19 +17,19 @@ pub type DepthFormat = gfx::format::DepthStencil;
 /// Error type for the renderer.
 #[derive(Debug)]
 pub enum RenderError {
-    /// Generic error.
-    GeneralError(String),
-    /// Error from the OpenGL subsystem.
-    OpenGLError(String),
+  /// Generic error.
+  GeneralError(String),
+  /// Error from the OpenGL subsystem.
+  OpenGLError(String),
 }
 
 impl<S> std::convert::From<S> for RenderError
 where
-    S: std::string::ToString,
+  S: std::string::ToString,
 {
-    fn from(s: S) -> Self {
-        RenderError::GeneralError(s.to_string())
-    }
+  fn from(s: S) -> Self {
+    RenderError::GeneralError(s.to_string())
+  }
 }
 
 // TODO: make these non-constant.
@@ -40,25 +40,25 @@ pub const FONT_HEIGHT: usize = 12;
 
 fn gfx_load_texture<F, R>(factory: &mut F) -> gfx::handle::ShaderResourceView<R, [f32; 4]>
 where
-    F: gfx::Factory<R>,
-    R: gfx::Resources,
+  F: gfx::Factory<R>,
+  R: gfx::Resources,
 {
-    use gfx::format::Rgba8;
-    // TODO: load using resource module instead of directly.
-    let img = image::open("resources/12x12.png").unwrap().to_rgba();
-    let (width, height) = img.dimensions();
-    let kind = gfx::texture::Kind::D2(width as u16, height as u16, gfx::texture::AaMode::Single);
-    let (_, view) = factory
-        .create_texture_immutable_u8::<Rgba8>(kind, gfx::texture::Mipmap::Provided, &[&img])
-        .unwrap();
-    view
+  use gfx::format::Rgba8;
+  // TODO: load using resource module instead of directly.
+  let img = image::open("resources/12x12.png").unwrap().to_rgba();
+  let (width, height) = img.dimensions();
+  let kind = gfx::texture::Kind::D2(width as u16, height as u16, gfx::texture::AaMode::Single);
+  let (_, view) = factory
+    .create_texture_immutable_u8::<Rgba8>(kind, gfx::texture::Mipmap::Provided, &[&img])
+    .unwrap();
+  view
 }
 
 // The gfx_defines! macro makes the output structs public, so we put them in an internal,
 // non-public module to avoid cluttering up the public interface.
 mod internal {
-    use gfx;
-    gfx_defines!{
+  use gfx;
+  gfx_defines!{
         // Individual vertices.
         vertex Vertex {
             pos: [f32; 2] = "a_Pos",
@@ -104,59 +104,59 @@ mod internal {
         }
     }
 
-    impl Default for Instance {
-        fn default() -> Self {
-            Instance {
-                translate: [0.0, 0.0],
-                color: [1.0, 1.0, 1.0, 1.0],
-                bg_color: [0.0, 0.0, 0.0, 1.0],
-                sprite: 0,
-            }
-        }
+  impl Default for Instance {
+    fn default() -> Self {
+      Instance {
+        translate: [0.0, 0.0],
+        color: [1.0, 1.0, 1.0, 1.0],
+        bg_color: [0.0, 0.0, 0.0, 1.0],
+        sprite: 0,
+      }
     }
+  }
 }
 
 use self::internal::{Vertex, Instance, CellGlobals, ScreenGlobals, pipe, screen_pipe};
 
 // Vertices for sprite cell quads.
 const QUAD_VERTICES: [Vertex; 4] = [
-    Vertex {
-        pos: [1.0, 0.0],
-        uv: [1.0, 1.0],
-    },
-    Vertex {
-        pos: [0.0, 0.0],
-        uv: [0.0, 1.0],
-    },
-    Vertex {
-        pos: [0.0, 1.0],
-        uv: [0.0, 0.0],
-    },
-    Vertex {
-        pos: [1.0, 1.0],
-        uv: [1.0, 0.0],
-    },
+  Vertex {
+    pos: [1.0, 0.0],
+    uv: [1.0, 1.0],
+  },
+  Vertex {
+    pos: [0.0, 0.0],
+    uv: [0.0, 1.0],
+  },
+  Vertex {
+    pos: [0.0, 1.0],
+    uv: [0.0, 0.0],
+  },
+  Vertex {
+    pos: [1.0, 1.0],
+    uv: [1.0, 0.0],
+  },
 ];
 
 // Vertices for the screen quad. Only difference here is the UV coordinates, which we could
 // probably handle in the shader but 4 redundant vertices isn't the end of the world.
 const SCREEN_QUAD_VERTICES: [Vertex; 4] = [
-    Vertex {
-        pos: [1.0, -1.0],
-        uv: [1.0, 0.0],
-    },
-    Vertex {
-        pos: [-1.0, -1.0],
-        uv: [0.0, 0.0],
-    },
-    Vertex {
-        pos: [-1.0, 1.0],
-        uv: [0.0, 1.0],
-    },
-    Vertex {
-        pos: [1.0, 1.0],
-        uv: [1.0, 1.0],
-    },
+  Vertex {
+    pos: [1.0, -1.0],
+    uv: [1.0, 0.0],
+  },
+  Vertex {
+    pos: [-1.0, -1.0],
+    uv: [0.0, 0.0],
+  },
+  Vertex {
+    pos: [-1.0, 1.0],
+    uv: [0.0, 1.0],
+  },
+  Vertex {
+    pos: [1.0, 1.0],
+    uv: [1.0, 1.0],
+  },
 ];
 
 // Triangulation for the above vertices, shared by both the cell quads and the screen quad.
@@ -171,285 +171,285 @@ const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 /// really anticipate supporting any backend other than OpenGL.
 pub struct Renderer<D, F>
 where
-    D: gfx::Device,
-    F: gfx::Factory<D::Resources>,
+  D: gfx::Device,
+  F: gfx::Factory<D::Resources>,
 {
-    device: D,
-    factory: F,
-    encoder: gfx::Encoder<D::Resources, D::CommandBuffer>,
+  device: D,
+  factory: F,
+  encoder: gfx::Encoder<D::Resources, D::CommandBuffer>,
 
-    color_view: gfx_core::handle::RenderTargetView<D::Resources, ColorFormat>,
-    depth_view: gfx_core::handle::DepthStencilView<D::Resources, DepthFormat>,
+  color_view: gfx_core::handle::RenderTargetView<D::Resources, ColorFormat>,
+  depth_view: gfx_core::handle::DepthStencilView<D::Resources, DepthFormat>,
 
-    // GPU-side resources.
-    vertex_slice: gfx::Slice<D::Resources>,
-    screen_vertex_slice: gfx::Slice<D::Resources>,
-    upload_buffer: gfx::handle::Buffer<D::Resources, Instance>,
-    pipeline: gfx::pso::PipelineState<D::Resources, pipe::Meta>,
-    screen_pipeline: gfx::pso::PipelineState<D::Resources, screen_pipe::Meta>,
-    pipeline_data: pipe::Data<D::Resources>,
-    screen_pipeline_data: screen_pipe::Data<D::Resources>,
+  // GPU-side resources.
+  vertex_slice: gfx::Slice<D::Resources>,
+  screen_vertex_slice: gfx::Slice<D::Resources>,
+  upload_buffer: gfx::handle::Buffer<D::Resources, Instance>,
+  pipeline: gfx::pso::PipelineState<D::Resources, pipe::Meta>,
+  screen_pipeline: gfx::pso::PipelineState<D::Resources, screen_pipe::Meta>,
+  pipeline_data: pipe::Data<D::Resources>,
+  screen_pipeline_data: screen_pipe::Data<D::Resources>,
 
-    // CPU-side resources.
-    width: usize,
-    height: usize,
-    instance_count: usize,
-    instances: Box<[Instance]>,
+  // CPU-side resources.
+  width: usize,
+  height: usize,
+  instance_count: usize,
+  instances: Box<[Instance]>,
 
-    // Renderer metadata.
-    frame_counter: u32,
-    last_render_time_ns: u64,
-    elapsed_time_ns: u64,
-    fps: f32,
+  // Renderer metadata.
+  frame_counter: u32,
+  last_render_time_ns: u64,
+  elapsed_time_ns: u64,
+  fps: f32,
 }
 
 impl<D, F> Renderer<D, F>
 where
-    D: gfx::Device,
-    F: gfx::Factory<D::Resources>,
+  D: gfx::Device,
+  F: gfx::Factory<D::Resources>,
 {
-    /// Create a new `Renderer` with the given device resources and dimensions, which are measured
-    /// in sprites.
-    pub fn new(
-        device: D,
-        mut factory: F,
-        command_buffer: D::CommandBuffer,
-        color_view: gfx_core::handle::RenderTargetView<D::Resources, ColorFormat>,
-        depth_view: gfx_core::handle::DepthStencilView<D::Resources, DepthFormat>,
-        width: usize,
-        height: usize,
-    ) -> Result<Self, RenderError> {
-        let encoder: gfx::Encoder<D::Resources, D::CommandBuffer> = command_buffer.into();
+  /// Create a new `Renderer` with the given device resources and dimensions, which are measured
+  /// in sprites.
+  pub fn new(
+    device: D,
+    mut factory: F,
+    command_buffer: D::CommandBuffer,
+    color_view: gfx_core::handle::RenderTargetView<D::Resources, ColorFormat>,
+    depth_view: gfx_core::handle::DepthStencilView<D::Resources, DepthFormat>,
+    width: usize,
+    height: usize,
+  ) -> Result<Self, RenderError> {
+    let encoder: gfx::Encoder<D::Resources, D::CommandBuffer> = command_buffer.into();
 
-        let cell_pso: gfx::pso::PipelineState<D::Resources, pipe::Meta> = factory
-            .create_pipeline_simple(
-                include_bytes!("shader/cell.glslv"),
-                include_bytes!("shader/cell.glslf"),
-                pipe::new(),
-            )?;
+    let cell_pso: gfx::pso::PipelineState<D::Resources, pipe::Meta> = factory
+      .create_pipeline_simple(
+        include_bytes!("shader/cell.glslv"),
+        include_bytes!("shader/cell.glslf"),
+        pipe::new(),
+      )?;
 
-        let screen_pso: gfx::pso::PipelineState<D::Resources, screen_pipe::Meta> = factory
-            .create_pipeline_simple(
-                include_bytes!("shader/screen.glslv"),
-                include_bytes!("shader/screen.glslf"),
-                screen_pipe::new(),
-            )?;
+    let screen_pso: gfx::pso::PipelineState<D::Resources, screen_pipe::Meta> = factory
+      .create_pipeline_simple(
+        include_bytes!("shader/screen.glslv"),
+        include_bytes!("shader/screen.glslf"),
+        screen_pipe::new(),
+      )?;
 
-        let (cell_vertex_buffer, mut cell_slice) =
-            factory.create_vertex_buffer_with_slice(&QUAD_VERTICES, &QUAD_INDICES[..]);
-        let (screen_vertex_buffer, screen_slice) =
-            factory.create_vertex_buffer_with_slice(&SCREEN_QUAD_VERTICES, &QUAD_INDICES[..]);
-        let instance_count = width * height;
+    let (cell_vertex_buffer, mut cell_slice) =
+      factory.create_vertex_buffer_with_slice(&QUAD_VERTICES, &QUAD_INDICES[..]);
+    let (screen_vertex_buffer, screen_slice) =
+      factory.create_vertex_buffer_with_slice(&SCREEN_QUAD_VERTICES, &QUAD_INDICES[..]);
+    let instance_count = width * height;
 
-        cell_slice.instances = Some((instance_count as u32, 0));
+    cell_slice.instances = Some((instance_count as u32, 0));
 
-        let cell_globals = CellGlobals {
-            screen_size_in_sprites: [width as f32, height as f32],
-            sprite_map_dimensions: [16.0, 16.0],
-        };
+    let cell_globals = CellGlobals {
+      screen_size_in_sprites: [width as f32, height as f32],
+      sprite_map_dimensions: [16.0, 16.0],
+    };
 
-        let sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-            gfx::texture::FilterMethod::Scale,
-            gfx::texture::WrapMode::Clamp,
-        ));
+    let sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+      gfx::texture::FilterMethod::Scale,
+      gfx::texture::WrapMode::Clamp,
+    ));
 
-        let instance_buffer = factory.create_buffer(
-            instance_count as usize,
-            gfx::buffer::Role::Vertex,
-            gfx::memory::Usage::Data,
-            gfx::memory::Bind::TRANSFER_DST,
-        )?;
+    let instance_buffer = factory.create_buffer(
+      instance_count as usize,
+      gfx::buffer::Role::Vertex,
+      gfx::memory::Usage::Data,
+      gfx::memory::Bind::TRANSFER_DST,
+    )?;
 
-        let mut instance_templates = vec![Instance::default(); (width * height) as usize];
-        for x in 0..width {
-            for y in 0..height {
-                instance_templates[(y * width + x) as usize] = Instance {
-                    translate: [
-                        -1.0 + (x as f32 * 2.0 / width as f32),
-                        1.0 - ((y as f32 + 1.0) * 2.0 / height as f32),
-                    ],
-                    color: [1.0, 1.0, 1.0, 1.0],
-                    bg_color: [0.0, 0.0, 0.0, 1.0],
-                    sprite: 0,
-                }
-            }
+    let mut instance_templates = vec![Instance::default(); (width * height) as usize];
+    for x in 0..width {
+      for y in 0..height {
+        instance_templates[(y * width + x) as usize] = Instance {
+          translate: [
+            -1.0 + (x as f32 * 2.0 / width as f32),
+            1.0 - ((y as f32 + 1.0) * 2.0 / height as f32),
+          ],
+          color: [1.0, 1.0, 1.0, 1.0],
+          bg_color: [0.0, 0.0, 0.0, 1.0],
+          sprite: 0,
         }
-
-        let upload = factory.create_upload_buffer::<Instance>(
-            instance_count as usize,
-        )?;
-
-        let cell_globals_buffer = factory.create_buffer_immutable(
-            &[cell_globals],
-            gfx::buffer::Role::Constant,
-            gfx::memory::Bind::empty(),
-        )?;
-
-        let screen_globals_buffer = factory.create_constant_buffer(1);
-
-        let screen_width = width * FONT_WIDTH;
-        let screen_height = height * FONT_HEIGHT;
-
-        let (_, screen_texture, render_target) = factory.create_render_target(
-            screen_width as u16,
-            screen_height as u16,
-        )?;
-
-        let screen_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-            gfx::texture::FilterMethod::Scale,
-            gfx::texture::WrapMode::Clamp,
-        ));
-
-        let texture = gfx_load_texture(&mut factory);
-
-        let intermediate_data = pipe::Data {
-            vbuf: cell_vertex_buffer,
-            instance: instance_buffer,
-            tex: (texture, sampler),
-            screen_target: render_target,
-            globals: cell_globals_buffer,
-        };
-
-        let final_data = screen_pipe::Data {
-            vbuf: screen_vertex_buffer,
-            screen_tex: (screen_texture, screen_sampler),
-            out: color_view.clone(),
-            globals: screen_globals_buffer,
-        };
-
-        Ok(Renderer {
-            device: device,
-            factory: factory,
-            encoder: encoder,
-            color_view: color_view,
-            depth_view: depth_view,
-
-            vertex_slice: cell_slice,
-            screen_vertex_slice: screen_slice,
-            upload_buffer: upload,
-            pipeline: cell_pso,
-            screen_pipeline: screen_pso,
-            pipeline_data: intermediate_data,
-            screen_pipeline_data: final_data,
-
-            width: width,
-            height: height,
-            instance_count: instance_count,
-            instances: instance_templates.into_boxed_slice(),
-
-            frame_counter: 0,
-            last_render_time_ns: 0,
-            elapsed_time_ns: 0,
-            fps: 0.0,
-        })
+      }
     }
 
-    /// Render one one frame.
-    pub fn render(&mut self) -> Result<(), RenderError> {
-        {
-            let mut writer = self.factory.write_mapping(&self.upload_buffer)?;
-            writer.copy_from_slice(&self.instances[..]);
-        }
+    let upload = factory.create_upload_buffer::<Instance>(
+      instance_count as usize,
+    )?;
 
-        self.encoder.clear(
-            &self.pipeline_data.screen_target,
-            [0.2, 0.0, 0.0, 1.0],
-        );
+    let cell_globals_buffer = factory.create_buffer_immutable(
+      &[cell_globals],
+      gfx::buffer::Role::Constant,
+      gfx::memory::Bind::empty(),
+    )?;
 
-        self.encoder.copy_buffer(
-            &self.upload_buffer,
-            &self.pipeline_data.instance,
-            0,
-            0,
-            self.upload_buffer.len(),
-        )?;
+    let screen_globals_buffer = factory.create_constant_buffer(1);
 
-        self.encoder.draw(
-            &self.vertex_slice,
-            &self.pipeline,
-            &self.pipeline_data,
-        );
+    let screen_width = width * FONT_WIDTH;
+    let screen_height = height * FONT_HEIGHT;
 
-        self.encoder.update_constant_buffer(
-            &self.screen_pipeline_data.globals,
-            &ScreenGlobals {
-                screen_size: [
-                    (self.width * FONT_WIDTH) as f32,
-                    (self.height * FONT_HEIGHT) as f32,
-                ],
-                frame_counter: self.frame_counter,
-                elapsed_time: self.elapsed_time_ns as f32 / 1_000_000_000.0,
-            },
-        );
+    let (_, screen_texture, render_target) = factory.create_render_target(
+      screen_width as u16,
+      screen_height as u16,
+    )?;
 
-        self.encoder.clear(
-            &self.screen_pipeline_data.out,
-            [0.0, 0.2, 0.0, 1.0],
-        );
+    let screen_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
+      gfx::texture::FilterMethod::Scale,
+      gfx::texture::WrapMode::Clamp,
+    ));
 
-        self.encoder.draw(
-            &self.screen_vertex_slice,
-            &self.screen_pipeline,
-            &self.screen_pipeline_data,
-        );
+    let texture = gfx_load_texture(&mut factory);
 
-        self.encoder.flush(&mut self.device);
+    let intermediate_data = pipe::Data {
+      vbuf: cell_vertex_buffer,
+      instance: instance_buffer,
+      tex: (texture, sampler),
+      screen_target: render_target,
+      globals: cell_globals_buffer,
+    };
 
-        self.device.cleanup();
+    let final_data = screen_pipe::Data {
+      vbuf: screen_vertex_buffer,
+      screen_tex: (screen_texture, screen_sampler),
+      out: color_view.clone(),
+      globals: screen_globals_buffer,
+    };
 
-        self.frame_counter += 1;
+    Ok(Renderer {
+      device: device,
+      factory: factory,
+      encoder: encoder,
+      color_view: color_view,
+      depth_view: depth_view,
 
-        let t = time::precise_time_ns();
-        if self.last_render_time_ns > 0 {
-            let dt = (t - self.last_render_time_ns) as f32;
-            let new_fps = 1_000_000_000.0 / dt;
-            self.fps = 0.9 * self.fps + 0.1 * new_fps;
-            self.elapsed_time_ns += t - self.last_render_time_ns;
-        }
-        self.last_render_time_ns = t;
+      vertex_slice: cell_slice,
+      screen_vertex_slice: screen_slice,
+      upload_buffer: upload,
+      pipeline: cell_pso,
+      screen_pipeline: screen_pso,
+      pipeline_data: intermediate_data,
+      screen_pipeline_data: final_data,
 
-        Ok(())
+      width: width,
+      height: height,
+      instance_count: instance_count,
+      instances: instance_templates.into_boxed_slice(),
+
+      frame_counter: 0,
+      last_render_time_ns: 0,
+      elapsed_time_ns: 0,
+      fps: 0.0,
+    })
+  }
+
+  /// Render one one frame.
+  pub fn render(&mut self) -> Result<(), RenderError> {
+    {
+      let mut writer = self.factory.write_mapping(&self.upload_buffer)?;
+      writer.copy_from_slice(&self.instances[..]);
     }
 
-    /// Get the current frames per second. This is based on a rolling average, not the
-    /// instantaneous measurement.
-    pub fn get_fps(&self) -> f32 {
-        self.fps
-    }
+    self.encoder.clear(
+      &self.pipeline_data.screen_target,
+      [0.2, 0.0, 0.0, 1.0],
+    );
 
-    /// Get the number of frames that have been rendered.
-    pub fn get_frame_counter(&self) -> u32 {
-        self.frame_counter
+    self.encoder.copy_buffer(
+      &self.upload_buffer,
+      &self.pipeline_data.instance,
+      0,
+      0,
+      self.upload_buffer.len(),
+    )?;
+
+    self.encoder.draw(
+      &self.vertex_slice,
+      &self.pipeline,
+      &self.pipeline_data,
+    );
+
+    self.encoder.update_constant_buffer(
+      &self.screen_pipeline_data.globals,
+      &ScreenGlobals {
+        screen_size: [
+          (self.width * FONT_WIDTH) as f32,
+          (self.height * FONT_HEIGHT) as f32,
+        ],
+        frame_counter: self.frame_counter,
+        elapsed_time: self.elapsed_time_ns as f32 / 1_000_000_000.0,
+      },
+    );
+
+    self.encoder.clear(
+      &self.screen_pipeline_data.out,
+      [0.0, 0.2, 0.0, 1.0],
+    );
+
+    self.encoder.draw(
+      &self.screen_vertex_slice,
+      &self.screen_pipeline,
+      &self.screen_pipeline_data,
+    );
+
+    self.encoder.flush(&mut self.device);
+
+    self.device.cleanup();
+
+    self.frame_counter += 1;
+
+    let t = time::precise_time_ns();
+    if self.last_render_time_ns > 0 {
+      let dt = (t - self.last_render_time_ns) as f32;
+      let new_fps = 1_000_000_000.0 / dt;
+      self.fps = 0.9 * self.fps + 0.1 * new_fps;
+      self.elapsed_time_ns += t - self.last_render_time_ns;
     }
+    self.last_render_time_ns = t;
+
+    Ok(())
+  }
+
+  /// Get the current frames per second. This is based on a rolling average, not the
+  /// instantaneous measurement.
+  pub fn get_fps(&self) -> f32 {
+    self.fps
+  }
+
+  /// Get the number of frames that have been rendered.
+  pub fn get_frame_counter(&self) -> u32 {
+    self.frame_counter
+  }
 }
 
 impl<'a, D, F> Renderer<D, F>
 where
-    D: gfx::Device,
-    F: gfx::Factory<D::Resources>,
+  D: gfx::Device,
+  F: gfx::Factory<D::Resources>,
 {
-    /// Update the sprite matrix with the provided data.
-    pub fn update<T, U>(&mut self, data: T)
-    where
-        T: Iterator<Item = U>,
-        U: Into<&'a SpriteMeta>,
-    {
-        for (i, d) in self.instances.iter_mut().zip(data) {
-            let c: &SpriteMeta = d.into();
-            i.color = c.fg_color;
-            i.bg_color = c.bg_color;
-            i.sprite = c.sprite;
-        }
+  /// Update the sprite matrix with the provided data.
+  pub fn update<T, U>(&mut self, data: T)
+  where
+    T: Iterator<Item = U>,
+    U: Into<&'a SpriteMeta>,
+  {
+    for (i, d) in self.instances.iter_mut().zip(data) {
+      let c: &SpriteMeta = d.into();
+      i.color = c.fg_color;
+      i.bg_color = c.bg_color;
+      i.sprite = c.sprite;
     }
+  }
 }
 
 /// Sprite metadata
 #[derive(Copy, Clone, Default, Debug)]
 pub struct SpriteMeta {
-    /// Foreground color.
-    pub fg_color: [f32; 4],
-    /// Background color.
-    pub bg_color: [f32; 4],
-    /// Sprite index.
-    pub sprite: u32,
+  /// Foreground color.
+  pub fg_color: [f32; 4],
+  /// Background color.
+  pub bg_color: [f32; 4],
+  /// Sprite index.
+  pub sprite: u32,
 }

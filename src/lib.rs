@@ -69,6 +69,7 @@ extern crate gfx_core;
 extern crate gfx_device_gl;
 extern crate gfx_window_sdl;
 extern crate image;
+extern crate itertools;
 #[allow(unused)]
 #[macro_use]
 extern crate log;
@@ -97,6 +98,7 @@ extern crate euclid;
 #[cfg(test)]
 extern crate pretty_logger;
 #[cfg(test)]
+#[macro_use]
 extern crate spectral;
 #[cfg(test)]
 #[macro_use]
