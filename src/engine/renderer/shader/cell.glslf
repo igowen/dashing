@@ -1,23 +1,20 @@
 #version 150 core
 
-uniform sampler2D t_SpriteTexture;
+uniform usampler2D t_SpriteTexture;
+uniform sampler2D t_Palette;
+
 uniform CellGlobals {
-  vec2 u_ScreenSizeInSprites;
-  vec2 u_SpriteMapDimensions;
+  uvec2 u_ScreenSizeInSprites;
+  uvec2 u_SpriteMapDimensions;
 };
 
 in vec2 v_Uv;
-in vec4 v_FgColor;
-in vec4 v_BgColor;
+flat in uint v_Index;
 
 out vec4 IntermediateTarget;
 
 void main() {
   vec4 t = texture(t_SpriteTexture, v_Uv);
-
-  if (t.x == 1.0 && t.y == 1.0 && t.z == 1.0) {
-    IntermediateTarget = v_FgColor;
-  } else {
-    IntermediateTarget = v_BgColor;
-  }
+  vec4 p = texelFetch(t_Palette, ivec2(clamp(t.x, 0, 15), v_Index), 0);
+  IntermediateTarget = p;
 }

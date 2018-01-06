@@ -46,18 +46,13 @@
 //! * Entity-Component system
 //! * Serialization/persistence framework
 //! * Graphics improvements
-//!   * Palettized sprites
+//!   * ~~Palettized sprites~~
 //!   * User-specified shaders
 //!   * Animated sprites
 //! * Resource management system
 //!   * Build sprite map textures at runtime
 //! * Audio
 //! * Parallelism
-//!
-//! ## Refactoring
-//!
-//! * ~~Replace references to `Character` with `Sprite`~~
-//! * ~~Get rid of different engine "levels"~~
 
 #![deny(warnings)]
 #![deny(missing_docs)]
@@ -68,7 +63,6 @@ extern crate gfx;
 extern crate gfx_core;
 extern crate gfx_device_gl;
 extern crate gfx_window_sdl;
-extern crate image;
 extern crate itertools;
 #[allow(unused)]
 #[macro_use]
@@ -90,16 +84,20 @@ pub mod ui;
 
 // Libraries used in tests.
 #[cfg(test)]
-extern crate offscreen_gl_context;
+extern crate euclid;
 #[cfg(test)]
 extern crate gleam;
 #[cfg(test)]
-extern crate euclid;
+extern crate image;
+#[cfg(test)]
+#[macro_use]
+extern crate lazy_static;
+#[cfg(test)]
+extern crate offscreen_gl_context;
+#[cfg(test)]
+extern crate png;
 #[cfg(test)]
 extern crate pretty_logger;
 #[cfg(test)]
 #[macro_use]
 extern crate spectral;
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;

@@ -18,9 +18,10 @@ time = "*"
 itertools = "*"
 
 [dev-dependencies]
+euclid = "*"
 gleam = "*"
+lazy_static = "*"
 offscreen_gl_context = "*"
 pretty_logger = "*"
-euclid = "*"
+png = "*"
 spectral = "*"
-lazy_static = "*"
