@@ -69,6 +69,15 @@ impl Palette {
 
     /// Create a palette that is all one color. Not particularly useful on its own, but can be
     /// combined with `set()` to generate custom palettes.
+    ///
+    /// ```
+    /// use dashing::resources::sprite::Palette;
+    /// let p = Palette::mono([128, 128, 128]);
+    ///
+    /// for i in 0..16 {
+    ///     assert_eq!(p[i], [128, 128, 128]);
+    /// }
+    /// ```
     pub fn mono<C: Into<[u8; 3]>>(color: C) -> Self {
         Palette { colors: [color.into(); 16] }
     }

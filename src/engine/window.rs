@@ -98,9 +98,10 @@ impl<'a> WindowBuilder<'a> {
         if self.full_screen {
             builder.fullscreen_desktop();
         }
+
         let window_result =
             gfx_window_sdl::init::<renderer::ColorFormat, renderer::DepthFormat>(&video, builder);
-        let (window, gl_context, device, mut factory, color_view, depth_view);
+        let (window, gl_context, mut device, mut factory, color_view, depth_view);
         match window_result {
             Err(e) => {
                 return Err(WindowError::SDLError(
@@ -128,6 +129,13 @@ impl<'a> WindowBuilder<'a> {
         let event_pump = sdl_context.event_pump()?;
 
         let command_buffer = factory.create_command_buffer();
+
+        // OpenGL seems to give us an SRGB surface whether we ask for it or not, so we disable it
+        // entirely here. This is kind of a hack but it's the only way i've found to get around it.
+        unsafe {
+            use gl;
+            device.with_gl(|gl| { gl.Disable(gl::FRAMEBUFFER_SRGB); })
+        }
 
         let renderer = renderer::Renderer::new(
             device,

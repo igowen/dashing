@@ -94,7 +94,7 @@ impl RenderTestSupportHarness {
                 gfx::memory::Bind::RENDER_TARGET | gfx::memory::Bind::SHADER_RESOURCE |
                     gfx::memory::Bind::TRANSFER_SRC,
                 gfx::memory::Usage::Data,
-                Some(gfx::format::ChannelType::Srgb),
+                Some(gfx::format::ChannelType::Unorm),
             )
             .unwrap();
         // Get a render target view of the texture.
@@ -136,7 +136,7 @@ impl RenderTestSupportHarness {
     fn extract_render_result(&mut self) -> Vec<u8> {
         // Set up a download buffer to retrieve the image from the GPU.
         let info = self.render_texture.get_info().to_raw_image_info(
-            gfx::format::ChannelType::Srgb,
+            gfx::format::ChannelType::Unorm,
             0,
         );
 
@@ -275,5 +275,30 @@ fn render_2x2_with_color() {
         .into_raw();
 
     assert_that(&actual_image.len()).is_equal_to(&expected_image.len());
+    assert_that(&actual_image).is_equal_to(&expected_image);
+}
+
+#[test]
+fn gray() {
+    let mut harness = RenderTestSupportHarness::new(1, 1);
+
+    harness.renderer.update(
+        [
+            SpriteCellMeta {
+                palette: Palette::mono([128, 128, 128]),
+                sprite: 0,
+            },
+        ].iter(),
+    );
+
+    // Render the frame.
+    harness.renderer.render().unwrap();
+
+    let actual_image = harness.extract_render_result();
+
+    let expected_image = image::load_from_memory(include_bytes!("testdata/50pct_gray.png"))
+        .unwrap()
+        .to_rgba()
+        .into_raw();
     assert_that(&actual_image).is_equal_to(&expected_image);
 }
