@@ -25,26 +25,65 @@ impl Color {
     /// for values outside those ranges (`h` is interpreted mod 360, and `s` and `v` are clamped).
     ///
     /// ```
-    /// # extern crate dashing;
     /// # use dashing::resources::sprite::Color;
-    /// # #[macro_use] extern crate hamcrest;
-    /// # use hamcrest::prelude::*;
-    /// # fn main() {
-    /// assert_that!(Color::from_hsv(0.0, 1.0, 1.0), is(equal_to(Color::new(255, 0, 0))));
-    /// assert_that!(Color::from_hsv(0.0, 1.0, 0.5), is(equal_to(Color::new(127, 0, 0))));
-    /// assert_that!(Color::from_hsv(60.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
-    /// assert_that!(Color::from_hsv(53.0, 0.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
-    /// assert_that!(Color::from_hsv(21.0, 0.0, 0.0), is(equal_to(Color::new(0, 0, 0))));
+    /// assert_eq!(
+    ///     Color::from_hsv(0.0, 1.0, 1.0),
+    ///     Color::new(255, 0, 0),
+    ///     "HSV(0.0, 1.0, 1.0) == RGB(255, 0, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsv(0.0, 1.0, 0.5),
+    ///     Color::new(127, 0, 0),
+    ///     "HSV(0.0, 1.0, 0.5) == RGB(127, 0, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsv(60.0, 1.0, 1.0),
+    ///     Color::new(255, 255, 0),
+    ///     "HSV(60.0, 1.0, 1.0) == RGB(255, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsv(53.0, 0.0, 1.0),
+    ///     Color::new(255, 255, 255),
+    ///     "HSV(53.0, 0.0, 1.0) == RGB(255, 255, 255)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsv(21.0, 0.0, 0.0),
+    ///     Color::new(0, 0, 0),
+    ///     "HSV(21.0, 0.0 0.0) == RGB(0, 0, 0)"
+    /// );
     /// // Out of bounds hue
-    /// assert_that!(Color::from_hsv(420.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
-    /// assert_that!(Color::from_hsv(-300.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_eq!(
+    ///     Color::from_hsv(420.0, 1.0, 1.0),
+    ///     Color::new(255, 255, 0),
+    ///     "HSV(420.0, 1.0, 1.0) == HSV(60.0, 1.0, 1.0) == RGB(255, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsv(-300.0, 1.0, 1.0),
+    ///     Color::new(255, 255, 0),
+    ///     "HSV(-300.0, 1.0, 1.0) == HSV(60.0, 1.0, 1.0) == RGB(255, 255, 0)"
+    /// );
     /// // Out of bounds saturation
-    /// assert_that!(Color::from_hsv(60.0, 200.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
-    /// assert_that!(Color::from_hsv(60.0, -200.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
+    /// assert_eq!(
+    ///     Color::from_hsv(60.0, 200.0, 1.0),
+    ///     Color::new(255, 255, 0),
+    ///     "HSV(60.0, 200.0, 1.0) == HSV(60.0, 1.0, 1.0) == RGB(255, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsv(60.0, -200.0, 1.0),
+    ///     Color::new(255, 255, 255),
+    ///     "HSV(60.0, -200.0, 1.0) == HSV(60.0, 0.0, 1.0) == RGB(255, 255, 255)"
+    /// );
     /// // Out of bounds value
-    /// assert_that!(Color::from_hsv(60.0, 1.0, 200.0), is(equal_to(Color::new(255, 255, 0))));
-    /// assert_that!(Color::from_hsv(60.0, 1.0, -200.0), is(equal_to(Color::new(0, 0, 0))));
-    /// # }
+    /// assert_eq!(
+    ///     Color::from_hsv(60.0, 1.0, 200.0),
+    ///     Color::new(255, 255, 0),
+    ///     "HSV(60.0, 1.0, 200.0) == HSV(60.0, 1.0, 1.0) == RGB(255, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsv(60.0, 1.0, -200.0),
+    ///     Color::new(0, 0, 0),
+    ///     "HSV(60.0, 1.0, -200.0) == HSV(60.0, 1.0, 0.0) == RGB(0, 0, 0)"
+    /// );
     ///
     /// ```
     pub fn from_hsv(h: f32, s: f32, v: f32) -> Self {
@@ -77,27 +116,70 @@ impl Color {
     /// clamped).
     ///
     /// ```
-    /// # extern crate dashing;
     /// # use dashing::resources::sprite::Color;
-    /// # #[macro_use] extern crate hamcrest;
-    /// # use hamcrest::prelude::*;
-    /// # fn main() {
-    /// assert_that!(Color::from_hsl(0.0, 1.0, 0.5), is(equal_to(Color::new(255, 0, 0))));
-    /// assert_that!(Color::from_hsl(0.0, 1.0, 0.25), is(equal_to(Color::new(127, 0, 0))));
-    /// assert_that!(Color::from_hsl(60.0, 1.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
-    /// assert_that!(Color::from_hsl(53.0, 0.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
-    /// assert_that!(Color::from_hsl(53.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
-    /// assert_that!(Color::from_hsl(21.0, 0.0, 0.0), is(equal_to(Color::new(0, 0, 0))));
+    /// assert_eq!(
+    ///     Color::from_hsl(0.0, 1.0, 0.5),
+    ///     Color::new(255, 0, 0),
+    ///     "HSL(0.0, 1.0, 0.0) == RGB(255, 0, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(0.0, 1.0, 0.25),
+    ///     Color::new(127, 0, 0),
+    ///     "HSL(0.0, 1.0, 0.25) == RGB(127, 0, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(60.0, 1.0, 0.5),
+    ///     Color::new(255, 255, 0),
+    ///     "HSL(60.0, 1.0, 0.5) == RGB(255, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(53.0, 0.0, 1.0),
+    ///     Color::new(255, 255, 255),
+    ///     "HSL(53.0, 0.0, 1.0) == RGB(255, 255, 255)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(53.0, 1.0, 1.0),
+    ///     Color::new(255, 255, 255),
+    ///     "HSL(53.0, 1.0, 1.0) == RGB(255, 255, 255)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(21.0, 0.0, 0.0),
+    ///     Color::new(0, 0, 0),
+    ///     "HSL(21.0, 0.0, 0.0) == RGB(0, 0, 0)"
+    /// );
     /// // Out of bounds hue
-    /// assert_that!(Color::from_hsl(420.0, 1.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
-    /// assert_that!(Color::from_hsl(-300.0, 1.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_eq!(
+    ///     Color::from_hsl(420.0, 1.0, 0.5),
+    ///     Color::new(255, 255, 0),
+    ///     "HSL(420.0, 1.0, 0.5) == HSL(60.0, 1.0, 0.5) == RGB(255, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(-300.0, 1.0, 0.5),
+    ///     Color::new(255, 255, 0),
+    ///     "HSL(-300.0, 1.0, 0.5) == HSL(60.0, 1.0, 0.5) == RGB(255, 255,0)"
+    /// );
     /// // Out of bounds saturation
-    /// assert_that!(Color::from_hsl(60.0, 200.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
-    /// assert_that!(Color::from_hsl(60.0, -200.0, 0.5), is(equal_to(Color::new(127, 127, 127))));
-    /// // Out of bounds value
-    /// assert_that!(Color::from_hsl(60.0, 1.0, 200.0), is(equal_to(Color::new(255, 255, 255))));
-    /// assert_that!(Color::from_hsl(60.0, 1.0, -200.0), is(equal_to(Color::new(0, 0, 0))));
-    /// # }
+    /// assert_eq!(
+    ///     Color::from_hsl(60.0, 200.0, 0.5),
+    ///     Color::new(255, 255, 0),
+    ///     "HSL(60.0, 200.0, 0.5) == HSL(60.0, 1.0, 0.5) == RGB(255, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(60.0, -200.0, 0.5),
+    ///     Color::new(127, 127, 127),
+    ///     "HSL(60.0, -200.0, 0.5) == HSL(60.0, 0.0, 0.5) == RGB(127, 127, 127)"
+    /// );
+    /// // Out of bounds lightness
+    /// assert_eq!(
+    ///     Color::from_hsl(60.0, 1.0, 200.0),
+    ///     Color::new(255, 255, 255),
+    ///     "HSL(60.0, 1.0, 200.0) == HSL(60.0, 1.0, 1.0) == RGB(255, 255, 255)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hsl(60.0, 1.0, -200.0),
+    ///     Color::new(0, 0, 0),
+    ///     "HSL(60.0, 1.0, 0.0) == HSL(60.0, 1.0, 0.0) == RGB(0, 0, 0)"
+    /// );
     ///
     /// ```
     pub fn from_hsl(h: f32, s: f32, l: f32) -> Self {
@@ -127,18 +209,33 @@ impl Color {
     /// Convert HWB (hue, white, black) representation to RGB.
     ///
     /// ```
-    /// # extern crate dashing;
     /// # use dashing::resources::sprite::Color;
-    /// # #[macro_use] extern crate hamcrest;
-    /// # use hamcrest::prelude::*;
-    /// # fn main() {
-    /// assert_that!(Color::from_hwb(120.0, 0.0, 0.0), is(equal_to(Color::new(0, 255, 0))));
-    /// assert_that!(Color::from_hwb(120.0, 0.5, 0.5), is(equal_to(Color::new(127, 127, 127))));
-    /// assert_that!(Color::from_hwb(120.0, 0.5, 0.0), is(equal_to(Color::new(127, 255, 127))));
-    /// assert_that!(Color::from_hwb(120.0, 0.0, 0.5), is(equal_to(Color::new(0, 127, 0))));
+    /// assert_eq!(
+    ///     Color::from_hwb(120.0, 0.0, 0.0),
+    ///     Color::new(0, 255, 0),
+    ///     "HWB(120.0, 0.0, 0.0) == RGB(0, 255, 0)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hwb(120.0, 0.5, 0.5),
+    ///     Color::new(127, 127, 127),
+    ///     "HWB(120.0, 0.5, 0.5) == RGB(127, 127, 127)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hwb(120.0, 0.5, 0.0),
+    ///     Color::new(127, 255, 127),
+    ///     "HWB(120.0, 0.5, 0.0) == RGB(127, 255, 127)"
+    /// );
+    /// assert_eq!(
+    ///     Color::from_hwb(120.0, 0.0, 0.5),
+    ///     Color::new(0, 127, 0),
+    ///     "HWB(120.0, 0.0, 0.5) == RGB(0, 127, 0)"
+    /// );
     /// // W/B values can be > 1.0 but it mashes the result into an even gray.
-    /// assert_that!(Color::from_hwb(120.0, 25.0, 75.0), is(equal_to(Color::new(63, 63, 63))));
-    /// # }
+    /// assert_eq!(
+    ///     Color::from_hwb(120.0, 25.0, 75.0),
+    ///     Color::new(63, 63, 63),
+    ///     "HWB(120.0, 25.0, 75.0) == RGB(63, 63, 63)"
+    /// );
     /// ```
     pub fn from_hwb(h: f32, w: f32, b: f32) -> Self {
         let ww = w.max(0.0);
