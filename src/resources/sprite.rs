@@ -10,7 +10,7 @@ pub struct Sprite {
     pixels: Box<[u8]>,
 }
 
-/// 8-bit color. Wrapped so color space conversion is easy.
+/// 8-bit RGB color. Wrapped so color space conversion is easy.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Color([u8; 3]);
 
@@ -20,28 +20,138 @@ impl Color {
         Color([r, g, b])
     }
 
-    /// Convert HSV representation to RGB. `h` should be in the range [0, 360], and `s` and `v`
-    /// should be in the range [0, 1].
+    /// Convert HSV (hue, saturation, value) representation to RGB. `h` should be in the range [0,
+    /// 360], and `s` and `v` should be in the range [0, 1]; however, this function will still work
+    /// for values outside those ranges (`h` is interpreted mod 360, and `s` and `v` are clamped).
+    ///
+    /// ```
+    /// # extern crate dashing;
+    /// # use dashing::resources::sprite::Color;
+    /// # #[macro_use] extern crate hamcrest;
+    /// # use hamcrest::prelude::*;
+    /// # fn main() {
+    /// assert_that!(Color::from_hsv(0.0, 1.0, 1.0), is(equal_to(Color::new(255, 0, 0))));
+    /// assert_that!(Color::from_hsv(0.0, 1.0, 0.5), is(equal_to(Color::new(127, 0, 0))));
+    /// assert_that!(Color::from_hsv(60.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_that!(Color::from_hsv(53.0, 0.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
+    /// assert_that!(Color::from_hsv(21.0, 0.0, 0.0), is(equal_to(Color::new(0, 0, 0))));
+    /// // Out of bounds hue
+    /// assert_that!(Color::from_hsv(420.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_that!(Color::from_hsv(-300.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
+    /// // Out of bounds saturation
+    /// assert_that!(Color::from_hsv(60.0, 200.0, 1.0), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_that!(Color::from_hsv(60.0, -200.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
+    /// // Out of bounds value
+    /// assert_that!(Color::from_hsv(60.0, 1.0, 200.0), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_that!(Color::from_hsv(60.0, 1.0, -200.0), is(equal_to(Color::new(0, 0, 0))));
+    /// # }
+    ///
+    /// ```
     pub fn from_hsv(h: f32, s: f32, v: f32) -> Self {
-        let vp = (v * 255.0) as u8;
-        if h <= 0.0 {
-            return Color([vp, vp, vp]);
-        }
-        let hh = (h % 360.0) / 60.0;
-        let i = hh as i32;
-        let ff = hh - i as f32;
-        let p = ((v * (1.0 - s)) * 255.0) as u8;
-        let q = ((v * (1.0 - (s * ff))) * 255.0) as u8;
-        let t = ((v * (1.0 - (s * (1.0 - ff)))) * 255.0) as u8;
+        let hh = ((h % 360.0) + if h < 0.0 { 360.0 } else { 0.0 }) / 60.0;
+        let ss = s.min(1.0).max(0.0);
+        let vv = v.min(1.0).max(0.0);
 
-        match i {
-            0 => Color([vp, t, p]),
-            1 => Color([q, vp, p]),
-            2 => Color([p, vp, t]),
-            3 => Color([p, q, vp]),
-            4 => Color([t, p, vp]),
-            _ => Color([vp, p, q]),
+        let chroma = vv * ss;
+        let x = chroma * (1.0 - (hh % 2.0 - 1.0).abs());
+
+        let m = vv - chroma;
+
+        let i = ((chroma + m) * 255.0) as u8;
+        let j = ((x + m) * 255.0) as u8;
+        let k = (m * 255.0) as u8;
+
+        match hh as i32 {
+            0 => Color([i, j, k]),
+            1 => Color([j, i, k]),
+            2 => Color([k, i, j]),
+            3 => Color([k, j, i]),
+            4 => Color([j, k, i]),
+            _ => Color([i, k, j]),
         }
+    }
+
+    /// Convert HSL (hue, saturation, lightness) representation to RGB. `h` should be in the range
+    /// [0, 360], and `s` and `v` should be in the range [0, 1]; however, this function will still
+    /// work for values outside those ranges (`h` is interpreted mod 360, and `s` and `v` are
+    /// clamped).
+    ///
+    /// ```
+    /// # extern crate dashing;
+    /// # use dashing::resources::sprite::Color;
+    /// # #[macro_use] extern crate hamcrest;
+    /// # use hamcrest::prelude::*;
+    /// # fn main() {
+    /// assert_that!(Color::from_hsl(0.0, 1.0, 0.5), is(equal_to(Color::new(255, 0, 0))));
+    /// assert_that!(Color::from_hsl(0.0, 1.0, 0.25), is(equal_to(Color::new(127, 0, 0))));
+    /// assert_that!(Color::from_hsl(60.0, 1.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_that!(Color::from_hsl(53.0, 0.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
+    /// assert_that!(Color::from_hsl(53.0, 1.0, 1.0), is(equal_to(Color::new(255, 255, 255))));
+    /// assert_that!(Color::from_hsl(21.0, 0.0, 0.0), is(equal_to(Color::new(0, 0, 0))));
+    /// // Out of bounds hue
+    /// assert_that!(Color::from_hsl(420.0, 1.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_that!(Color::from_hsl(-300.0, 1.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
+    /// // Out of bounds saturation
+    /// assert_that!(Color::from_hsl(60.0, 200.0, 0.5), is(equal_to(Color::new(255, 255, 0))));
+    /// assert_that!(Color::from_hsl(60.0, -200.0, 0.5), is(equal_to(Color::new(127, 127, 127))));
+    /// // Out of bounds value
+    /// assert_that!(Color::from_hsl(60.0, 1.0, 200.0), is(equal_to(Color::new(255, 255, 255))));
+    /// assert_that!(Color::from_hsl(60.0, 1.0, -200.0), is(equal_to(Color::new(0, 0, 0))));
+    /// # }
+    ///
+    /// ```
+    pub fn from_hsl(h: f32, s: f32, l: f32) -> Self {
+        let hh = ((h % 360.0) + if h < 0.0 { 360.0 } else { 0.0 }) / 60.0;
+        let ss = s.min(1.0).max(0.0);
+        let ll = l.min(1.0).max(0.0);
+
+        let chroma = (1.0 - (2.0 * ll - 1.0).abs()) * ss;
+        let x = chroma * (1.0 - (hh % 2.0 - 1.0).abs());
+
+        let m = ll - chroma / 2.0;
+
+        let i = ((chroma + m) * 255.0) as u8;
+        let j = ((x + m) * 255.0) as u8;
+        let k = (m * 255.0) as u8;
+
+        match hh as i32 {
+            0 => Color([i, j, k]),
+            1 => Color([j, i, k]),
+            2 => Color([k, i, j]),
+            3 => Color([k, j, i]),
+            4 => Color([j, k, i]),
+            _ => Color([i, k, j]),
+        }
+    }
+
+    /// Convert HWB (hue, white, black) representation to RGB.
+    ///
+    /// ```
+    /// # extern crate dashing;
+    /// # use dashing::resources::sprite::Color;
+    /// # #[macro_use] extern crate hamcrest;
+    /// # use hamcrest::prelude::*;
+    /// # fn main() {
+    /// assert_that!(Color::from_hwb(120.0, 0.0, 0.0), is(equal_to(Color::new(0, 255, 0))));
+    /// assert_that!(Color::from_hwb(120.0, 0.5, 0.5), is(equal_to(Color::new(127, 127, 127))));
+    /// assert_that!(Color::from_hwb(120.0, 0.5, 0.0), is(equal_to(Color::new(127, 255, 127))));
+    /// assert_that!(Color::from_hwb(120.0, 0.0, 0.5), is(equal_to(Color::new(0, 127, 0))));
+    /// // W/B values can be > 1.0 but it mashes the result into an even gray.
+    /// assert_that!(Color::from_hwb(120.0, 25.0, 75.0), is(equal_to(Color::new(63, 63, 63))));
+    /// # }
+    /// ```
+    pub fn from_hwb(h: f32, w: f32, b: f32) -> Self {
+        let ww = w.max(0.0);
+        let bb = b.max(0.0);
+        let www = if ww + bb > 1.0 { ww / (ww + bb) } else { ww };
+        let bbb = if ww + bb > 1.0 { bb / (ww + bb) } else { bb };
+        Self::from_hsv(h, 1.0 - www / (1.0 - bbb), 1.0 - bbb)
+    }
+}
+
+impl From<Color> for [u8; 3] {
+    fn from(c: Color) -> Self {
+        c.0
     }
 }
 
@@ -55,7 +165,7 @@ pub struct Palette {
 impl Palette {
     /// This lets you set a palette via a builder-style pattern. E.g.,
     ///
-    /// ```rust
+    /// ```
     /// use dashing::resources::sprite::Palette;
     ///
     /// let p = Palette::default().set(1, [0, 255, 0]);
@@ -282,7 +392,7 @@ pub trait SpriteCollection {
 
 #[cfg(test)]
 mod tests {
-    use spectral::prelude::*;
+    use hamcrest::prelude::*;
     use std;
     use super::*;
 
@@ -335,10 +445,10 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_that!(&texture.width).is_equal_to(8);
-        assert_that!(&texture.height).is_equal_to(4);
-        assert_that!(&texture.sprite_width).is_equal_to(4);
-        assert_that!(&texture.sprite_height).is_equal_to(4);
+        assert_that!(texture.width, is(equal_to(8)));
+        assert_that!(texture.height, is(equal_to(4)));
+        assert_that!(texture.sprite_width, is(equal_to(4)));
+        assert_that!(texture.sprite_height, is(equal_to(4)));
         let expected_texture: Vec<u8> = {
             #[cfg_attr(rustfmt, rustfmt_skip)]
             vec![0, 1, 1, 0, 1, 1, 1, 1,
@@ -347,7 +457,10 @@ mod tests {
                  0, 0, 0, 1, 1, 0, 0, 0,
             ]
         };
-        assert_that!(&texture.pixels).is_equal_to(expected_texture.into_boxed_slice());
+        assert_that!(
+            texture.pixels,
+            is(equal_to(expected_texture.into_boxed_slice()))
+        );
     }
 
     #[test]
@@ -384,10 +497,10 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_that!(texture.width).is_equal_to(8);
-        assert_that!(texture.height).is_equal_to(8);
-        assert_that!(texture.sprite_width).is_equal_to(4);
-        assert_that!(texture.sprite_height).is_equal_to(4);
+        assert_that!(texture.width, is(equal_to(8)));
+        assert_that!(texture.height, is(equal_to(8)));
+        assert_that!(texture.sprite_width, is(equal_to(4)));
+        assert_that!(texture.sprite_height, is(equal_to(4)));
         let expected_texture: Vec<u8> = {
             #[cfg_attr(rustfmt, rustfmt_skip)]
             vec![0, 0, 0, 0, 1, 1, 1, 1,
@@ -400,7 +513,10 @@ mod tests {
                  1, 1, 1, 1, 0, 0, 0, 0,
             ]
         };
-        assert_that!(&texture.pixels).is_equal_to(expected_texture.into_boxed_slice());
+        assert_that!(
+            texture.pixels,
+            is(equal_to(expected_texture.into_boxed_slice()))
+        );
     }
 
     #[test]
@@ -437,10 +553,10 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_that!(texture.width).is_equal_to(6);
-        assert_that!(texture.height).is_equal_to(8);
-        assert_that!(texture.sprite_width).is_equal_to(3);
-        assert_that!(texture.sprite_height).is_equal_to(4);
+        assert_that!(texture.width, is(equal_to(6)));
+        assert_that!(texture.height, is(equal_to(8)));
+        assert_that!(texture.sprite_width, is(equal_to(3)));
+        assert_that!(texture.sprite_height, is(equal_to(4)));
         let expected_texture: Vec<u8> = {
             #[cfg_attr(rustfmt, rustfmt_skip)]
             vec![1, 0, 1, 1, 1, 1,
@@ -453,6 +569,9 @@ mod tests {
                  1, 1, 1, 0, 0, 0,
             ]
         };
-        assert_that!(&texture.pixels).is_equal_to(expected_texture.into_boxed_slice());
+        assert_that!(
+            texture.pixels,
+            is(equal_to(expected_texture.into_boxed_slice()))
+        );
     }
 }

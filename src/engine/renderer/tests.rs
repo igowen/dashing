@@ -12,7 +12,7 @@ use offscreen_gl_context::{ColorAttachmentType, GLContext, NativeGLContext,
 use png::{self, HasParameters};
 #[allow(unused)]
 use pretty_logger;
-use spectral::prelude::*;
+use hamcrest::prelude::*;
 use std::os::raw::c_void;
 use std::sync::{Mutex, MutexGuard};
 use super::*;
@@ -192,7 +192,7 @@ fn render_one_cell() {
         .unwrap()
         .to_rgba()
         .into_raw();
-    assert_that(&actual_image).is_equal_to(&expected_image);
+    assert_that!(&actual_image, is(equal_to(&expected_image)));
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn render_one_cell_sprite_change() {
         .into_raw();
 
     // These shouldn't match.
-    assert_that(&actual_image).is_not_equal_to(&expected_image);
+    assert_that!(&actual_image, is(not(equal_to(&expected_image))));
 
     harness.renderer.update(
         [
@@ -236,7 +236,7 @@ fn render_one_cell_sprite_change() {
     let actual_image_2 = harness.extract_render_result();
 
     // These should.
-    assert_that(&actual_image_2).is_equal_to(&expected_image);
+    assert_that!(&actual_image_2, is(equal_to(&expected_image)));
 }
 
 #[test]
@@ -274,8 +274,8 @@ fn render_2x2_with_color() {
         .to_rgba()
         .into_raw();
 
-    assert_that(&actual_image.len()).is_equal_to(&expected_image.len());
-    assert_that(&actual_image).is_equal_to(&expected_image);
+    assert_that!(actual_image.len(), is(equal_to(expected_image.len())));
+    assert_that!(&actual_image, is(equal_to(&expected_image)));
 }
 
 #[test]
@@ -300,5 +300,5 @@ fn gray() {
         .unwrap()
         .to_rgba()
         .into_raw();
-    assert_that(&actual_image).is_equal_to(&expected_image);
+    assert_that!(&actual_image, is(equal_to(&expected_image)));
 }

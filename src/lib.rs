@@ -2,23 +2,31 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```no_run
 //! extern crate dashing;
 //! extern crate sdl2;
 //! // Screen dimensions in characters.
+//! use dashing::*;
 //! const WIDTH: u32 = 21;
 //! const HEIGHT: u32 = 3;
 //! pub fn main() {
-//!     let mut window = dashing::engine::window::WindowBuilder::new("dashing", WIDTH, HEIGHT)
+//!     let pixels: Vec<u8> = vec![]; // Add your own texture here
+//!     let tex = resources::sprite::SpriteTexture::new_from_pixels(
+//!         &pixels[..],
+//!         128,
+//!         128,
+//!         8,
+//!         8,
+//!         256).unwrap();
+//!     let mut window = engine::window::WindowBuilder::new("dashing", WIDTH, HEIGHT, &tex)
 //!         .build()
 //!         .unwrap();
 //!     let message = String::from("Swash your buckles!");
 //!     'main: loop {
-//!         let mut s = vec![dashing::engine::renderer::SpriteMeta::default(); 21 * 3];
+//!         let mut s = vec![engine::renderer::SpriteCellMeta::default(); 21 * 3];
 //!         for (i, c) in message.chars().enumerate() {
-//!             s[22 + i] = dashing::engine::renderer::SpriteMeta {
-//!                 fg_color: [0.0, 1.0, 0.0, 1.0],
-//!                 bg_color: [0.0, 0.0, 0.0, 1.0],
+//!             s[22 + i] = engine::renderer::SpriteCellMeta {
+//!                 palette: resources::sprite::Palette::mono([0,0,0]).set(1, [255, 255, 255]),
 //!                 sprite: c as u32,
 //!             };
 //!         }
@@ -101,4 +109,4 @@ extern crate png;
 extern crate pretty_logger;
 #[cfg(test)]
 #[macro_use]
-extern crate spectral;
+extern crate hamcrest;
