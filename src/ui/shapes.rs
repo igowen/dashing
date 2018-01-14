@@ -1,4 +1,4 @@
-use engine::SpriteLayer;
+use graphics::SpriteLayer;
 use resources::color::Palette;
 use resources::sprite::SpriteMap;
 

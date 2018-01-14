@@ -3,7 +3,7 @@ use gfx_window_sdl;
 use sdl2;
 use std;
 
-use engine::renderer;
+use graphics::render;
 use resources::sprite::SpriteTexture;
 
 const GL_MAJOR_VERSION: u8 = 3;
@@ -17,7 +17,7 @@ pub enum WindowError {
     /// Error from the SDL subsystem.
     SDLError(String),
     /// Error from the renderer.
-    RenderError(renderer::RenderError),
+    RenderError(render::RenderError),
 }
 
 // TODO: Get rid of this, it really sucks.
@@ -30,8 +30,8 @@ where
     }
 }
 
-impl std::convert::From<renderer::RenderError> for WindowError {
-    fn from(e: renderer::RenderError) -> Self {
+impl std::convert::From<render::RenderError> for WindowError {
+    fn from(e: render::RenderError) -> Self {
         WindowError::RenderError(e)
     }
 }
@@ -100,7 +100,7 @@ impl<'a> WindowBuilder<'a> {
         }
 
         let window_result =
-            gfx_window_sdl::init::<renderer::ColorFormat, renderer::DepthFormat>(&video, builder);
+            gfx_window_sdl::init::<render::ColorFormat, render::DepthFormat>(&video, builder);
         let (window, gl_context, mut device, mut factory, color_view, depth_view);
         match window_result {
             Err(e) => {
@@ -137,7 +137,7 @@ impl<'a> WindowBuilder<'a> {
             device.with_gl(|gl| { gl.Disable(gl::FRAMEBUFFER_SRGB); })
         }
 
-        let renderer = renderer::Renderer::new(
+        let renderer = render::Renderer::new(
             device,
             factory,
             command_buffer,
@@ -170,7 +170,7 @@ pub struct Window {
     video: sdl2::VideoSubsystem,
     window: sdl2::video::Window,
     gl_context: sdl2::video::GLContext,
-    renderer: renderer::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
+    renderer: render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
 
     width: u32,
     height: u32,
@@ -188,12 +188,12 @@ impl Window {
     /// Get a mutable reference to the underlying renderer.
     pub fn renderer_mut(
         &mut self,
-    ) -> &mut renderer::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
+    ) -> &mut render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
         &mut self.renderer
     }
 
     /// Get an immutable reference to the underlying renderer.
-    pub fn renderer(&self) -> &renderer::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
+    pub fn renderer(&self) -> &render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
         &self.renderer
     }
 }

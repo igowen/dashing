@@ -1,7 +1,5 @@
-/// Functionality for dealing with the windowing system.
-pub mod window;
 /// Low-level rendering subsystem.
-pub mod renderer;
+pub mod render;
 
 use std;
 use resources::color::Palette;
@@ -130,6 +128,7 @@ impl std::ops::IndexMut<(usize, usize)> for SpriteLayer {
 
 #[cfg(test)]
 mod tests {
+    use hamcrest::prelude::*;
     use super::*;
     #[test]
     fn stamp_sprite_value() {
@@ -139,9 +138,41 @@ mod tests {
             cell.sprite = 2;
         }
         l2.stamp_onto(&mut l1, 0, 0);
-        assert_eq!(
+
+        let expected_sprites: Vec<u32> = {
+            #[cfg_attr(rustfmt, rustfmt_skip)]
+            vec![2, 2, 0, 0,
+                 2, 2, 0, 0,
+                 2, 2, 0, 0,
+                 0, 0, 0, 0,
+            ]
+        };
+
+        assert_that!(
             l1.iter().map(|c| c.sprite).collect::<Vec<u32>>(),
-            vec![2, 2, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0]
+            is(equal_to(expected_sprites))
+        );
+    }
+    #[test]
+    fn stamp_transparency() {
+        let mut l1 = SpriteLayer::new(4, 4);
+        let mut l2 = SpriteLayer::new(2, 3);
+        for cell in l2.iter_mut() {
+            cell.sprite = 2;
+        }
+        l2[(1, 1)].transparent = true;
+        l2.stamp_onto(&mut l1, 0, 0);
+        let expected_sprites: Vec<u32> = {
+            #[cfg_attr(rustfmt, rustfmt_skip)]
+            vec![2, 2, 0, 0,
+                 2, 0, 0, 0,
+                 2, 2, 0, 0,
+                 0, 0, 0, 0,
+            ]
+        };
+        assert_that!(
+            l1.iter().map(|c| c.sprite).collect::<Vec<u32>>(),
+            is(equal_to(expected_sprites))
         );
     }
 }

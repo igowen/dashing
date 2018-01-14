@@ -18,14 +18,14 @@
 //!         8,
 //!         8,
 //!         256).unwrap();
-//!     let mut window = engine::window::WindowBuilder::new("dashing", WIDTH, HEIGHT, &tex)
+//!     let mut window = window::WindowBuilder::new("dashing", WIDTH, HEIGHT, &tex)
 //!         .build()
 //!         .unwrap();
 //!     let message = String::from("Swash your buckles!");
 //!     'main: loop {
-//!         let mut s = vec![engine::SpriteCell::default(); 21 * 3];
+//!         let mut s = vec![graphics::SpriteCell::default(); 21 * 3];
 //!         for (i, c) in message.chars().enumerate() {
-//!             s[22 + i] = engine::SpriteCell {
+//!             s[22 + i] = graphics::SpriteCell {
 //!                 palette: resources::color::Palette::mono([0,0,0]).set(1, [255, 255, 255]),
 //!                 sprite: c as u32,
 //!                 transparent: false,
@@ -80,11 +80,11 @@ extern crate log;
 extern crate sdl2;
 extern crate time;
 
-/// The `engine` module contains the interface for doing graphics, input, and sound. It has minimal
-/// dependencies on other parts of the library, so if you just want an OpenGL-based sprite grid,
-/// you could theoretically use it by itself without using the higher-level functionality provided
-/// by other modules.
-pub mod engine;
+/// Routines for creating and managing the game window.
+pub mod window;
+
+/// API for interacting with the low-level rendering system.
+pub mod graphics;
 
 /// Functionality for loading and managing game data, such as sprite textures.
 pub mod resources;
