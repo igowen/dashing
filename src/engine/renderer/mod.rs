@@ -8,7 +8,8 @@ use gfx::traits::FactoryExt;
 #[allow(unused)]
 use itertools::Itertools;
 
-use resources::sprite::{Palette, SpriteTexture};
+use resources::sprite::SpriteTexture;
+use super::SpriteCell;
 
 #[cfg(test)]
 mod tests;
@@ -235,7 +236,11 @@ where
 
         let cell_globals = CellGlobals {
             screen_size_in_sprites: [width as u32, height as u32],
-            sprite_map_dimensions: [16, 16],
+            sprite_map_dimensions: [
+                (sprite_texture.width() / sprite_texture.sprite_width()) as u32,
+                (sprite_texture.height() / sprite_texture.sprite_height()) as
+                    u32,
+            ],
         };
 
         let sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
@@ -320,25 +325,17 @@ where
         let palette_texture = factory.create_texture::<gfx::format::R8_G8_B8_A8>(
             palette_texture_kind,
             1,
-            //gfx::memory::Bind::TRANSFER_DST |
             gfx::memory::Bind::SHADER_RESOURCE,
             gfx::memory::Usage::Dynamic,
             Some(gfx::format::ChannelType::Unorm),
         )?;
+
         let palette_view = factory
             .view_texture_as_shader_resource::<gfx::format::Rgba8>(
                 &palette_texture,
                 (0, 0),
                 gfx::format::Swizzle::new(),
             )?;
-
-        /*
-        let (_palette_texture, palette_view) = factory
-            .create_texture_immutable_u8::<gfx::format::Rgba8>(
-                kind,
-                gfx::texture::Mipmap::Provided,
-                &[&palette_data[..]],
-            )?;*/
 
         let intermediate_data = pipe::Data {
             vertex_buffer: cell_vertex_buffer,
@@ -486,7 +483,7 @@ where
     pub fn update<'a, T, U>(&mut self, data: T)
     where
         T: Iterator<Item = U>,
-        U: Into<&'a SpriteCellMeta>,
+        U: Into<&'a SpriteCell>,
     {
         for (i, d, p) in itertools::multizip((
             self.instances.iter_mut(),
@@ -494,18 +491,9 @@ where
             self.palette_data.iter_mut(),
         ))
         {
-            let c: &SpriteCellMeta = d.into();
+            let c: &SpriteCell = d.into();
             i.sprite = c.sprite;
             *p = c.palette.into();
         }
     }
-}
-
-/// Sprite metadata
-#[derive(Copy, Clone, Default, Debug)]
-pub struct SpriteCellMeta {
-    /// Color for the cell.
-    pub palette: Palette,
-    /// Sprite index.
-    pub sprite: u32,
 }

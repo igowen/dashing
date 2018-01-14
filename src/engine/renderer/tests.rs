@@ -15,7 +15,9 @@ use pretty_logger;
 use hamcrest::prelude::*;
 use std::os::raw::c_void;
 use std::sync::{Mutex, MutexGuard};
+
 use super::*;
+use resources::color::Palette;
 
 // offscreen_gl_context doesn't like it when multiple threads try to create a GL context
 // simultaneously, so we use a mutex to serialize the tests.
@@ -176,9 +178,10 @@ fn render_one_cell() {
 
     harness.renderer.update(
         [
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
                 sprite: 1,
+                ..Default::default()
             },
         ].iter(),
     );
@@ -201,9 +204,10 @@ fn render_one_cell_sprite_change() {
 
     harness.renderer.update(
         [
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
                 sprite: 2,
+                ..Default::default()
             },
         ].iter(),
     );
@@ -223,9 +227,10 @@ fn render_one_cell_sprite_change() {
 
     harness.renderer.update(
         [
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
                 sprite: 1,
+                ..Default::default()
             },
         ].iter(),
     );
@@ -245,21 +250,25 @@ fn render_2x2_with_color() {
 
     harness.renderer.update(
         [
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([255, 0, 255]).set(0, [0, 0, 0]),
                 sprite: 72,
+                ..Default::default()
             },
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([0, 255, 255]).set(0, [0, 0, 0]),
                 sprite: 105,
+                ..Default::default()
             },
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
                 sprite: 33,
+                ..Default::default()
             },
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([0, 255, 0]).set(0, [0, 0, 0]),
                 sprite: 19,
+                ..Default::default()
             },
         ].iter(),
     );
@@ -284,9 +293,10 @@ fn gray() {
 
     harness.renderer.update(
         [
-            SpriteCellMeta {
+            SpriteCell {
                 palette: Palette::mono([128, 128, 128]),
                 sprite: 0,
+                ..Default::default()
             },
         ].iter(),
     );

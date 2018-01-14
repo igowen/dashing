@@ -23,11 +23,12 @@
 //!         .unwrap();
 //!     let message = String::from("Swash your buckles!");
 //!     'main: loop {
-//!         let mut s = vec![engine::renderer::SpriteCellMeta::default(); 21 * 3];
+//!         let mut s = vec![engine::SpriteCell::default(); 21 * 3];
 //!         for (i, c) in message.chars().enumerate() {
-//!             s[22 + i] = engine::renderer::SpriteCellMeta {
-//!                 palette: resources::sprite::Palette::mono([0,0,0]).set(1, [255, 255, 255]),
+//!             s[22 + i] = engine::SpriteCell {
+//!                 palette: resources::color::Palette::mono([0,0,0]).set(1, [255, 255, 255]),
 //!                 sprite: c as u32,
+//!                 transparent: false,
 //!             };
 //!         }
 //!         window.renderer_mut().update(s.iter());
@@ -54,7 +55,6 @@
 //! * Entity-Component system
 //! * Serialization/persistence framework
 //! * Graphics improvements
-//!   * ~~Palettized sprites~~
 //!   * User-specified shaders
 //!   * Animated sprites
 //! * Resource management system
@@ -65,6 +65,7 @@
 #![deny(warnings)]
 #![deny(missing_docs)]
 #![allow(dead_code)]
+#![feature(trait_alias)]
 
 #[macro_use]
 extern crate gfx;
