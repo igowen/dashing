@@ -1,6 +1,6 @@
-use graphics::SpriteLayer;
-use resources::color::Palette;
-use resources::sprite::SpriteMap;
+use crate::graphics::SpriteLayer;
+use crate::resources::color::Palette;
+use crate::resources::sprite::SpriteMap;
 
 /// Sprites necessary for these drawing routines.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

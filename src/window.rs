@@ -3,8 +3,8 @@ use gfx_window_sdl;
 use sdl2;
 use std;
 
-use graphics::render;
-use resources::sprite::SpriteTexture;
+use crate::graphics::render;
+use crate::resources::sprite::SpriteTexture;
 
 const GL_MAJOR_VERSION: u8 = 3;
 const GL_MINOR_VERSION: u8 = 2;

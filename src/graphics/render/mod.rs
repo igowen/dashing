@@ -8,7 +8,7 @@ use gfx::traits::FactoryExt;
 #[allow(unused)]
 use itertools::Itertools;
 
-use resources::sprite::SpriteTexture;
+use crate::resources::sprite::SpriteTexture;
 use super::SpriteCell;
 
 #[cfg(test)]

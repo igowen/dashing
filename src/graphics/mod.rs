@@ -2,7 +2,7 @@
 pub mod render;
 
 use std;
-use resources::color::Palette;
+use crate::resources::color::Palette;
 
 /// Sprite metadata
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]

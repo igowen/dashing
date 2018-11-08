@@ -19,7 +19,7 @@ time = "*"
 itertools = "*"
 
 [dev-dependencies]
-euclid = "*"
+euclid = "^0.19"
 gleam = "*"
 hamcrest = "*"
 lazy_static = "*"
