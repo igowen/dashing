@@ -17,7 +17,7 @@ use std::os::raw::c_void;
 use std::sync::{Mutex, MutexGuard};
 
 use super::*;
-use resources::color::Palette;
+use crate::resources::color::Palette;
 
 // offscreen_gl_context doesn't like it when multiple threads try to create a GL context
 // simultaneously, so we use a mutex to serialize the tests.
@@ -311,4 +311,30 @@ fn gray() {
         .to_rgba()
         .into_raw();
     assert_that!(&actual_image, is(equal_to(&expected_image)));
+}
+
+#[test]
+#[ignore]
+fn big() {
+    let mut harness = RenderTestSupportHarness::new(1000, 60);
+
+    harness.renderer.update(
+        [
+            SpriteCell {
+                palette: Palette::mono([128, 128, 128]),
+                sprite: 0,
+                ..Default::default()
+            },
+        ].iter(),
+    );
+
+    // Render the frame.
+    harness.renderer.render().unwrap();
+
+    let _actual_image = harness.extract_render_result();
+
+    //let expected_image = image::load_from_memory(include_bytes!("testdata/50pct_gray.png"))
+    //    .unwrap()
+    //    .to_rgba()
+    //    .into_raw();
 }
