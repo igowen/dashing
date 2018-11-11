@@ -215,16 +215,16 @@ where
 
         let cell_pso: gfx::pso::PipelineState<D::Resources, pipe::Meta> = factory
             .create_pipeline_simple(
-                include_bytes!("shader/cell.glslv"),
-                include_bytes!("shader/cell.glslf"),
+                include_bytes!("render/shader/cell.glslv"),
+                include_bytes!("render/shader/cell.glslf"),
                 pipe::new(),
             )?;
 
         // TODO: Allow users to provide their own pixel shader for full screen effects.
         let screen_pso: gfx::pso::PipelineState<D::Resources, screen_pipe::Meta> = factory
             .create_pipeline_simple(
-                include_bytes!("shader/screen.glslv"),
-                include_bytes!("shader/screen.glslf"),
+                include_bytes!("render/shader/screen.glslv"),
+                include_bytes!("render/shader/screen.glslf"),
                 screen_pipe::new(),
             )?;
 
