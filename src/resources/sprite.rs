@@ -153,7 +153,7 @@ pub trait SpriteCollection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hamcrest::prelude::*;
+    use hamcrest::*;
     use std;
 
     struct TestSpriteCollection {

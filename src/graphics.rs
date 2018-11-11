@@ -129,7 +129,7 @@ impl std::ops::IndexMut<(usize, usize)> for SpriteLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hamcrest::prelude::*;
+    use hamcrest::*;
     #[test]
     fn stamp_sprite_value() {
         let mut l1 = SpriteLayer::new(4, 4);

@@ -7,7 +7,9 @@ use gfx_core::memory::Typed;
 use gfx_device_gl;
 use gleam::gl::GlType;
 use hamcrest::prelude::*;
+use hamcrest::*;
 use image;
+use lazy_static::lazy_static;
 use offscreen_gl_context::{
     ColorAttachmentType, GLContext, GLContextAttributes, GLVersion, NativeGLContext,
     NativeGLContextMethods,
