@@ -1,8 +1,8 @@
 /// Low-level rendering subsystem.
 pub mod render;
 
-use std;
 use crate::resources::color::Palette;
+use std;
 
 /// Sprite metadata
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
@@ -128,8 +128,8 @@ impl std::ops::IndexMut<(usize, usize)> for SpriteLayer {
 
 #[cfg(test)]
 mod tests {
-    use hamcrest::prelude::*;
     use super::*;
+    use hamcrest::prelude::*;
     #[test]
     fn stamp_sprite_value() {
         let mut l1 = SpriteLayer::new(4, 4);

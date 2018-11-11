@@ -6,13 +6,15 @@ use gfx::Factory;
 use gfx_core::memory::Typed;
 use gfx_device_gl;
 use gleam::gl::GlType;
+use hamcrest::prelude::*;
 use image;
-use offscreen_gl_context::{ColorAttachmentType, GLContext, NativeGLContext,
-                           NativeGLContextMethods, GLVersion, GLContextAttributes};
+use offscreen_gl_context::{
+    ColorAttachmentType, GLContext, GLContextAttributes, GLVersion, NativeGLContext,
+    NativeGLContextMethods,
+};
 use png::{self, HasParameters};
 #[allow(unused)]
 use pretty_logger;
-use hamcrest::prelude::*;
 use std::os::raw::c_void;
 use std::sync::{Mutex, MutexGuard};
 
@@ -21,7 +23,7 @@ use crate::resources::color::Palette;
 
 // offscreen_gl_context doesn't like it when multiple threads try to create a GL context
 // simultaneously, so we use a mutex to serialize the tests.
-lazy_static!{
+lazy_static! {
     static ref OFFSCREEN_GL_MUTEX: Mutex<()> = Mutex::new(());
 }
 
@@ -60,7 +62,8 @@ impl RenderTestSupportHarness {
             reader.info().size().0 as usize / 16,
             reader.info().size().1 as usize / 16,
             256,
-        ).unwrap();
+        )
+        .unwrap();
 
         let sprite_width = tex.sprite_width();
         let sprite_height = tex.sprite_height();
@@ -77,7 +80,8 @@ impl RenderTestSupportHarness {
             GlType::Gl,
             GLVersion::MajorMinor(3, 2),
             None,
-        ).unwrap();
+        )
+        .unwrap();
 
         let (device, mut factory) =
             gfx_device_gl::create(|p| NativeGLContext::get_proc_address(p) as *const c_void);
@@ -93,8 +97,9 @@ impl RenderTestSupportHarness {
                     gfx::texture::AaMode::Single,
                 ),
                 1,
-                gfx::memory::Bind::RENDER_TARGET | gfx::memory::Bind::SHADER_RESOURCE |
-                    gfx::memory::Bind::TRANSFER_SRC,
+                gfx::memory::Bind::RENDER_TARGET
+                    | gfx::memory::Bind::SHADER_RESOURCE
+                    | gfx::memory::Bind::TRANSFER_SRC,
                 gfx::memory::Usage::Data,
                 Some(gfx::format::ChannelType::Unorm),
             )
@@ -120,7 +125,8 @@ impl RenderTestSupportHarness {
             width,
             height,
             &tex,
-        ).unwrap();
+        )
+        .unwrap();
 
         RenderTestSupportHarness {
             gl_context: gl_context,
@@ -137,12 +143,13 @@ impl RenderTestSupportHarness {
     /// Extract the rendered image from the offscreen context.
     fn extract_render_result(&mut self) -> Vec<u8> {
         // Set up a download buffer to retrieve the image from the GPU.
-        let info = self.render_texture.get_info().to_raw_image_info(
-            gfx::format::ChannelType::Unorm,
-            0,
-        );
+        let info = self
+            .render_texture
+            .get_info()
+            .to_raw_image_info(gfx::format::ChannelType::Unorm, 0);
 
-        let buffer = self.renderer
+        let buffer = self
+            .renderer
             .factory
             .create_download_buffer::<u8>(info.get_byte_count())
             .unwrap();
@@ -161,8 +168,7 @@ impl RenderTestSupportHarness {
         // OpenGL stores textures upside down from what we would expect, so flip it before doing
         // the comparison.
         let mut flipped_image = Vec::<u8>::with_capacity(
-            self.sprite_width * self.width * self.sprite_height *
-                self.height * 4,
+            self.sprite_width * self.width * self.sprite_height * self.height * 4,
         );
         for row in data.chunks(self.sprite_width * self.width * 4).rev() {
             flipped_image.extend(row);
@@ -177,13 +183,12 @@ fn render_one_cell() {
     let mut harness = RenderTestSupportHarness::new(1, 1);
 
     harness.renderer.update(
-        [
-            SpriteCell {
-                palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
-                sprite: 1,
-                ..Default::default()
-            },
-        ].iter(),
+        [SpriteCell {
+            palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
+            sprite: 1,
+            ..Default::default()
+        }]
+        .iter(),
     );
 
     // Render the frame.
@@ -203,13 +208,12 @@ fn render_one_cell_sprite_change() {
     let mut harness = RenderTestSupportHarness::new(1, 1);
 
     harness.renderer.update(
-        [
-            SpriteCell {
-                palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
-                sprite: 2,
-                ..Default::default()
-            },
-        ].iter(),
+        [SpriteCell {
+            palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
+            sprite: 2,
+            ..Default::default()
+        }]
+        .iter(),
     );
 
     // Render the frame.
@@ -226,13 +230,12 @@ fn render_one_cell_sprite_change() {
     assert_that!(&actual_image, is(not(equal_to(&expected_image))));
 
     harness.renderer.update(
-        [
-            SpriteCell {
-                palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
-                sprite: 1,
-                ..Default::default()
-            },
-        ].iter(),
+        [SpriteCell {
+            palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
+            sprite: 1,
+            ..Default::default()
+        }]
+        .iter(),
     );
 
     // Render the frame.
@@ -270,7 +273,8 @@ fn render_2x2_with_color() {
                 sprite: 19,
                 ..Default::default()
             },
-        ].iter(),
+        ]
+        .iter(),
     );
 
     // Render the frame.
@@ -292,13 +296,12 @@ fn gray() {
     let mut harness = RenderTestSupportHarness::new(1, 1);
 
     harness.renderer.update(
-        [
-            SpriteCell {
-                palette: Palette::mono([128, 128, 128]),
-                sprite: 0,
-                ..Default::default()
-            },
-        ].iter(),
+        [SpriteCell {
+            palette: Palette::mono([128, 128, 128]),
+            sprite: 0,
+            ..Default::default()
+        }]
+        .iter(),
     );
 
     // Render the frame.
@@ -319,13 +322,12 @@ fn big() {
     let mut harness = RenderTestSupportHarness::new(1000, 60);
 
     harness.renderer.update(
-        [
-            SpriteCell {
-                palette: Palette::mono([128, 128, 128]),
-                sprite: 0,
-                ..Default::default()
-            },
-        ].iter(),
+        [SpriteCell {
+            palette: Palette::mono([128, 128, 128]),
+            sprite: 0,
+            ..Default::default()
+        }]
+        .iter(),
     );
 
     // Render the frame.

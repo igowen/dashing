@@ -276,7 +276,9 @@ impl Palette {
     /// }
     /// ```
     pub fn mono<C: Into<[u8; 3]>>(color: C) -> Self {
-        Palette { colors: [color.into(); 16] }
+        Palette {
+            colors: [color.into(); 16],
+        }
     }
 }
 
@@ -293,7 +295,6 @@ impl Default for Palette {
                 [0xaa, 0x00, 0xaa],
                 [0xaa, 0x55, 0x00],
                 [0xaa, 0xaa, 0xaa],
-
                 [0x55, 0x55, 0x55],
                 [0x55, 0x55, 0xff],
                 [0x55, 0xff, 0x55],

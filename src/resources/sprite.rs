@@ -1,6 +1,6 @@
+use itertools::Itertools;
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use itertools::Itertools;
 
 /// Trait for mapping symbolic sprites to their position in the sprite texture.
 pub trait SpriteMap<E> {
@@ -133,8 +133,8 @@ pub trait SpriteCollection {
                 if sprite_row.len() < sprites_wide {
                     pixels.extend(vec![
                         0;
-                        (sprites_wide - sprite_row.len()) *
-                            sprite_width as usize
+                        (sprites_wide - sprite_row.len())
+                            * sprite_width as usize
                     ]);
                 }
             }
@@ -152,9 +152,9 @@ pub trait SpriteCollection {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use hamcrest::prelude::*;
     use std;
-    use super::*;
 
     struct TestSpriteCollection {
         sprites: Box<[Sprite]>,

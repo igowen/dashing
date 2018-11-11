@@ -8,8 +8,8 @@ use gfx::traits::FactoryExt;
 #[allow(unused)]
 use itertools::Itertools;
 
-use crate::resources::sprite::SpriteTexture;
 use super::SpriteCell;
+use crate::resources::sprite::SpriteTexture;
 
 #[cfg(test)]
 mod tests;
@@ -43,7 +43,9 @@ where
 // NB: Scalars have looser alignment requirements in OpenGL, so we put them at the end of the struct
 // definition to minimize the possibility for error.
 mod internal {
+    // Need both of these `use` statements due to the way the macros are written :/
     use gfx;
+    use gfx::*;
     gfx_defines!{
         // Individual vertices.
         vertex Vertex {
@@ -101,7 +103,7 @@ mod internal {
     }
 }
 
-use self::internal::{Vertex, Instance, CellGlobals, ScreenGlobals, pipe, screen_pipe};
+use self::internal::{pipe, screen_pipe, CellGlobals, Instance, ScreenGlobals, Vertex};
 
 // Vertices for sprite cell quads.
 const QUAD_VERTICES: [Vertex; 4] = [
@@ -238,8 +240,7 @@ where
             screen_size_in_sprites: [width as u32, height as u32],
             sprite_map_dimensions: [
                 (sprite_texture.width() / sprite_texture.sprite_width()) as u32,
-                (sprite_texture.height() / sprite_texture.sprite_height()) as
-                    u32,
+                (sprite_texture.height() / sprite_texture.sprite_height()) as u32,
             ],
         };
 
@@ -269,9 +270,7 @@ where
             }
         }
 
-        let upload = factory.create_upload_buffer::<Instance>(
-            instance_count as usize,
-        )?;
+        let upload = factory.create_upload_buffer::<Instance>(instance_count as usize)?;
 
         let cell_globals_buffer = factory.create_buffer_immutable(
             &[cell_globals],
@@ -284,10 +283,8 @@ where
         let screen_width = width * sprite_texture.sprite_width();
         let screen_height = height * sprite_texture.sprite_height();
 
-        let (_, screen_texture, render_target) = factory.create_render_target(
-            screen_width as u16,
-            screen_height as u16,
-        )?;
+        let (_, screen_texture, render_target) =
+            factory.create_render_target(screen_width as u16, screen_height as u16)?;
 
         let screen_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
             gfx::texture::FilterMethod::Scale,
@@ -330,12 +327,11 @@ where
             Some(gfx::format::ChannelType::Unorm),
         )?;
 
-        let palette_view = factory
-            .view_texture_as_shader_resource::<gfx::format::Rgba8>(
-                &palette_texture,
-                (0, 0),
-                gfx::format::Swizzle::new(),
-            )?;
+        let palette_view = factory.view_texture_as_shader_resource::<gfx::format::Rgba8>(
+            &palette_texture,
+            (0, 0),
+            gfx::format::Swizzle::new(),
+        )?;
 
         let intermediate_data = pipe::Data {
             vertex_buffer: cell_vertex_buffer,
@@ -391,10 +387,8 @@ where
             writer.copy_from_slice(&self.instances[..]);
         }
 
-        self.encoder.clear(
-            &self.pipeline_data.screen_target,
-            [0.1, 0.0, 0.0, 1.0],
-        );
+        self.encoder
+            .clear(&self.pipeline_data.screen_target, [0.1, 0.0, 0.0, 1.0]);
 
         self.encoder.copy_buffer(
             &self.upload_buffer,
@@ -404,7 +398,8 @@ where
             self.upload_buffer.len(),
         )?;
 
-        let flat_palette_data: Vec<[u8; 4]> = self.palette_data
+        let flat_palette_data: Vec<[u8; 4]> = self
+            .palette_data
             .iter()
             .flat_map(|c| c.iter())
             .map(|c| [c[0], c[1], c[2], 255])
@@ -420,12 +415,8 @@ where
             )
             .unwrap();
 
-
-        self.encoder.draw(
-            &self.vertex_slice,
-            &self.pipeline,
-            &self.pipeline_data,
-        );
+        self.encoder
+            .draw(&self.vertex_slice, &self.pipeline, &self.pipeline_data);
 
         self.encoder.update_constant_buffer(
             &self.screen_pipeline_data.globals,
@@ -439,10 +430,8 @@ where
             },
         );
 
-        self.encoder.clear(
-            &self.screen_pipeline_data.out,
-            [0.0, 0.2, 0.0, 1.0],
-        );
+        self.encoder
+            .clear(&self.screen_pipeline_data.out, [0.0, 0.2, 0.0, 1.0]);
 
         self.encoder.draw(
             &self.screen_vertex_slice,
@@ -489,8 +478,7 @@ where
             self.instances.iter_mut(),
             data,
             self.palette_data.iter_mut(),
-        ))
-        {
+        )) {
             let c: &SpriteCell = d.into();
             i.sprite = c.sprite;
             *p = c.palette.into();

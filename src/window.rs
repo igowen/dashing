@@ -104,9 +104,10 @@ impl<'a> WindowBuilder<'a> {
         let (window, gl_context, mut device, mut factory, color_view, depth_view);
         match window_result {
             Err(e) => {
-                return Err(WindowError::SDLError(
-                    format!("Couldn't initialize SDL: {:?}", e),
-                ));
+                return Err(WindowError::SDLError(format!(
+                    "Couldn't initialize SDL: {:?}",
+                    e
+                )));
             }
             Ok((w, c, d, f, cv, dv)) => {
                 // Make sure we hold on to all of these -- if the GL context gets dropped, we can't
@@ -134,7 +135,9 @@ impl<'a> WindowBuilder<'a> {
         // entirely here. This is kind of a hack but it's the only way i've found to get around it.
         unsafe {
             use gl;
-            device.with_gl(|gl| { gl.Disable(gl::FRAMEBUFFER_SRGB); })
+            device.with_gl(|gl| {
+                gl.Disable(gl::FRAMEBUFFER_SRGB);
+            })
         }
 
         let renderer = render::Renderer::new(

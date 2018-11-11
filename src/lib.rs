@@ -91,23 +91,3 @@ pub mod resources;
 
 /// Functionality for building in-game UIs.
 pub mod ui;
-
-// Libraries used in tests.
-#[cfg(test)]
-extern crate euclid;
-#[cfg(test)]
-extern crate gleam;
-#[cfg(test)]
-extern crate image;
-#[cfg(test)]
-#[macro_use]
-extern crate lazy_static;
-#[cfg(test)]
-extern crate offscreen_gl_context;
-#[cfg(test)]
-extern crate png;
-#[cfg(test)]
-extern crate pretty_logger;
-#[cfg(test)]
-#[macro_use]
-extern crate hamcrest;
