@@ -62,7 +62,6 @@
 //! * Audio
 //! * Parallelism
 
-#![deny(warnings)]
 #![deny(missing_docs)]
 #![allow(dead_code)]
 #![feature(trait_alias)]

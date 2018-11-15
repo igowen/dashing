@@ -8,6 +8,15 @@ pub trait SpriteMap<E> {
     fn map(&self, e: E) -> u32;
 }
 
+impl<E, F> SpriteMap<E> for F
+where
+    F: Fn(E) -> u32,
+{
+    fn map(&self, e: E) -> u32 {
+        self(e)
+    }
+}
+
 /// Data for an individual sprite.
 #[derive(Clone, Debug)]
 pub struct Sprite {
