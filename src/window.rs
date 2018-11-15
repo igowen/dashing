@@ -1,6 +1,6 @@
 use gfx_device_gl;
-use gfx_window_sdl;
-use sdl2;
+use gfx_window_glutin;
+use glutin;
 use std;
 
 use crate::graphics::render;
@@ -81,53 +81,35 @@ impl<'a> WindowBuilder<'a> {
 
     /// Build the window.
     pub fn build(&self) -> Result<Window, WindowError> {
-        let sdl_context = sdl2::init()?;
-        let video = sdl_context.video()?;
-        {
-            let gl = video.gl_attr();
-            gl.set_context_profile(sdl2::video::GLProfile::Core);
-            gl.set_context_version(GL_MAJOR_VERSION, GL_MINOR_VERSION);
-        }
-
-        let screen_width = self.width * self.sprite_texture.sprite_width() as u32;
-        let screen_height = self.height * self.sprite_texture.sprite_height() as u32;
-
-        // TODO: HiDPI check for the x2 factor here.
         // TODO: Don't create a window bigger than the display.
-        let mut builder = video.window(self.window_title, screen_width, screen_height);
-        if self.full_screen {
-            builder.fullscreen_desktop();
-        }
+        let screen_width = (self.width * self.sprite_texture.sprite_width() as u32) as f64;
+        let screen_height = (self.height * self.sprite_texture.sprite_height() as u32) as f64;
 
-        let window_result =
-            gfx_window_sdl::init::<render::ColorFormat, render::DepthFormat>(&video, builder);
-        let (window, gl_context, mut device, mut factory, color_view, depth_view);
-        match window_result {
-            Err(e) => {
-                return Err(WindowError::SDLError(format!(
-                    "Couldn't initialize SDL: {:?}",
-                    e
-                )));
-            }
-            Ok((w, c, d, f, cv, dv)) => {
-                // Make sure we hold on to all of these -- if the GL context gets dropped, we can't
-                // do any GL operations, even though we don't interact with it directly.
-                window = w;
-                gl_context = c;
-                device = d;
-                factory = f;
-                color_view = cv;
-                depth_view = dv;
-            }
-        };
-
-        if self.enable_vsync {
-            video.gl_set_swap_interval(sdl2::video::SwapInterval::VSync);
-        } else {
-            video.gl_set_swap_interval(sdl2::video::SwapInterval::Immediate);
-        }
-
-        let event_pump = sdl_context.event_pump()?;
+        let event_loop = glutin::EventsLoop::new();
+        // TODO: Figure out how to deal with hidpi
+        let window_builder = glutin::WindowBuilder::new()
+            .with_title(self.window_title.to_string())
+            .with_dimensions(glutin::dpi::LogicalSize::from_physical(
+                glutin::dpi::PhysicalSize::new(screen_width, screen_height),
+                2.0,
+            ))
+            .with_maximized(self.full_screen)
+            .with_decorations(!self.full_screen)
+            .with_resizable(false);
+        let context = glutin::ContextBuilder::new()
+            .with_gl(glutin::GlRequest::Specific(
+                glutin::Api::OpenGl,
+                (GL_MAJOR_VERSION, GL_MINOR_VERSION),
+            ))
+            .with_gl_profile(glutin::GlProfile::Core)
+            .with_vsync(self.enable_vsync)
+            .with_double_buffer(Some(true));
+        let (window, mut device, mut factory, color_view, depth_view) =
+            gfx_window_glutin::init::<render::ColorFormat, render::DepthFormat>(
+                window_builder,
+                context,
+                &event_loop,
+            );
 
         let command_buffer = factory.create_command_buffer();
 
@@ -152,11 +134,8 @@ impl<'a> WindowBuilder<'a> {
         )?;
 
         Ok(Window {
-            sdl_context: sdl_context,
-            event_pump: event_pump,
-            video: video,
+            event_loop: event_loop,
             window: window,
-            gl_context: gl_context,
             renderer: renderer,
 
             width: self.width,
@@ -168,11 +147,8 @@ impl<'a> WindowBuilder<'a> {
 /// `Window` is responsible for creating and managing the game window and underlying GL context.
 pub struct Window {
     // Handles to device resources we need to hold onto.
-    sdl_context: sdl2::Sdl,
-    event_pump: sdl2::EventPump,
-    video: sdl2::VideoSubsystem,
-    window: sdl2::video::Window,
-    gl_context: sdl2::video::GLContext,
+    event_loop: glutin::EventsLoop,
+    window: glutin::GlWindow,
     renderer: render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
 
     width: u32,
@@ -182,10 +158,16 @@ pub struct Window {
 impl Window {
     /// Render one frame, and return an iterator over the events that have elapsed since the last
     /// frame.
-    pub fn render(&mut self) -> Result<sdl2::event::EventPollIterator, WindowError> {
+    pub fn render(
+        &mut self,
+    ) -> Result<impl std::iter::Iterator<Item = glutin::Event>, WindowError> {
         self.renderer.render()?;
-        self.window.gl_swap_window();
-        Ok(self.event_pump.poll_iter())
+        self.window.swap_buffers()?;
+        let mut pending_events = Vec::<glutin::Event>::new();
+        self.event_loop.poll_events(|e| {
+            pending_events.push(e);
+        });
+        Ok(pending_events.into_iter())
     }
 
     /// Get a mutable reference to the underlying renderer.

@@ -3,8 +3,7 @@
 //! # Example
 //!
 //! ```no_run
-//! extern crate dashing;
-//! extern crate sdl2;
+//! use glutin;
 //! // Screen dimensions in characters.
 //! use dashing::*;
 //! const WIDTH: u32 = 21;
@@ -33,12 +32,15 @@
 //!         }
 //!         window.renderer_mut().update(s.iter());
 //!         for event in window.render().unwrap() {
-//!             match event {
-//!                 sdl2::event::Event::Quit { .. } => {
-//!                     break 'main;
-//!                 }
-//!                 _ => {}
-//!             }
+//!            match event {
+//!                glutin::Event::WindowEvent { event: w, .. } => match w {
+//!                    glutin::WindowEvent::CloseRequested | glutin::WindowEvent::Destroyed => {
+//!                        break 'main;
+//!                    }
+//!                    _ => {}
+//!                },
+//!                _ => {}
+//!            }
 //!         }
 //!     }
 //! }
@@ -65,19 +67,6 @@
 #![deny(missing_docs)]
 #![allow(dead_code)]
 #![feature(trait_alias)]
-
-#[macro_use]
-extern crate gfx;
-extern crate gfx_core;
-extern crate gfx_device_gl;
-extern crate gfx_window_sdl;
-extern crate gl;
-extern crate itertools;
-#[allow(unused)]
-#[macro_use]
-extern crate log;
-extern crate sdl2;
-extern crate time;
 
 /// Routines for creating and managing the game window.
 pub mod window;
