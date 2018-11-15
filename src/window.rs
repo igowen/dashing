@@ -42,7 +42,7 @@ pub struct WindowBuilder<'a> {
     width: u32,
     height: u32,
     sprite_texture: &'a SpriteTexture,
-    enable_vsync: bool,
+    vsync: bool,
     full_screen: bool,
 }
 
@@ -60,14 +60,14 @@ impl<'a> WindowBuilder<'a> {
             width: width,
             height: height,
             sprite_texture: sprite_texture,
-            enable_vsync: true,
+            vsync: true,
             full_screen: false,
         }
     }
 
-    /// Disable vsync.
-    pub fn disable_vsync(&'a mut self) -> &'a mut Self {
-        self.enable_vsync = false;
+    /// Enable/disable vsync.
+    pub fn with_vsync(&'a mut self, enable: bool) -> &'a mut Self {
+        self.vsync = enable;
 
         self
     }
@@ -102,7 +102,7 @@ impl<'a> WindowBuilder<'a> {
                 (GL_MAJOR_VERSION, GL_MINOR_VERSION),
             ))
             .with_gl_profile(glutin::GlProfile::Core)
-            .with_vsync(self.enable_vsync)
+            .with_vsync(self.vsync)
             .with_double_buffer(Some(true));
         let (window, mut device, mut factory, color_view, depth_view) =
             gfx_window_glutin::init::<render::ColorFormat, render::DepthFormat>(
