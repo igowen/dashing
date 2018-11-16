@@ -51,7 +51,7 @@
 //! ## Features to be implemented
 //!
 //! * Input handling
-//!   * Don't use SDL event types in the public interface
+//!   * Don't use glutin/winit event types in the public interface
 //! * GUI library
 //!   * Splash screen support
 //! * Entity-Component system

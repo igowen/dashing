@@ -14,8 +14,6 @@ const GL_MINOR_VERSION: u8 = 2;
 pub enum WindowError {
     /// Generic error.
     GeneralError(String),
-    /// Error from the SDL subsystem.
-    SDLError(String),
     /// Error from the renderer.
     RenderError(render::RenderError),
 }
