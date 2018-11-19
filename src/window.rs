@@ -1,6 +1,7 @@
 use gfx_device_gl;
 use gfx_window_glutin;
 use glutin;
+use log::info;
 use std;
 
 use crate::graphics::render;
@@ -64,33 +65,36 @@ impl<'a> WindowBuilder<'a> {
     }
 
     /// Enable/disable vsync.
-    pub fn with_vsync(&'a mut self, enable: bool) -> &'a mut Self {
+    pub fn with_vsync(mut self, enable: bool) -> Self {
         self.vsync = enable;
 
         self
     }
 
     /// Enable full screen mode.
-    pub fn enable_full_screen(&'a mut self) -> &'a mut Self {
+    pub fn enable_full_screen(mut self) -> Self {
         self.full_screen = true;
 
         self
     }
 
     /// Build the window.
-    pub fn build(&self) -> Result<Window, WindowError> {
+    pub fn build(self) -> Result<Window, WindowError> {
         // TODO: Don't create a window bigger than the display.
         let screen_width = (self.width * self.sprite_texture.sprite_width() as u32) as f64;
         let screen_height = (self.height * self.sprite_texture.sprite_height() as u32) as f64;
+        info!("Screen dimensions {}x{}", screen_width, screen_height);
 
         let event_loop = glutin::EventsLoop::new();
         // TODO: Figure out how to deal with hidpi
+        let size = glutin::dpi::LogicalSize::from_physical(
+            glutin::dpi::PhysicalSize::new(screen_width, screen_height),
+            1.0,
+        );
+        info!("logical size: {:?}", size);
         let window_builder = glutin::WindowBuilder::new()
             .with_title(self.window_title.to_string())
-            .with_dimensions(glutin::dpi::LogicalSize::from_physical(
-                glutin::dpi::PhysicalSize::new(screen_width, screen_height),
-                2.0,
-            ))
+            .with_dimensions(size)
             .with_maximized(self.full_screen)
             .with_decorations(!self.full_screen)
             .with_resizable(false);
@@ -108,6 +112,10 @@ impl<'a> WindowBuilder<'a> {
                 context,
                 &event_loop,
             );
+        info!(
+            "physical size: {:?}",
+            size.to_physical(window.get_current_monitor().get_hidpi_factor())
+        );
 
         let command_buffer = factory.create_command_buffer();
 
@@ -154,18 +162,11 @@ pub struct Window {
 }
 
 impl Window {
-    /// Render one frame, and return an iterator over the events that have elapsed since the last
-    /// frame.
-    pub fn render(
-        &mut self,
-    ) -> Result<impl std::iter::Iterator<Item = glutin::Event>, WindowError> {
+    /// Render one frame.
+    pub(crate) fn render(&mut self) -> Result<(), WindowError> {
         self.renderer.render()?;
         self.window.swap_buffers()?;
-        let mut pending_events = Vec::<glutin::Event>::new();
-        self.event_loop.poll_events(|e| {
-            pending_events.push(e);
-        });
-        Ok(pending_events.into_iter())
+        Ok(())
     }
 
     /// Get a mutable reference to the underlying renderer.
@@ -178,5 +179,13 @@ impl Window {
     /// Get an immutable reference to the underlying renderer.
     pub fn renderer(&self) -> &render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
         &self.renderer
+    }
+
+    pub(crate) fn event_loop_mut(&mut self) -> &mut glutin::EventsLoop {
+        &mut self.event_loop
+    }
+
+    pub(crate) fn event_loop(&self) -> &glutin::EventsLoop {
+        &self.event_loop
     }
 }

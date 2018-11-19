@@ -467,9 +467,15 @@ where
     pub fn get_frame_counter(&self) -> u32 {
         self.frame_counter
     }
+}
 
+impl<D, F> RenderInterface for Renderer<D, F>
+where
+    D: gfx::Device,
+    F: gfx::Factory<D::Resources>,
+{
     /// Update the sprite matrix with the provided data.
-    pub fn update<'a, T, U>(&mut self, data: T)
+    fn update<'a, T, U>(&mut self, data: T)
     where
         T: Iterator<Item = U>,
         U: Into<&'a SpriteCell>,
@@ -484,4 +490,13 @@ where
             *p = c.palette.into();
         }
     }
+}
+
+/// Interface for EngineDriver -> Renderer communication.
+pub trait RenderInterface {
+    /// Update the sprite matrix with the provided data.
+    fn update<'a, T, U>(&mut self, data: T)
+    where
+        T: Iterator<Item = U>,
+        U: Into<&'a SpriteCell>;
 }
