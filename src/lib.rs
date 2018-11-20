@@ -12,14 +12,14 @@
 //!
 //! // Client code must implement a "driver", which is a combination of input handler and
 //! // interface to the renderer.
-//! struct MyDriver {
+//! struct ExampleDriver {
 //!     // SpriteLayer is a convenient abstraction for representing an orthogonal region of the
 //!     // screen.
 //!     root_layer: dashing::graphics::SpriteLayer,
 //!     message: String,
 //! }
 //!
-//! impl EngineDriver for MyDriver {
+//! impl EngineDriver for ExampleDriver {
 //!     // The driver handles all the user input events the window receives. The `handle_input`
 //!     // method needs to be lightweight, because it blocks the render thread.
 //!     fn handle_input(&mut self, e: glutin::Event) -> EngineSignal {
@@ -46,7 +46,7 @@
 //!         self.root_layer.clear();
 //!         // Print the message to the screen.
 //!         for (i, c) in self.message.chars().enumerate() {
-//!             self.root_layer[22 + i] = graphics::SpriteCell {
+//!             self.root_layer[WIDTH as usize + 1 + i] = graphics::SpriteCell {
 //!                 palette: resources::color::Palette::mono([0, 0, 0]).set(1, [255, 255, 255]),
 //!                 sprite: c as u32,
 //!                 transparent: false,
@@ -65,7 +65,7 @@
 //!         resources::sprite::SpriteTexture::new_from_pixels(&pixels[..], 128, 128, 8, 8, 256)
 //!         .unwrap();
 //!     let window_builder = window::WindowBuilder::new("dashing", WIDTH, HEIGHT, &tex);
-//!     let driver = MyDriver {
+//!     let driver = ExampleDriver {
 //!         root_layer: dashing::graphics::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),
 //!         message: String::from("Swash your buckles!"),
 //!     };
