@@ -180,10 +180,16 @@ where
         self.window.event_loop_mut().poll_events(|e| {
             control.update(driver.handle_input(e));
         });
-        control.update(driver.process_frame(self.window.renderer_mut()));
+        if control == EngineSignal::Halt {
+            return control;
+        }
+        if driver.process_frame(self.window.renderer_mut()) == EngineSignal::Halt {
+            return EngineSignal::Halt;
+        }
+
         self.window.render().unwrap();
 
-        control
+        EngineSignal::Continue
     }
 }
 
