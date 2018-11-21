@@ -490,6 +490,10 @@ where
             *p = c.palette.into();
         }
     }
+
+    fn get_fps(&self) -> f32 {
+        return self.get_fps();
+    }
 }
 
 /// Interface for EngineDriver -> Renderer communication.
@@ -499,4 +503,6 @@ pub trait RenderInterface {
     where
         T: Iterator<Item = U>,
         U: Into<&'a SpriteCell>;
+    /// Get the current FPS
+    fn get_fps(&self) -> f32;
 }
