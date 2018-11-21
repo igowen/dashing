@@ -16,7 +16,7 @@ out vec2 v_Uv;
 flat out uint v_Index;
 
 void main() {
-  vec2 sprite_offset = vec2(mod(a_Sprite, u_SpriteMapDimensions.x), floor(a_Sprite / u_SpriteMapDimensions.x));
+  vec2 sprite_offset = vec2(mod(a_Sprite, u_SpriteMapDimensions.x), a_Sprite / u_SpriteMapDimensions.x);
   v_Uv = a_Uv / u_SpriteMapDimensions + sprite_offset / u_SpriteMapDimensions;
 
   v_Index = a_Index;
