@@ -9,6 +9,8 @@ use crate::resources::sprite::SpriteTexture;
 
 const GL_MAJOR_VERSION: u8 = 3;
 const GL_MINOR_VERSION: u8 = 2;
+const GLES_MAJOR_VERSION: u8 = 3;
+const GLES_MINOR_VERSION: u8 = 0;
 
 /// `WindowError` represents an error that occurred in the window system.
 #[derive(Debug)]
@@ -99,10 +101,10 @@ impl<'a> WindowBuilder<'a> {
             .with_decorations(!self.full_screen)
             .with_resizable(false);
         let context = glutin::ContextBuilder::new()
-            .with_gl(glutin::GlRequest::Specific(
-                glutin::Api::OpenGl,
-                (GL_MAJOR_VERSION, GL_MINOR_VERSION),
-            ))
+            .with_gl(glutin::GlRequest::GlThenGles {
+                opengl_version: (GL_MAJOR_VERSION, GL_MINOR_VERSION),
+                opengles_version: (GLES_MAJOR_VERSION, GLES_MINOR_VERSION),
+            })
             .with_gl_profile(glutin::GlProfile::Core)
             .with_vsync(self.vsync)
             .with_double_buffer(Some(true));

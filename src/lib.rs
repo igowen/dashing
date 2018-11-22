@@ -90,6 +90,8 @@
 //! * Graphics improvements
 //!   * User-specified shaders
 //!   * Animated sprites
+//!   * Hotswapping fonts
+//!   * Dynamic zoom
 //! * Resource management system
 //!   * Build sprite map textures at runtime
 //! * Audio
