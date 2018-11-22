@@ -457,12 +457,6 @@ where
         Ok(())
     }
 
-    /// Get the current frames per second. This is based on a rolling average, not the
-    /// instantaneous measurement.
-    pub fn get_fps(&self) -> f32 {
-        self.fps
-    }
-
     /// Get the number of frames that have been rendered.
     pub fn get_frame_counter(&self) -> u32 {
         self.frame_counter
@@ -491,8 +485,10 @@ where
         }
     }
 
+    /// Get the current frames per second. This is based on a rolling average, not the
+    /// instantaneous measurement.
     fn get_fps(&self) -> f32 {
-        return self.get_fps();
+        self.fps
     }
 }
 
@@ -503,6 +499,7 @@ pub trait RenderInterface {
     where
         T: Iterator<Item = U>,
         U: Into<&'a SpriteCell>;
+
     /// Get the current FPS
     fn get_fps(&self) -> f32;
 }
