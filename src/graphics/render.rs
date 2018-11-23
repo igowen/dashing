@@ -447,12 +447,12 @@ where
         // Cap FPS.
         // I *think* we will still continue to receive events during the sleep, but this will need
         // testing.
-        let tp = time::precise_time_ns();
-        let dtp = tp - self.last_render_time_ns;
-        let mi = (1.0 / 30.0 * 1_000_000_000.0) as u64;
-        if dtp < mi {
-            std::thread::sleep(std::time::Duration::from_nanos(mi - dtp));
-        }
+        // let tp = time::precise_time_ns();
+        // let dtp = tp - self.last_render_time_ns;
+        // let mi = (1.0 / 30.0 * 1_000_000_000.0) as u64;
+        // if dtp < mi {
+        //     std::thread::sleep(std::time::Duration::from_nanos(mi - dtp));
+        // }
 
         let t = time::precise_time_ns();
         if self.last_render_time_ns > 0 {
