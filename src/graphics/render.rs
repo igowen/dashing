@@ -8,16 +8,16 @@ use gfx::traits::FactoryExt;
 #[allow(unused)]
 use itertools::Itertools;
 
-use super::SpriteCell;
+use crate::graphics::drawing::SpriteCell;
 use crate::resources::sprite::SpriteTexture;
 
 #[cfg(test)]
 mod tests;
 
 /// Color format required by the renderer.
-pub type ColorFormat = gfx::format::Rgba8;
+pub(crate) type ColorFormat = gfx::format::Rgba8;
 /// Depth format required by the renderer.
-pub type DepthFormat = gfx::format::DepthStencil;
+pub(crate) type DepthFormat = gfx::format::DepthStencil;
 
 /// Error type for the renderer.
 #[derive(Debug)]
@@ -150,13 +150,12 @@ const SCREEN_QUAD_VERTICES: [Vertex; 4] = [
 const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
 /// `Renderer` is responsible for rendering the grid of sprite cells. It's the lowest level
-/// abstraction on top of the graphics subsystem, and you generally shouldn't need to interact with
-/// it much, if at all, but it's still public just in case.
+/// abstraction on top of the graphics subsystem.
 ///
 /// From a type perspective, this could fairly easily be made generic over different gfx backends.
 /// To do that, howerver, we would need some way of switching out the shader code, and I don't
 /// really anticipate supporting any backend other than OpenGL.
-pub struct Renderer<D, F>
+pub(crate) struct Renderer<D, F>
 where
     D: gfx::Device,
     F: gfx::Factory<D::Resources>,
@@ -201,7 +200,7 @@ where
 {
     /// Create a new `Renderer` with the given device resources and dimensions, which are measured
     /// in sprites.
-    pub fn new<'a>(
+    pub(crate) fn new<'a>(
         device: D,
         mut factory: F,
         command_buffer: D::CommandBuffer,
@@ -381,7 +380,7 @@ where
     }
 
     /// Render one one frame.
-    pub fn render(&mut self) -> Result<(), RenderError> {
+    pub(crate) fn render(&mut self) -> Result<(), RenderError> {
         {
             let mut writer = self.factory.write_mapping(&self.upload_buffer)?;
             writer.copy_from_slice(&self.instances[..]);
@@ -445,6 +444,16 @@ where
 
         self.frame_counter += 1;
 
+        // Cap FPS.
+        // I *think* we will still continue to receive events during the sleep, but this will need
+        // testing.
+        let tp = time::precise_time_ns();
+        let dtp = tp - self.last_render_time_ns;
+        let mi = (1.0 / 30.0 * 1_000_000_000.0) as u64;
+        if dtp < mi {
+            std::thread::sleep(std::time::Duration::from_nanos(mi - dtp));
+        }
+
         let t = time::precise_time_ns();
         if self.last_render_time_ns > 0 {
             let dt = (t - self.last_render_time_ns) as f32;
@@ -458,7 +467,7 @@ where
     }
 
     /// Get the number of frames that have been rendered.
-    pub fn get_frame_counter(&self) -> u32 {
+    fn get_frame_counter(&self) -> u32 {
         self.frame_counter
     }
 }

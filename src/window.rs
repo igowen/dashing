@@ -172,14 +172,16 @@ impl Window {
     }
 
     /// Get a mutable reference to the underlying renderer.
-    pub fn renderer_mut(
+    pub(crate) fn renderer_mut(
         &mut self,
     ) -> &mut render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
         &mut self.renderer
     }
 
     /// Get an immutable reference to the underlying renderer.
-    pub fn renderer(&self) -> &render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
+    pub(crate) fn renderer(
+        &self,
+    ) -> &render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
         &self.renderer
     }
 

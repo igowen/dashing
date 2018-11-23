@@ -15,7 +15,7 @@
 //! struct ExampleDriver {
 //!     // SpriteLayer is a convenient abstraction for representing an orthogonal region of the
 //!     // screen.
-//!     root_layer: dashing::graphics::SpriteLayer,
+//!     root_layer: graphics::drawing::SpriteLayer,
 //!     message: String,
 //! }
 //!
@@ -46,7 +46,7 @@
 //!         self.root_layer.clear();
 //!         // Print the message to the screen.
 //!         for (i, c) in self.message.chars().enumerate() {
-//!             self.root_layer[WIDTH as usize + 1 + i] = graphics::SpriteCell {
+//!             self.root_layer[WIDTH as usize + 1 + i] = graphics::drawing::SpriteCell {
 //!                 palette: resources::color::Palette::mono([0, 0, 0]).set(1, [255, 255, 255]),
 //!                 sprite: c as u32,
 //!                 transparent: false,
@@ -66,7 +66,7 @@
 //!         .unwrap();
 //!     let window_builder = window::WindowBuilder::new("dashing", WIDTH, HEIGHT, &tex);
 //!     let driver = ExampleDriver {
-//!         root_layer: dashing::graphics::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),
+//!         root_layer: graphics::drawing::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),
 //!         message: String::from("Swash your buckles!"),
 //!     };
 //!
