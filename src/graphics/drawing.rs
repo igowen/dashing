@@ -14,6 +14,7 @@ pub struct SpriteCell {
 }
 
 /// A 2D array of sprite cells.
+#[derive(Clone)]
 pub struct SpriteLayer {
     width: usize,
     height: usize,
