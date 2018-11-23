@@ -124,9 +124,9 @@ impl std::ops::IndexMut<(usize, usize)> for SpriteLayer {
     }
 }
 
-/// Sprites necessary for these drawing routines.
+/// Sprites necessary for box drawing routines.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Sprite {
+pub enum BoxDrawingSprite {
     /// Bottom left corner.
     BottomLeftCorner,
     /// Bottom right corner.
@@ -161,25 +161,25 @@ pub enum Sprite {
 #[allow(unused)]
 pub fn rect<S>(sprite_map: S, width: usize, height: usize, p: Palette) -> SpriteLayer
 where
-    S: SpriteMap<Sprite>,
+    S: SpriteMap<BoxDrawingSprite>,
 {
     let mut out = SpriteLayer::new(width, height);
-    out[(0, 0)].sprite = sprite_map.map(Sprite::TopLeftCorner);
-    out[(width - 1, 0)].sprite = sprite_map.map(Sprite::TopRightCorner);
-    out[(0, height - 1)].sprite = sprite_map.map(Sprite::BottomLeftCorner);
-    out[(width - 1, height - 1)].sprite = sprite_map.map(Sprite::BottomRightCorner);
+    out[(0, 0)].sprite = sprite_map.map(BoxDrawingSprite::TopLeftCorner);
+    out[(width - 1, 0)].sprite = sprite_map.map(BoxDrawingSprite::TopRightCorner);
+    out[(0, height - 1)].sprite = sprite_map.map(BoxDrawingSprite::BottomLeftCorner);
+    out[(width - 1, height - 1)].sprite = sprite_map.map(BoxDrawingSprite::BottomRightCorner);
 
     for i in 1..width - 1 {
-        out[(i, 0)].sprite = sprite_map.map(Sprite::HorizontalTop);
-        out[(i, height - 1)].sprite = sprite_map.map(Sprite::HorizontalBottom);
+        out[(i, 0)].sprite = sprite_map.map(BoxDrawingSprite::HorizontalTop);
+        out[(i, height - 1)].sprite = sprite_map.map(BoxDrawingSprite::HorizontalBottom);
     }
     for i in 1..height - 1 {
-        out[(0, i)].sprite = sprite_map.map(Sprite::VerticalLeft);
-        out[(width - 1, i)].sprite = sprite_map.map(Sprite::VerticalRight);
+        out[(0, i)].sprite = sprite_map.map(BoxDrawingSprite::VerticalLeft);
+        out[(width - 1, i)].sprite = sprite_map.map(BoxDrawingSprite::VerticalRight);
     }
     for x in 1..width - 1 {
         for y in 1..height - 1 {
-            out[(x, y)].sprite = sprite_map.map(Sprite::SolidFill);
+            out[(x, y)].sprite = sprite_map.map(BoxDrawingSprite::SolidFill);
         }
     }
 
@@ -200,16 +200,16 @@ pub fn msg_box<S>(
     _message: &str,
 ) -> SpriteLayer
 where
-    S: SpriteMap<Sprite> + Copy,
+    S: SpriteMap<BoxDrawingSprite> + Copy,
 {
     let mut base = rect(sprite_map, width, height, p);
     if height < 4 {
         return base;
     }
-    base[(0, 2)].sprite = sprite_map.map(Sprite::TeeRight);
-    base[(width - 1, 2)].sprite = sprite_map.map(Sprite::TeeLeft);
+    base[(0, 2)].sprite = sprite_map.map(BoxDrawingSprite::TeeRight);
+    base[(width - 1, 2)].sprite = sprite_map.map(BoxDrawingSprite::TeeLeft);
     for i in 1..width - 1 {
-        base[(i, 2)].sprite = sprite_map.map(Sprite::HorizontalBottom);
+        base[(i, 2)].sprite = sprite_map.map(BoxDrawingSprite::HorizontalBottom);
     }
 
     for (i, c) in title.char_indices() {
