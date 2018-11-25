@@ -196,6 +196,37 @@ impl Color {
         }
     }
 
+    /// Convert to HSL color
+    /// ```
+    /// # use dashing::resources::color::Color;
+    /// assert_eq!(Color::from_hsv(0.0, 1.0, 1.0).to_hsv(), [0.0, 1.0, 1.0]);
+    /// assert_eq!(Color::from_hsv(60.0, 1.0, 1.0).to_hsv(), [60.0, 1.0, 1.0]);
+    /// ```
+    pub fn to_hsv(&self) -> [f32; 3] {
+        if self.0[0] == 0 && self.0[1] == 0 && self.0[2] == 0 {
+            return [0.0, 0.0, 0.0];
+        }
+        let rf = self.0[0] as f32 / 255.0;
+        let gf = self.0[1] as f32 / 255.0;
+        let bf = self.0[2] as f32 / 255.0;
+        let min = rf.min(gf.min(bf));
+        let max = rf.max(gf.max(bf));
+        let v = max;
+        let s = (max - min) / max;
+        let h;
+        if max - min == 0.0 {
+            h = 0.0;
+        } else if rf == max {
+            h = (gf - bf) / (max - min);
+        } else if gf == max {
+            h = 2.0 + (bf - rf) / (max - min);
+        } else {
+            // bf == max
+            h = 4.0 + (rf - gf) / (max - min);
+        }
+        [(h * 60.0) % 360.0, s, v]
+    }
+
     /// Convert HWB (hue, white, black) representation to RGB.
     ///
     /// ```
