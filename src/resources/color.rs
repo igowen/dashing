@@ -273,6 +273,18 @@ impl From<Color> for [u8; 3] {
     }
 }
 
+impl From<[u8; 3]> for Color {
+    fn from(c: [u8; 3]) -> Self {
+        Color([c[0], c[1], c[2]])
+    }
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        [0, 0, 0].into()
+    }
+}
+
 /// A 16-color palette.
 /// Probably should go in a different module.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
