@@ -1,6 +1,6 @@
 # dashing.rs
 
-`dashing` is a library for build console-style roguelike games in Rust.
+`dashing` is a library for building console-style roguelike games in Rust.
 
 **This is not an official Google product.**
 
