@@ -28,6 +28,7 @@
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Entity {
     id: usize,
+    generation: usize,
 }
 
 trait BitSet {
@@ -265,7 +266,6 @@ impl<'a, A: Default, B: Default> Iterator for BlockJoinIter<'a, A, B> {
         while self.curr.id < self.a.size()
             && (self.a.get(self.curr).is_none() || self.b.get(self.curr).is_none())
         {
-            println!("skipping {:?}", self.curr);
             self.curr.id += 1;
         }
         if self.curr.id < self.a.size() {
@@ -310,13 +310,16 @@ pub trait BuildWith<T> {
 
 #[macro_export]
 macro_rules! define_world {
-    (@define_world_struct $($field:ident:$type:ty)*) => {
+    (@define_world_struct $($field:ident : ($($storage:ident) :: +; $type:ty))*) => {
+        /// `World` encapsulates a set of component types and provides a means for constructing new
+        /// entities.
         #[derive(Default)]
         pub struct World {
             $(
-                $field: $crate::BlockStorage<$type>,
+                $field: $($storage)::*<$type>,
             )*
             num_entities: usize,
+            free_list: Vec<Entity>,
         }
         impl<'a> $crate::WorldInterface<'a> for World {
             type EntityBuilder = EntityBuilder<'a>;
@@ -331,31 +334,54 @@ macro_rules! define_world {
                     world: self,
                 }
             }
-            fn build(&mut self, components: Self::ComponentSet) {
+            fn build(&mut self, components: Self::ComponentSet) -> Entity {
                 use $crate::ComponentStorage;
-                let entity = Entity{id:self.num_entities};
+                let mut entity;
+                if let Some(e) = self.free_list.pop() {
+                    entity = e;
+                    entity.generation += 1;
+                } else {
+                    entity = Entity{
+                        id:self.num_entities,
+                        generation: 0,
+                    };
+                    self.num_entities += 1;
+                }
                 $(
                     self.$field.set(entity, components.$field);
                 )*
-                self.num_entities += 1;
+                entity
+            }
+            fn delete(&mut self, entity: Entity) {
+                use $crate::ComponentStorage;
+                if entity.id < self.num_entities {
+                    $(
+                        self.$field.set(entity, None);
+                    )*
+                    self.free_list.push(entity);
+                }
             }
         }
     };
     (@define_builder_struct $($field:ident:$type:ty)*) => {
         #[derive(Default)]
+        /// ComponentSet is roughly equivalent to a tuple containing Option<T> for all types the
+        /// World stores.
         pub struct ComponentSet {
             $(
                 $field: Option<$type>,
             )*
         }
+        /// Builder pattern for creating new entities.
         pub struct EntityBuilder<'a> {
             components: ComponentSet,
             world: &'a mut World,
         }
         impl<'a> EntityBuilder<'a> {
-            pub fn build(self) {
+            /// Finalize this entity and all of its components by storing them in the `World`.
+            pub fn build(self) -> Entity {
                 use $crate::WorldInterface;
-                self.world.build(self.components);
+                self.world.build(self.components)
             }
         }
     };
@@ -373,8 +399,8 @@ macro_rules! define_world {
             fn get(&'a self) -> &'a Self::Storage { &self.$field }
         }
     };
-    ($($field:ident:BlockStorage<$type:ty>),* $(,)*) => {
-        define_world!{@define_world_struct $($field:$type)*}
+    ($($field:ident : $($storage:ident) :: + < $type:ty >),* $(,)*) => {
+        define_world!{@define_world_struct $($field:($($storage)::*; $type))*}
         $(
             define_world!{@impl_get $field $type}
         )*
@@ -385,6 +411,7 @@ macro_rules! define_world {
     };
 }
 /// `World` is a container for a set of entities and components.
+/// This is mostly here so users know what to expect from the output of the `define_world!` macro.
 pub trait WorldInterface<'a>
 where
     Self: std::marker::Sized,
@@ -397,7 +424,9 @@ where
     fn new_entity(&'a mut self) -> Self::EntityBuilder;
     /// Consume an `EntityBuilder` and store its components. Under normal circumstances, this
     /// should only be called by `EntityBuilder::build()`.
-    fn build(&mut self, c: Self::ComponentSet);
+    fn build(&mut self, c: Self::ComponentSet) -> Entity;
+    /// Delete an entity.
+    fn delete(&mut self, e: Entity);
 }
 
 /// `System`
@@ -408,6 +437,17 @@ pub trait System {
     type Output;
     /// Run the system.
     fn run(&mut self, data: Self::Input) -> Self::Output;
+}
+
+#[derive(Default)]
+struct Position {
+    x: i32,
+    y: i32,
+}
+
+#[derive(Default)]
+struct Junk {
+    s: String,
 }
 
 #[cfg(test)]
@@ -430,7 +470,10 @@ mod tests {
             s: String,
         }
 
-        define_world!(position: BlockStorage<Position>, junk: BlockStorage<Junk>);
+        define_world!(
+            position: crate::BlockStorage<Position>,
+            junk: crate::BlockStorage<Junk>
+        );
 
         let mut w = World::default();
         w.new_entity()
@@ -440,19 +483,21 @@ mod tests {
             .with(Position { x: 25, y: -104 })
             .build();
 
-        w.new_entity()
+        let entity_to_delete = w
+            .new_entity()
             .with(Junk {
                 s: String::from("Hello!"),
             })
-            .with(Position { x: 25, y: -104 })
+            .with(Position { x: 40, y: 72 })
             .build();
-        w.new_entity().with(Position { x: 25, y: -104 }).build();
+
+        w.new_entity().with(Position { x: 723, y: -19458 }).build();
 
         w.new_entity()
             .with(Junk {
                 s: String::from("Ooga Booga"),
             })
-            .with(Position { x: 25, y: -104 })
+            .with(Position { x: 492, y: 2894 })
             .build();
 
         w.new_entity()
@@ -463,9 +508,16 @@ mod tests {
 
         let e: Vec<Entity> = <(Position, Junk)>::join(&w).collect();
         assert_eq!(e.len(), 3);
-        assert_eq!(e[0], Entity { id: 0 });
-        assert_eq!(e[1], Entity { id: 1 });
-        assert_eq!(e[2], Entity { id: 3 });
+        assert_eq!(e[0].id, 0);
+        assert_eq!(e[1].id, 1);
+        assert_eq!(e[2].id, 3);
+
+        w.delete(entity_to_delete);
+
+        let e2: Vec<Entity> = <(Position, Junk)>::join(&w).collect();
+        assert_eq!(e2.len(), 2);
+        assert_eq!(e2[0].id, 0);
+        assert_eq!(e2[1].id, 3);
     }
 
     #[test]
