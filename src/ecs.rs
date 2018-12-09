@@ -33,15 +33,39 @@ pub struct Entity {
 
 trait BitSet {
     const SIZE: usize;
+    type Iter: Iterator<Item = usize>;
     fn get_bit(&self, i: usize) -> bool;
     fn set_bit(&mut self, i: usize);
     fn clear_bit(&mut self, i: usize);
+    fn iter(&self) -> Self::Iter;
+}
+
+struct BitSetIter<T: BitSet> {
+    bits: T,
+    curr: usize,
+}
+
+impl<T: BitSet> Iterator for BitSetIter<T> {
+    type Item = usize;
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.curr < T::SIZE && !self.bits.get_bit(self.curr) {
+            self.curr += 1;
+        }
+        if self.curr < T::SIZE {
+            let i = self.curr;
+            self.curr += 1;
+            Some(i)
+        } else {
+            None
+        }
+    }
 }
 
 macro_rules! bitset_impl {
     ($t:ty,$b:tt) => {
         impl BitSet for $t {
             const SIZE: usize = $b;
+            type Iter = BitSetIter<$t>;
             #[inline]
             fn get_bit(&self, i: usize) -> bool {
                 if i < Self::SIZE {
@@ -62,6 +86,13 @@ macro_rules! bitset_impl {
             fn clear_bit(&mut self, i: usize) {
                 if i < Self::SIZE {
                     *self &= !(1 << i);
+                }
+            }
+            #[inline]
+            fn iter(&self) -> Self::Iter {
+                BitSetIter {
+                    bits: *self,
+                    curr: 0,
                 }
             }
         }
@@ -91,37 +122,6 @@ struct Block<T> {
     data: [T; 32],
     bits: u32,
     size: usize,
-}
-
-struct BlockIter<'a, T> {
-    cur: usize,
-    block: &'a Block<T>,
-}
-
-impl<'a, T> Block<T> {
-    fn iter(&'a self) -> BlockIter<'a, T> {
-        BlockIter {
-            cur: 0,
-            block: self,
-        }
-    }
-}
-
-impl<'a, T> Iterator for BlockIter<'a, T> {
-    type Item = Option<&'a T>;
-    fn next(&mut self) -> Option<Option<&'a T>> {
-        if self.cur >= 32 {
-            None
-        } else {
-            let i = self.cur;
-            self.cur += 1;
-            if self.block.bits.get_bit(i) {
-                Some(Some(&self.block.data[i]))
-            } else {
-                Some(None)
-            }
-        }
-    }
 }
 
 /// `BlockStorage` stores its components in 32-item blocks.
@@ -248,7 +248,7 @@ where
 /// Joinable data
 pub trait Join<'a, T: 'a, W> {
     /// Iterator type.
-    type Iter: Iterator<Item = Entity>;
+    type Iter: Iterator<Item = T>;
     /// Iterate over the join.
     fn join(w: &'a W) -> Self::Iter;
 }
@@ -257,28 +257,51 @@ pub trait Join<'a, T: 'a, W> {
 pub struct BlockJoinIter<'a, A: Default, B: Default> {
     a: &'a BlockStorage<A>,
     b: &'a BlockStorage<B>,
-    curr: Entity,
+    curr_block: usize,
+    curr_iter: BitSetIter<u32>,
 }
 
-impl<'a, A: Default, B: Default> Iterator for BlockJoinIter<'a, A, B> {
-    type Item = Entity;
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.curr.id < self.a.size()
-            && (self.a.get(self.curr).is_none() || self.b.get(self.curr).is_none())
-        {
-            self.curr.id += 1;
-        }
-        if self.curr.id < self.a.size() {
-            let i = self.curr;
-            self.curr.id += 1;
-            return Some(i);
+impl<'a, A: Default, B: Default> BlockJoinIter<'a, A, B> {
+    fn new(a: &'a BlockStorage<A>, b: &'a BlockStorage<B>) -> Self {
+        let iter = if a.blocks.len() > 0 {
+            (a.blocks[0].bits & b.blocks[0].bits).iter()
         } else {
-            return None;
+            0u32.iter()
+        };
+
+        BlockJoinIter {
+            a: a,
+            b: b,
+            curr_block: 0,
+            curr_iter: iter,
         }
     }
 }
 
-impl<'a, A, B, W> Join<'a, (A, B), W> for (A, B)
+impl<'a, A: Default, B: Default> Iterator for BlockJoinIter<'a, A, B> {
+    type Item = (&'a A, &'a B);
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(i) = self.curr_iter.next() {
+                return Some((
+                    &self.a.blocks[self.curr_block].data[i],
+                    &self.b.blocks[self.curr_block].data[i],
+                ));
+            } else {
+                self.curr_block += 1;
+                if self.curr_block < self.a.blocks.len() {
+                    self.curr_iter = (self.a.blocks[self.curr_block].bits
+                        & self.b.blocks[self.curr_block].bits)
+                        .iter();
+                } else {
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+impl<'a, A, B, W> Join<'a, (&'a A, &'a B), W> for (A, B)
 where
     W: Get<'a, A, Storage = BlockStorage<A>> + Get<'a, B, Storage = BlockStorage<B>>,
     A: 'a + Default,
@@ -286,11 +309,7 @@ where
 {
     type Iter = BlockJoinIter<'a, A, B>;
     fn join(w: &'a W) -> Self::Iter {
-        BlockJoinIter {
-            a: <W as Get<'a, A>>::get(w),
-            b: <W as Get<'a, B>>::get(w),
-            curr: Default::default(),
-        }
+        BlockJoinIter::new(<W as Get<'a, A>>::get(w), <W as Get<'a, B>>::get(w))
     }
 }
 
@@ -459,13 +478,13 @@ mod tests {
         use crate::Join;
         use crate::WorldInterface;
 
-        #[derive(Default)]
+        #[derive(Default, Debug, Eq, PartialEq)]
         pub struct Position {
             x: i32,
             y: i32,
         }
 
-        #[derive(Default)]
+        #[derive(Default, Debug, Eq, PartialEq)]
         pub struct Junk {
             s: String,
         }
@@ -495,7 +514,7 @@ mod tests {
 
         w.new_entity()
             .with(Junk {
-                s: String::from("Ooga Booga"),
+                s: String::from("¡Hola!"),
             })
             .with(Position { x: 492, y: 2894 })
             .build();
@@ -506,18 +525,50 @@ mod tests {
             })
             .build();
 
-        let e: Vec<Entity> = <(Position, Junk)>::join(&w).collect();
-        assert_eq!(e.len(), 3);
-        assert_eq!(e[0].id, 0);
-        assert_eq!(e[1].id, 1);
-        assert_eq!(e[2].id, 3);
+        // First round: join Position and Junk as entered
+        let e1: Vec<(&Position, &Junk)> = <(Position, Junk)>::join(&w).collect();
+        assert_eq!(e1.len(), 3);
+        assert_eq!(e1[0].0, &Position { x: 25, y: -104 });
+        assert_eq!(e1[0].1.s, "Hi!");
+        assert_eq!(e1[1].0, &Position { x: 40, y: 72 });
+        assert_eq!(e1[1].1.s, "Hello!");
+        assert_eq!(e1[2].0, &Position { x: 492, y: 2894 });
+        assert_eq!(e1[2].1.s, "¡Hola!");
 
+        // Delete the second entity.
         w.delete(entity_to_delete);
 
-        let e2: Vec<Entity> = <(Position, Junk)>::join(&w).collect();
+        // Second round: make sure the deleted entity doesn't appear in the join.
+        let e2: Vec<(&Position, &Junk)> = <(Position, Junk)>::join(&w).collect();
         assert_eq!(e2.len(), 2);
-        assert_eq!(e2[0].id, 0);
-        assert_eq!(e2[1].id, 3);
+        assert_eq!(e2[0].0, &Position { x: 25, y: -104 });
+        assert_eq!(e2[0].1.s, "Hi!");
+        assert_eq!(e2[1].0, &Position { x: 492, y: 2894 });
+        assert_eq!(e2[1].1.s, "¡Hola!");
+
+        // Create a new entity with `Position` and `Junk`.
+        let new_entity = w
+            .new_entity()
+            .with(Junk {
+                s: String::from("Reused!"),
+            })
+            .with(Position { x: 70, y: 140 })
+            .build();
+
+        // We should get the same entity id as the deleted one, but with a newer generation.
+        assert_eq!(new_entity.id, entity_to_delete.id);
+        assert!(new_entity.generation > entity_to_delete.generation);
+
+        // Round 3: the new entity should appear in the middle of the join because we reused the
+        // second slot.
+        let e3: Vec<(&Position, &Junk)> = <(Position, Junk)>::join(&w).collect();
+        assert_eq!(e3.len(), 3);
+        assert_eq!(e3[0].0, &Position { x: 25, y: -104 });
+        assert_eq!(e3[0].1.s, "Hi!");
+        assert_eq!(e3[1].0, &Position { x: 70, y: 140 });
+        assert_eq!(e3[1].1.s, "Reused!");
+        assert_eq!(e3[2].0, &Position { x: 492, y: 2894 });
+        assert_eq!(e3[2].1.s, "¡Hola!");
     }
 
     #[test]
@@ -549,5 +600,13 @@ mod tests {
                 assert!(x.get_bit(i) == true);
             }
         }
+    }
+
+    #[test]
+    fn bitset_iter() {
+        use crate::BitSet;
+        let x: u16 = 0b1010011101101010;
+        let is = x.iter().collect::<Vec<_>>();
+        assert_eq!(is, vec![1, 3, 5, 6, 8, 9, 10, 13, 15]);
     }
 }
