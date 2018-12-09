@@ -458,17 +458,6 @@ pub trait System {
     fn run(&mut self, data: Self::Input) -> Self::Output;
 }
 
-#[derive(Default)]
-struct Position {
-    x: i32,
-    y: i32,
-}
-
-#[derive(Default)]
-struct Junk {
-    s: String,
-}
-
 #[cfg(test)]
 mod tests {
     #[test]
