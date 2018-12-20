@@ -5,6 +5,9 @@ authors = ["igowen"]
 license = "Apache-2.0"
 publish = false
 edition = "2018"
+description = "ASCII-style roguelike engine"
+repository = "https://github.com/igowen/dashing"
+categories = ["games", "rendering::engine"]
 
 [dependencies]
 gfx = "0.17"
