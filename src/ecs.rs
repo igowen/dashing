@@ -21,7 +21,25 @@
 //! * Functional (as in programming) paradigm
 //! * No unsafe code
 
-#![deny(missing_docs)]
+#![recursion_limit = "72"]
+
+use std::marker::PhantomData;
+
+/// `typelist` contains some type-level metaprogramming that allows the library to validate certain
+/// invariants at compile time.
+///
+/// This is broadly adapted from Lloyd Chan's excellent article [Gentle Intro to Type-level
+/// Recursion in Rust][1]. However, since it's only used to enforce invariants, the resulting
+/// heterogeneous list type doesn't contain any actual storage; this means that, at least in
+/// theory, the compiler should be able to optimize it out completely.
+///
+/// [1]: https://beachape.com/blog/2017/03/12/gentle-intro-to-type-level-recursion-in-Rust-from-zero-to-frunk-hlist-sculpting/
+#[macro_use]
+pub mod typelist;
+mod bitset;
+
+use crate::typelist::*;
+use crate::bitset::*;
 
 /// `Entity` is an opaque identifier that can be used to look up associated components in a
 /// `World`.
@@ -30,80 +48,6 @@ pub struct Entity {
     id: usize,
     generation: usize,
 }
-
-trait BitSet {
-    const SIZE: usize;
-    type Iter: Iterator<Item = usize>;
-    fn get_bit(&self, i: usize) -> bool;
-    fn set_bit(&mut self, i: usize);
-    fn clear_bit(&mut self, i: usize);
-    fn iter(&self) -> Self::Iter;
-}
-
-struct BitSetIter<T: BitSet> {
-    bits: T,
-    curr: usize,
-}
-
-impl<T: BitSet> Iterator for BitSetIter<T> {
-    type Item = usize;
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.curr < T::SIZE && !self.bits.get_bit(self.curr) {
-            self.curr += 1;
-        }
-        if self.curr < T::SIZE {
-            let i = self.curr;
-            self.curr += 1;
-            Some(i)
-        } else {
-            None
-        }
-    }
-}
-
-macro_rules! bitset_impl {
-    ($t:ty,$b:tt) => {
-        impl BitSet for $t {
-            const SIZE: usize = $b;
-            type Iter = BitSetIter<$t>;
-            #[inline]
-            fn get_bit(&self, i: usize) -> bool {
-                if i < Self::SIZE {
-                    (self & (1 << i)) != 0
-                } else {
-                    false
-                }
-            }
-
-            #[inline]
-            fn set_bit(&mut self, i: usize) {
-                if i < Self::SIZE {
-                    *self |= 1 << i;
-                }
-            }
-
-            #[inline]
-            fn clear_bit(&mut self, i: usize) {
-                if i < Self::SIZE {
-                    *self &= !(1 << i);
-                }
-            }
-            #[inline]
-            fn iter(&self) -> Self::Iter {
-                BitSetIter {
-                    bits: *self,
-                    curr: 0,
-                }
-            }
-        }
-    };
-}
-
-bitset_impl!(u8, 8);
-bitset_impl!(u16, 16);
-bitset_impl!(u32, 32);
-bitset_impl!(u64, 64);
-bitset_impl!(u128, 128);
 
 /// Trait that all component storages must implement.
 pub trait ComponentStorage<'a, T> {
@@ -215,7 +159,7 @@ pub struct VoidStorage<T> {
     data: Vec<u32>,
     size: usize,
     instance: T,
-    _t: std::marker::PhantomData<T>,
+    _t: PhantomData<T>,
 }
 
 impl<'a, T> ComponentStorage<'a, T> for VoidStorage<T>
@@ -243,14 +187,6 @@ where
     fn size(&self) -> usize {
         self.size
     }
-}
-
-/// Joinable data
-pub trait Join<'a, T: 'a, W> {
-    /// Iterator type.
-    type Iter: Iterator<Item = T>;
-    /// Iterate over the join.
-    fn join(w: &'a W) -> Self::Iter;
 }
 
 /// Iterator for two joined `BlockStorage`s.
@@ -301,6 +237,14 @@ impl<'a, A: Default, B: Default> Iterator for BlockJoinIter<'a, A, B> {
     }
 }
 
+/// Joinable data
+pub trait Join<'a, T: 'a, W> {
+    /// Iterator type.
+    type Iter: Iterator<Item = T>;
+    /// Iterate over the join.
+    fn join(w: &'a W) -> Self::Iter;
+}
+
 impl<'a, A, B, W> Join<'a, (&'a A, &'a B), W> for (A, B)
 where
     W: Get<'a, A, Storage = BlockStorage<A>> + Get<'a, B, Storage = BlockStorage<B>>,
@@ -312,6 +256,15 @@ where
         BlockJoinIter::new(<W as Get<'a, A>>::get(w), <W as Get<'a, B>>::get(w))
     }
 }
+/*
+impl<'a, A, B, W> Join<'a, (&'a A, &'a B), W> for (A, B)
+where
+    W: Get<'a, A, Storage = BlockStorage<A>>,
+    A: 'a + Default,
+    B: 'a + Default,
+{
+}
+*/
 
 /// A trait that indicates that the implementor is able to store components of type `T`.
 pub trait Get<'a, T> {
@@ -326,7 +279,6 @@ pub trait BuildWith<T> {
     /// Set the component of type `T`.
     fn with(self, data: T) -> Self;
 }
-
 #[macro_export]
 macro_rules! define_world {
     (@define_world_struct $($field:ident : ($($storage:ident) :: +; $type:ty))*) => {
@@ -343,6 +295,8 @@ macro_rules! define_world {
         impl<'a> $crate::WorldInterface<'a> for World {
             type EntityBuilder = EntityBuilder<'a>;
             type ComponentSet = ComponentSet;
+            type AvailableTypes = tlist!($($type,)*); //define_world!(@type_cons $($type)*);
+
             fn new_entity(&'a mut self) -> Self::EntityBuilder {
                 EntityBuilder {
                     components: ComponentSet{
@@ -353,6 +307,7 @@ macro_rules! define_world {
                     world: self,
                 }
             }
+
             fn build(&mut self, components: Self::ComponentSet) -> Entity {
                 use $crate::ComponentStorage;
                 let mut entity;
@@ -371,6 +326,7 @@ macro_rules! define_world {
                 )*
                 entity
             }
+
             fn delete(&mut self, entity: Entity) {
                 use $crate::ComponentStorage;
                 if entity.id < self.num_entities {
@@ -429,16 +385,19 @@ macro_rules! define_world {
         )*
     };
 }
+
 /// `World` is a container for a set of entities and components.
 /// This is mostly here so users know what to expect from the output of the `define_world!` macro.
 pub trait WorldInterface<'a>
 where
-    Self: std::marker::Sized,
+    Self: Sized,
 {
     /// The type returned by new_entity().
     type EntityBuilder: 'a;
     /// A type representing the union of every type supported by the `World`.
     type ComponentSet;
+    /// A TypeList containing all available types.
+    type AvailableTypes;
     /// Create a new entity.
     fn new_entity(&'a mut self) -> Self::EntityBuilder;
     /// Consume an `EntityBuilder` and store its components. Under normal circumstances, this
@@ -448,25 +407,182 @@ where
     fn delete(&mut self, e: Entity);
 }
 
+struct BoundSystem<'a, T, I, O, W>
+where
+    T: System<I, O>,
+    W: for<'b> WorldInterface<'b> + CanProvide<I> + CanProvide<O>,
+{
+    world: &'a W,
+    system: &'a mut T,
+    _i: PhantomData<I>,
+    _o: PhantomData<O>,
+}
+
+trait SystemBinding {
+    fn run(&mut self);
+}
+
+impl<'a, T, I, O, W> SystemBinding for BoundSystem<'a, T, I, O, W>
+where
+    T: System<I, O>,
+    W: for<'b> WorldInterface<'b> + CanProvide<I> + CanProvide<O>,
+{
+    fn run(&mut self) {
+        self.system.run(self.world);
+    }
+}
+
+/// Helper to build a set of parallel systems, subject to the following restrictions:
+/// - Any number of systems may read the same input component; however
+/// - No two systems may write the same output component
+/// - If a component is read and written in the same dispatch, the inputs will always see the
+/// original data (i.e., component writes are never visible within the same dispatch).
+pub struct DispatchBuilder<'a, WD, OutputTypes>
+where
+    for<'b> WD: WorldInterface<'b>,
+{
+    //_world: PhantomData<WD>,
+    world: &'a WD,
+    systems: Vec<Box<dyn SystemBinding + 'a>>,
+    _used: PhantomData<OutputTypes>,
+}
+
+impl<'a, WD, OutputTypes> DispatchBuilder<'a, WD, OutputTypes>
+where
+    for<'b> WD: WorldInterface<'b>,
+{
+    pub fn add<S, I, O>(
+        mut self,
+        system: &'a mut S,
+    ) -> DispatchBuilder<'a, WD, <OutputTypes as Append<<O as IntoTypeList>::Type>>::Output>
+    where
+        S: System<I, O>,
+        O: 'a + IntoTypeList + Append<<O as typelist::IntoTypeList>::Type>,
+        I: 'a,
+        WD: CanProvide<I> + CanProvide<O>,
+        OutputTypes: Append<<O as typelist::IntoTypeList>::Type>,
+    {
+        let binding = BoundSystem {
+            world: self.world,
+            system: system,
+            _i: Default::default(),
+            _o: Default::default(),
+        };
+
+        self.systems.push(Box::new(binding));
+
+        DispatchBuilder {
+            world: self.world,
+            systems: self.systems,
+            _used: Default::default(),
+        }
+    }
+
+    pub fn build<Index>(self)
+    where
+        for<'b> <WD as WorldInterface<'b>>::AvailableTypes: ConsumeMultiple<OutputTypes, Index>,
+    {
+        for mut system in self.systems {
+            system.run();
+        }
+    }
+}
+
+pub trait CanProvide<T> {}
+
+pub trait CanStore<T> {}
+
+// Recursive macro to implement CanProvide for tuples up length 32
+macro_rules! impl_can_provide {
+    (@impl_internal $($t:ident,)+) => {
+        impl<'a, WD, $($t),*> CanProvide<($($t,)*)> for WD where WD: $(Get<'a, $t> +)* WorldInterface<'a> {}
+    };
+
+    // Base case
+    (($($t:ident,)+);) => {
+        impl_can_provide!(@impl_internal $($t,)*);
+    };
+
+    // Produce the actual impl for the tuple represented by $t1, then move $t2 into the tuple and
+    // recursively call impl_can_provide
+    (($($t1:ident,)+); $t2:ident $(,)* $($t3:ident),*) => {
+        impl_can_provide!(@impl_internal $($t1,)*);
+        impl_can_provide!(($($t1),*, $t2,); $($t3),*);
+    };
+
+    // Entry point
+    ($t1:ident, $($t:ident),+) => {
+        impl_can_provide!(($t1,); $($t),*);
+    };
+}
+
+impl_can_provide!(
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
+    EE, FF, GG
+);
+
+pub trait Reader<T> {}
+
+pub struct ReaderIterator<T> {
+    _t: PhantomData<T>,
+}
+
+impl<T> Iterator for ReaderIterator<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        None
+    }
+}
+
+pub trait Writer<T> {}
+
 /// `System`
-pub trait System {
-    /// Inputs to the system.
-    type Input;
-    /// Outputs of the system.
-    type Output;
+pub trait System<I, O> {
     /// Run the system.
-    fn run(&mut self, data: Self::Input) -> Self::Output;
+    fn run<W: CanProvide<I> + CanProvide<O>>(&mut self, world: &W);
+}
+
+pub enum SystemOutput<T> {
+    Ignore,
+    Delete,
+    Update(T),
+}
+
+impl<T> Default for SystemOutput<T> {
+    fn default() -> Self {
+        SystemOutput::Ignore
+    }
+}
+
+pub trait WriteComponents<T>: Default {}
+
+/// For systems that don't cause side effects or need to reason about entities or components
+/// globally, it is highly recommended that you implement `PureFunctionalSystem`, which the
+/// library is able to automatically parallelize.
+pub trait PureFunctionalSystem<I, O> {
+    /// Process one input.
+    fn process<T: WriteComponents<O>>(&self, data: &I) -> T;
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::BlockStorage;
+    use crate::BuildWith;
+    use crate::Entity;
+    use crate::Join;
+    use crate::WorldInterface;
     #[test]
-    fn join() {
-        use crate::BuildWith;
-        use crate::Entity;
-        use crate::Join;
-        use crate::WorldInterface;
-
+    fn can_provide() {
+        define_world!(
+            test1: BlockStorage<f64>,
+            test2: BlockStorage<&'static str>,
+            test3: BlockStorage<u32>,
+        );
+        let _w = World::default();
+        //<World as CanProvide<(f64, u32, f64)>>::test();
+    }
+    #[test]
+    fn join_basic() {
         #[derive(Default, Debug, Eq, PartialEq)]
         pub struct Position {
             x: i32,
@@ -561,6 +677,45 @@ mod tests {
     }
 
     #[test]
+    fn join_multiple_blocks() {
+        #[derive(Default, Debug, Eq, PartialEq, Copy, Clone)]
+        pub struct A {
+            x: i32,
+        }
+
+        #[derive(Default, Debug, Eq, PartialEq, Clone)]
+        pub struct B {
+            s: String,
+        }
+
+        define_world!(
+            position: crate::BlockStorage<A>,
+            junk: crate::BlockStorage<B>
+        );
+
+        let mut w = World::default();
+        let data = (0..15000_i32)
+            .map(|i| {
+                (
+                    A { x: i },
+                    B {
+                        s: format!("{}", i),
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
+        data.iter().for_each(|(a, b)| {
+            w.new_entity().with(*a).with(b.clone()).build();
+        });
+
+        for ((a1, b1), (a2, b2)) in data.iter().zip(<(A, B)>::join(&w)) {
+            assert_eq!(a1, a2);
+            assert_eq!(b1, b2);
+        }
+    }
+
+    #[test]
     fn bitset() {
         use crate::BitSet;
         let mut x: u32 = 0;
@@ -595,7 +750,7 @@ mod tests {
     fn bitset_iter() {
         use crate::BitSet;
         let x: u16 = 0b1010011101101010;
-        let is = x.iter().collect::<Vec<_>>();
-        assert_eq!(is, vec![1, 3, 5, 6, 8, 9, 10, 13, 15]);
+        let idxs = x.iter().collect::<Vec<_>>();
+        assert_eq!(idxs, vec![1, 3, 5, 6, 8, 9, 10, 13, 15]);
     }
 }
