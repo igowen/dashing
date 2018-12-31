@@ -113,7 +113,6 @@
 
 #![deny(missing_docs)]
 #![allow(dead_code)]
-#![feature(trait_alias)]
 
 /// Routines for creating and managing the game window.
 pub mod window;
