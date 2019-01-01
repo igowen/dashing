@@ -36,17 +36,23 @@ use std::marker::PhantomData;
 /// [1]: https://beachape.com/blog/2017/03/12/gentle-intro-to-type-level-recursion-in-Rust-from-zero-to-frunk-hlist-sculpting/
 #[macro_use]
 pub mod typelist;
+
+pub mod parallel;
+pub mod traits;
+
 mod bitset;
 
-use crate::typelist::*;
 use crate::bitset::*;
+//use crate::parallel::*;
+use crate::traits::*;
+use crate::typelist::*;
 
 /// `Entity` is an opaque identifier that can be used to look up associated components in a
 /// `World`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Entity {
-    id: usize,
-    generation: usize,
+    pub id: usize,
+    pub generation: usize,
 }
 
 /// Trait that all component storages must implement.
@@ -256,46 +262,30 @@ where
         BlockJoinIter::new(<W as Get<'a, A>>::get(w), <W as Get<'a, B>>::get(w))
     }
 }
-/*
-impl<'a, A, B, W> Join<'a, (&'a A, &'a B), W> for (A, B)
-where
-    W: Get<'a, A, Storage = BlockStorage<A>>,
-    A: 'a + Default,
-    B: 'a + Default,
-{
-}
-*/
-
-/// A trait that indicates that the implementor is able to store components of type `T`.
-pub trait Get<'a, T> {
-    /// The backing storage type.
-    type Storage: ComponentStorage<'a, T>;
-    /// Get the storage.
-    fn get(&'a self) -> &'a Self::Storage;
-}
 
 /// Trait for `EntityBuilder` types.
 pub trait BuildWith<T> {
     /// Set the component of type `T`.
     fn with(self, data: T) -> Self;
 }
+
 #[macro_export]
 macro_rules! define_world {
-    (@define_world_struct $($field:ident : ($($storage:ident) :: +; $type:ty))*) => {
+    (@define_world_struct $v:vis $world:ident $($field:ident : ($($storage:ident) :: +; $type:ty))*) => {
         /// `World` encapsulates a set of component types and provides a means for constructing new
         /// entities.
         #[derive(Default)]
-        pub struct World {
+        $v struct $world {
             $(
                 $field: $($storage)::*<$type>,
             )*
             num_entities: usize,
             free_list: Vec<Entity>,
         }
-        impl<'a> $crate::WorldInterface<'a> for World {
+        impl<'a> $crate::WorldInterface<'a> for $world {
             type EntityBuilder = EntityBuilder<'a>;
             type ComponentSet = ComponentSet;
-            type AvailableTypes = tlist!($($type,)*); //define_world!(@type_cons $($type)*);
+            type AvailableTypes = tlist!($($type,)*);
 
             fn new_entity(&'a mut self) -> Self::EntityBuilder {
                 EntityBuilder {
@@ -308,7 +298,7 @@ macro_rules! define_world {
                 }
             }
 
-            fn build(&mut self, components: Self::ComponentSet) -> Entity {
+            fn build_entity(&mut self, components: Self::ComponentSet) -> Entity {
                 use $crate::ComponentStorage;
                 let mut entity;
                 if let Some(e) = self.free_list.pop() {
@@ -327,7 +317,7 @@ macro_rules! define_world {
                 entity
             }
 
-            fn delete(&mut self, entity: Entity) {
+            fn delete_entity(&mut self, entity: Entity) {
                 use $crate::ComponentStorage;
                 if entity.id < self.num_entities {
                     $(
@@ -338,25 +328,25 @@ macro_rules! define_world {
             }
         }
     };
-    (@define_builder_struct $($field:ident:$type:ty)*) => {
+    (@define_builder_struct $v:vis $world:ident $($field:ident:$type:ty)*) => {
         #[derive(Default)]
         /// ComponentSet is roughly equivalent to a tuple containing Option<T> for all types the
         /// World stores.
-        pub struct ComponentSet {
+        $v struct ComponentSet {
             $(
                 $field: Option<$type>,
             )*
         }
         /// Builder pattern for creating new entities.
-        pub struct EntityBuilder<'a> {
+        $v struct EntityBuilder<'a> {
             components: ComponentSet,
-            world: &'a mut World,
+            world: &'a mut $world,
         }
         impl<'a> EntityBuilder<'a> {
             /// Finalize this entity and all of its components by storing them in the `World`.
-            pub fn build(self) -> Entity {
+            $v fn build(self) -> Entity {
                 use $crate::WorldInterface;
-                self.world.build(self.components)
+                self.world.build_entity(self.components)
             }
         }
     };
@@ -368,18 +358,19 @@ macro_rules! define_world {
             }
         }
     };
-    (@impl_get $field:ident $type:ty) => {
-        impl<'a> $crate::Get<'a, $type> for World {
-            type Storage = $crate::BlockStorage<$type>;
+    (@impl_get $world:ident $field:ident $($storage:ident) :: + ; $type:ty) => {
+        impl<'a> $crate::Get<'a, $type> for $world {
+            type Storage = $($storage)::* < $type >;
             fn get(&'a self) -> &'a Self::Storage { &self.$field }
+            fn get_mut(&'a mut self) -> &'a mut Self::Storage { &mut self.$field }
         }
     };
-    ($($field:ident : $($storage:ident) :: + < $type:ty >),* $(,)*) => {
-        define_world!{@define_world_struct $($field:($($storage)::*; $type))*}
+    ($v:vis $world:ident { $($field:ident : $($storage:ident) :: + < $type:ty >),* $(,)* }) => {
+        define_world!{@define_world_struct $v $world $($field:($($storage)::*; $type))*}
         $(
-            define_world!{@impl_get $field $type}
+            define_world!{@impl_get $world $field $($storage)::* ; $type}
         )*
-        define_world!{@define_builder_struct $($field:$type)*}
+        define_world!{@define_builder_struct $v $world $($field:$type)*}
         $(
             define_world!{@impl_build_with $field $type}
         )*
@@ -402,144 +393,26 @@ where
     fn new_entity(&'a mut self) -> Self::EntityBuilder;
     /// Consume an `EntityBuilder` and store its components. Under normal circumstances, this
     /// should only be called by `EntityBuilder::build()`.
-    fn build(&mut self, c: Self::ComponentSet) -> Entity;
+    fn build_entity(&mut self, c: Self::ComponentSet) -> Entity;
     /// Delete an entity.
-    fn delete(&mut self, e: Entity);
-}
-
-struct BoundSystem<'a, T, I, O, W>
-where
-    T: System<I, O>,
-    W: for<'b> WorldInterface<'b> + CanProvide<I> + CanProvide<O>,
-{
-    world: &'a W,
-    system: &'a mut T,
-    _i: PhantomData<I>,
-    _o: PhantomData<O>,
-}
-
-trait SystemBinding {
-    fn run(&mut self);
-}
-
-impl<'a, T, I, O, W> SystemBinding for BoundSystem<'a, T, I, O, W>
-where
-    T: System<I, O>,
-    W: for<'b> WorldInterface<'b> + CanProvide<I> + CanProvide<O>,
-{
-    fn run(&mut self) {
-        self.system.run(self.world);
-    }
-}
-
-/// Helper to build a set of parallel systems, subject to the following restrictions:
-/// - Any number of systems may read the same input component; however
-/// - No two systems may write the same output component
-/// - If a component is read and written in the same dispatch, the inputs will always see the
-/// original data (i.e., component writes are never visible within the same dispatch).
-pub struct DispatchBuilder<'a, WD, OutputTypes>
-where
-    for<'b> WD: WorldInterface<'b>,
-{
-    //_world: PhantomData<WD>,
-    world: &'a WD,
-    systems: Vec<Box<dyn SystemBinding + 'a>>,
-    _used: PhantomData<OutputTypes>,
-}
-
-impl<'a, WD, OutputTypes> DispatchBuilder<'a, WD, OutputTypes>
-where
-    for<'b> WD: WorldInterface<'b>,
-{
-    pub fn add<S, I, O>(
-        mut self,
-        system: &'a mut S,
-    ) -> DispatchBuilder<'a, WD, <OutputTypes as Append<<O as IntoTypeList>::Type>>::Output>
-    where
-        S: System<I, O>,
-        O: 'a + IntoTypeList + Append<<O as typelist::IntoTypeList>::Type>,
-        I: 'a,
-        WD: CanProvide<I> + CanProvide<O>,
-        OutputTypes: Append<<O as typelist::IntoTypeList>::Type>,
-    {
-        let binding = BoundSystem {
-            world: self.world,
-            system: system,
-            _i: Default::default(),
-            _o: Default::default(),
-        };
-
-        self.systems.push(Box::new(binding));
-
+    fn delete_entity(&mut self, e: Entity);
+    /*
+    /// Prepare a system dispatch.
+    fn new_dispatch(&'a self) -> DispatchBuilder<Self, Nil> {
         DispatchBuilder {
-            world: self.world,
-            systems: self.systems,
-            _used: Default::default(),
+            world: self,
+            systems: Default::default(),
+            _used: PhantomData,
+            _b: PhantomData,
         }
     }
-
-    pub fn build<Index>(self)
-    where
-        for<'b> <WD as WorldInterface<'b>>::AvailableTypes: ConsumeMultiple<OutputTypes, Index>,
-    {
-        for mut system in self.systems {
-            system.run();
-        }
-    }
+    */
 }
-
-pub trait CanProvide<T> {}
-
-pub trait CanStore<T> {}
-
-// Recursive macro to implement CanProvide for tuples up length 32
-macro_rules! impl_can_provide {
-    (@impl_internal $($t:ident,)+) => {
-        impl<'a, WD, $($t),*> CanProvide<($($t,)*)> for WD where WD: $(Get<'a, $t> +)* WorldInterface<'a> {}
-    };
-
-    // Base case
-    (($($t:ident,)+);) => {
-        impl_can_provide!(@impl_internal $($t,)*);
-    };
-
-    // Produce the actual impl for the tuple represented by $t1, then move $t2 into the tuple and
-    // recursively call impl_can_provide
-    (($($t1:ident,)+); $t2:ident $(,)* $($t3:ident),*) => {
-        impl_can_provide!(@impl_internal $($t1,)*);
-        impl_can_provide!(($($t1),*, $t2,); $($t3),*);
-    };
-
-    // Entry point
-    ($t1:ident, $($t:ident),+) => {
-        impl_can_provide!(($t1,); $($t),*);
-    };
-}
-
-impl_can_provide!(
-    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
-    EE, FF, GG
-);
-
-pub trait Reader<T> {}
-
-pub struct ReaderIterator<T> {
-    _t: PhantomData<T>,
-}
-
-impl<T> Iterator for ReaderIterator<T> {
-    type Item = T;
-    fn next(&mut self) -> Option<T> {
-        None
-    }
-}
-
-pub trait Writer<T> {}
 
 /// `System`
 pub trait System<I, O> {
     /// Run the system.
-    fn run<W: CanProvide<I> + CanProvide<O>>(&mut self, world: &W);
+    fn run<'a, W: WorldInterface<'a> + CanProvide<I> + CanProvide<O>>(&mut self, world: &W);
 }
 
 pub enum SystemOutput<T> {
@@ -554,31 +427,32 @@ impl<T> Default for SystemOutput<T> {
     }
 }
 
-pub trait WriteComponents<T>: Default {}
-
 /// For systems that don't cause side effects or need to reason about entities or components
 /// globally, it is highly recommended that you implement `PureFunctionalSystem`, which the
 /// library is able to automatically parallelize.
-pub trait PureFunctionalSystem<I, O> {
+pub trait PureFunctionalSystem<I, O: SystemOutputTuple> {
     /// Process one input.
-    fn process<T: WriteComponents<O>>(&self, data: &I) -> T;
+    fn process(&self, data: &I) -> <O as SystemOutputTuple>::OutputTuple;
+}
+
+mod private {
+    pub trait Sealed {}
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::BlockStorage;
-    use crate::BuildWith;
-    use crate::Entity;
-    use crate::Join;
-    use crate::WorldInterface;
+    use crate::typelist::*;
+    use crate::*;
     #[test]
     fn can_provide() {
         define_world!(
-            test1: BlockStorage<f64>,
-            test2: BlockStorage<&'static str>,
-            test3: BlockStorage<u32>,
+            CanProvideTestWorld {
+                test1: BlockStorage<f64>,
+                test2: BlockStorage<&'static str>,
+                test3: BlockStorage<u32>,
+            }
         );
-        let _w = World::default();
+        let _w = CanProvideTestWorld::default();
         //<World as CanProvide<(f64, u32, f64)>>::test();
     }
     #[test]
@@ -595,8 +469,10 @@ mod tests {
         }
 
         define_world!(
-            position: crate::BlockStorage<Position>,
-            junk: crate::BlockStorage<Junk>
+            World {
+                position: crate::BlockStorage<Position>,
+                junk: crate::BlockStorage<Junk>
+            }
         );
 
         let mut w = World::default();
@@ -641,7 +517,7 @@ mod tests {
         assert_eq!(e1[2].1.s, "¡Hola!");
 
         // Delete the second entity.
-        w.delete(entity_to_delete);
+        w.delete_entity(entity_to_delete);
 
         // Second round: make sure the deleted entity doesn't appear in the join.
         let e2: Vec<(&Position, &Junk)> = <(Position, Junk)>::join(&w).collect();
@@ -689,8 +565,10 @@ mod tests {
         }
 
         define_world!(
-            position: crate::BlockStorage<A>,
-            junk: crate::BlockStorage<B>
+            World {
+                position: crate::BlockStorage<A>,
+                junk: crate::BlockStorage<B>
+            }
         );
 
         let mut w = World::default();
@@ -713,44 +591,5 @@ mod tests {
             assert_eq!(a1, a2);
             assert_eq!(b1, b2);
         }
-    }
-
-    #[test]
-    fn bitset() {
-        use crate::BitSet;
-        let mut x: u32 = 0;
-        for i in 0..32 {
-            assert!(x.get_bit(i) == false);
-        }
-        x.set_bit(12);
-        assert!(x.get_bit(12));
-        for i in 0..32 {
-            if i != 12 {
-                assert!(x.get_bit(i) == false);
-            }
-        }
-        x.clear_bit(12);
-        for i in 0..32 {
-            assert!(x.get_bit(i) == false);
-        }
-        x = 0xffffffff;
-        for i in 0..32 {
-            assert!(x.get_bit(i) == true);
-        }
-        x.clear_bit(14);
-        assert!(x.get_bit(14) == false);
-        for i in 0..32 {
-            if i != 14 {
-                assert!(x.get_bit(i) == true);
-            }
-        }
-    }
-
-    #[test]
-    fn bitset_iter() {
-        use crate::BitSet;
-        let x: u16 = 0b1010011101101010;
-        let idxs = x.iter().collect::<Vec<_>>();
-        assert_eq!(idxs, vec![1, 3, 5, 6, 8, 9, 10, 13, 15]);
     }
 }

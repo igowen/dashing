@@ -13,8 +13,8 @@ pub trait TypeList {}
 impl TypeList for Nil {}
 impl<H, T> TypeList for TypeCons<H, T> {}
 
-struct NotFound<T>(PhantomData<T>);
-struct Found;
+pub struct NotFound<T>(PhantomData<T>);
+pub struct Found;
 
 pub trait Append<T>
 where
@@ -57,22 +57,23 @@ pub trait ConsumeMultiple<Target, Indices> {
     type Remainder;
 }
 
-impl<
-    THead,
-    TTail,
-    SHead,
-    STail,
-    IndexHead,
-    IndexTail,
-> ConsumeMultiple<TypeCons<THead, TTail>, TypeCons<IndexHead, IndexTail>> for TypeCons<SHead, STail>
+impl<Source> ConsumeMultiple<Nil, Nil> for Source {
+    type Remainder = Source;
+}
+
+impl<THead, TTail, SHead, STail, IndexHead, IndexTail>
+    ConsumeMultiple<TypeCons<THead, TTail>, TypeCons<IndexHead, IndexTail>>
+    for TypeCons<SHead, STail>
 where
     TypeCons<SHead, STail>: Consume<THead, IndexHead>,
-    <TypeCons<SHead, STail> as Consume<THead, IndexHead>>::Remainder: ConsumeMultiple<TTail, IndexTail>,
+    <TypeCons<SHead, STail> as Consume<THead, IndexHead>>::Remainder:
+        ConsumeMultiple<TTail, IndexTail>,
 {
-    type Remainder = <<TypeCons<SHead, STail> as Consume<
-        THead,
-        IndexHead,
-    >>::Remainder as ConsumeMultiple<TTail, IndexTail>>::Remainder;
+    type Remainder =
+        <<TypeCons<SHead, STail> as Consume<THead, IndexHead>>::Remainder as ConsumeMultiple<
+            TTail,
+            IndexTail,
+        >>::Remainder;
 }
 
 pub trait IntoTypeList {
@@ -129,37 +130,6 @@ macro_rules! impl_into_type_list {
 }
 
 impl_into_type_list!(
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
-    L,
-    M,
-    N,
-    O,
-    P,
-    Q,
-    R,
-    S,
-    T,
-    U,
-    V,
-    W,
-    X,
-    Y,
-    Z,
-    AA,
-    BB,
-    CC,
-    DD,
-    EE,
-    FF,
-    GG
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
+    EE, FF, GG
 );
