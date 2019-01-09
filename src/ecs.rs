@@ -23,7 +23,7 @@
 
 #![recursion_limit = "72"]
 
-use std::marker::PhantomData;
+use std::cell::RefCell;
 
 /// `typelist` contains some type-level metaprogramming that allows the library to validate certain
 /// invariants at compile time.
@@ -37,15 +37,14 @@ use std::marker::PhantomData;
 #[macro_use]
 pub mod typelist;
 
-pub mod parallel;
+// disable compilation of parallel.rs for now
+// pub mod parallel;
 pub mod traits;
 
 mod bitset;
 
-use crate::bitset::*;
-//use crate::parallel::*;
-use crate::traits::*;
-use crate::typelist::*;
+//use crate::bitset::*;
+pub use crate::traits::*;
 
 /// `Entity` is an opaque identifier that can be used to look up associated components in a
 /// `World`.
@@ -55,19 +54,7 @@ pub struct Entity {
     pub generation: usize,
 }
 
-/// Trait that all component storages must implement.
-pub trait ComponentStorage<'a, T> {
-    /// Get the component corresponding to the given entity, if it exists.
-    fn get(&'a self, entity: Entity) -> Option<&'a T>;
-    /// Set the component for the given entity.
-    fn set(&mut self, entity: Entity, item: Option<T>);
-    /// Reserve `n` slots without affecting the size of the storage. The default implementation is
-    /// a no-op; only implement if it makes sense for your storage type.
-    fn reserve(&mut self, _n: usize) {}
-    /// Get the number of components currently stored.
-    fn size(&self) -> usize;
-}
-
+/*
 struct Block<T> {
     data: [T; 32],
     bits: u32,
@@ -83,11 +70,11 @@ where
     blocks: Vec<Block<T>>,
 }
 
-impl<'a, T> ComponentStorage<'a, T> for BlockStorage<T>
+impl<'a, T: 'a> ComponentStorage<'a, T> for BlockStorage<T>
 where
     T: Default,
 {
-    fn get(&'a self, entity: Entity) -> Option<&'a T> {
+    fn get(&self, entity: Entity) -> Option<&'a T> {
         let index = entity.id;
         if self.blocks[index / 32].bits.get_bit(index) {
             Some(&self.blocks[index / 32].data[index % 32])
@@ -156,7 +143,9 @@ where
         }
     }
 }
+*/
 
+/*
 /// Storage for zero-sized types. Marginally more compact than `BlockStorage`. It's technically
 /// possible to instantiate this with non-ZSTs, but `get()` will always return the default
 /// instance, so don't do that.
@@ -170,9 +159,9 @@ pub struct VoidStorage<T> {
 
 impl<'a, T> ComponentStorage<'a, T> for VoidStorage<T>
 where
-    T: Default,
+    T: 'a + Default,
 {
-    fn get(&'a self, entity: Entity) -> Option<&'a T> {
+    fn get(&self, entity: Entity) -> Option<&T> {
         if entity.id < self.size && self.data[entity.id / 32].get_bit(entity.id % 32) {
             Some(&self.instance)
         } else {
@@ -194,7 +183,65 @@ where
         self.size
     }
 }
+*/
 
+pub struct DumbVecIter<'a, T: 'a>(std::slice::Iter<'a, Option<T>>);
+impl<'a, T: 'a> Iterator for DumbVecIter<'a, T> {
+    type Item = Option<&'a T>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|v| v.as_ref())
+    }
+}
+
+pub struct DumbVecIterMut<'a, T: 'a>(std::slice::IterMut<'a, Option<T>>);
+impl<'a, T: 'a> Iterator for DumbVecIterMut<'a, T> {
+    type Item = Option<&'a mut T>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|v| v.as_mut())
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct DumbVecStorage<T>(Vec<Option<T>>);
+
+impl<'a, T> ComponentStorage<'a, T> for DumbVecStorage<T>
+where
+    T: 'a,
+{
+    type Iter = DumbVecIter<'a, T>;
+    type IterMut = DumbVecIterMut<'a, T>;
+    fn get(&self, entity: Entity) -> Option<&T> {
+        if entity.id < self.0.len() {
+            self.0[entity.id].as_ref()
+        } else {
+            None
+        }
+    }
+    fn set(&mut self, entity: Entity, item: Option<T>) {
+        if entity.id >= self.0.len() {
+            let n = entity.id - self.0.len() + 1;
+            self.0.reserve(n);
+            for _ in 0..n {
+                self.0.push(None);
+            }
+        }
+        self.0[entity.id] = item;
+    }
+    fn reserve(&mut self, n: usize) {
+        self.0.reserve(n);
+    }
+    fn size(&self) -> usize {
+        self.0.len()
+    }
+    fn iter(&'a self) -> Self::Iter {
+        DumbVecIter(self.0.iter())
+    }
+    fn iter_mut(&'a mut self) -> Self::IterMut {
+        DumbVecIterMut(self.0.iter_mut())
+    }
+}
+
+/*
 /// Iterator for two joined `BlockStorage`s.
 pub struct BlockJoinIter<'a, A: Default, B: Default> {
     a: &'a BlockStorage<A>,
@@ -262,27 +309,44 @@ where
         BlockJoinIter::new(<W as Get<'a, A>>::get(w), <W as Get<'a, B>>::get(w))
     }
 }
-
-/// Trait for `EntityBuilder` types.
-pub trait BuildWith<T> {
-    /// Set the component of type `T`.
-    fn with(self, data: T) -> Self;
-}
+*/
 
 #[macro_export]
 macro_rules! define_world {
-    (@define_world_struct $v:vis $world:ident $($field:ident : ($($storage:ident) :: +; $type:ty))*) => {
-        /// `World` encapsulates a set of component types and provides a means for constructing new
-        /// entities.
-        #[derive(Default)]
-        $v struct $world {
+    (@define_resource_struct $v:vis (
+                             {$($component:ident : ($($component_storage:ident) :: +; $component_type:ty))*}
+                             {$($resource:ident : $resource_type:ty)*})) => {
+        #[derive(Clone, Debug, Default)]
+        $v struct Resources {
             $(
-                $field: $($storage)::*<$type>,
+                $component: RefCell<$($component_storage)::*<$component_type>>,
             )*
+
+            $(
+                $resource: RefCell<$resource_type>,
+            )*
+        }
+    };
+
+    (@define_world_struct $v:vis
+                          ($($component:ident : $type:ty)*)) => {
+        /// Encapsulation of a set of component and resource types. Also provides a means for
+        /// constructing new entities.
+        #[derive(Default)]
+        $v struct World {
+            resources: Resources,
             num_entities: usize,
             free_list: Vec<Entity>,
         }
-        impl<'a> $crate::WorldInterface<'a> for $world {
+
+        impl $crate::ResourceProvider for World {
+            type Resources = Resources;
+            fn get_resources(&mut self) -> &Self::Resources {
+                &self.resources
+            }
+        }
+
+        impl<'a> $crate::WorldInterface<'a> for World {
             type EntityBuilder = EntityBuilder<'a>;
             type ComponentSet = ComponentSet;
             type AvailableTypes = tlist!($($type,)*);
@@ -291,7 +355,7 @@ macro_rules! define_world {
                 EntityBuilder {
                     components: ComponentSet{
                     $(
-                        $field: None,
+                        $component: None,
                     )*
                     },
                     world: self,
@@ -312,7 +376,9 @@ macro_rules! define_world {
                     self.num_entities += 1;
                 }
                 $(
-                    self.$field.set(entity, components.$field);
+                    // Should never panic, since having a mutable reference to `self` implies that
+                    // there are no extant immutable references.
+                    self.resources.$component.borrow_mut().set(entity, components.$component);
                 )*
                 entity
             }
@@ -321,14 +387,25 @@ macro_rules! define_world {
                 use $crate::ComponentStorage;
                 if entity.id < self.num_entities {
                     $(
-                        self.$field.set(entity, None);
+                        self.resources.$component.borrow_mut().set(entity, None);
                     )*
                     self.free_list.push(entity);
                 }
             }
+
+            fn run_system<S, T, U, V>(&'a mut self, _system: &mut S)
+            where
+                S: System<Dependencies = T>,
+                T: typelist::IntoTypeList<Type = U>,
+                U: typelist::TypeList,
+                Self::AvailableTypes: typelist::ConsumeMultiple<U, V> {
+
+                //system.run(self);
+            }
         }
     };
-    (@define_builder_struct $v:vis $world:ident $($field:ident:$type:ty)*) => {
+
+    (@define_builder_struct $v:vis $($field:ident:$type:ty)*) => {
         #[derive(Default)]
         /// ComponentSet is roughly equivalent to a tuple containing Option<T> for all types the
         /// World stores.
@@ -340,7 +417,7 @@ macro_rules! define_world {
         /// Builder pattern for creating new entities.
         $v struct EntityBuilder<'a> {
             components: ComponentSet,
-            world: &'a mut $world,
+            world: &'a mut World,
         }
         impl<'a> EntityBuilder<'a> {
             /// Finalize this entity and all of its components by storing them in the `World`.
@@ -350,6 +427,7 @@ macro_rules! define_world {
             }
         }
     };
+
     (@impl_build_with $field:ident $type:ty) => {
         impl<'a> $crate::BuildWith<$type> for EntityBuilder<'a> {
             fn with(mut self, data: $type) -> Self {
@@ -358,61 +436,26 @@ macro_rules! define_world {
             }
         }
     };
-    (@impl_get $world:ident $field:ident $($storage:ident) :: + ; $type:ty) => {
-        impl<'a> $crate::Get<'a, $type> for $world {
-            type Storage = $($storage)::* < $type >;
-            fn get(&'a self) -> &'a Self::Storage { &self.$field }
-            fn get_mut(&'a mut self) -> &'a mut Self::Storage { &mut self.$field }
-        }
-    };
-    ($v:vis $world:ident { $($field:ident : $($storage:ident) :: + < $type:ty >),* $(,)* }) => {
-        define_world!{@define_world_struct $v $world $($field:($($storage)::*; $type))*}
-        $(
-            define_world!{@impl_get $world $field $($storage)::* ; $type}
-        )*
-        define_world!{@define_builder_struct $v $world $($field:$type)*}
-        $(
-            define_world!{@impl_build_with $field $type}
-        )*
-    };
-}
 
-/// `World` is a container for a set of entities and components.
-/// This is mostly here so users know what to expect from the output of the `define_world!` macro.
-pub trait WorldInterface<'a>
-where
-    Self: Sized,
-{
-    /// The type returned by new_entity().
-    type EntityBuilder: 'a;
-    /// A type representing the union of every type supported by the `World`.
-    type ComponentSet;
-    /// A TypeList containing all available types.
-    type AvailableTypes;
-    /// Create a new entity.
-    fn new_entity(&'a mut self) -> Self::EntityBuilder;
-    /// Consume an `EntityBuilder` and store its components. Under normal circumstances, this
-    /// should only be called by `EntityBuilder::build()`.
-    fn build_entity(&mut self, c: Self::ComponentSet) -> Entity;
-    /// Delete an entity.
-    fn delete_entity(&mut self, e: Entity);
-    /*
-    /// Prepare a system dispatch.
-    fn new_dispatch(&'a self) -> DispatchBuilder<Self, Nil> {
-        DispatchBuilder {
-            world: self,
-            systems: Default::default(),
-            _used: PhantomData,
-            _b: PhantomData,
+    // Entry point
+    ($v:vis world {
+        components {
+            $($component:ident : $($component_storage:ident) :: + < $component_type:ty >),* $(,)*
         }
-    }
-    */
-}
-
-/// `System`
-pub trait System<I, O> {
-    /// Run the system.
-    fn run<'a, W: WorldInterface<'a> + CanProvide<I> + CanProvide<O>>(&mut self, world: &W);
+        resources {
+            $($resource:ident : $resource_type:ty),* $(,)*
+        }
+    }) => {
+        define_world!{@define_world_struct $v
+                                           ($($component: $component_type)*)}
+        define_world!{@define_builder_struct $v $($component:$component_type)*}
+        $(
+            define_world!{@impl_build_with $component $component_type}
+        )*
+        define_world!{@define_resource_struct $v (
+                                              {$($component:($($component_storage)::*; $component_type))*}
+                                              {$($resource : $resource_type)*})}
+    };
 }
 
 pub enum SystemOutput<T> {
@@ -427,34 +470,45 @@ impl<T> Default for SystemOutput<T> {
     }
 }
 
-/// For systems that don't cause side effects or need to reason about entities or components
-/// globally, it is highly recommended that you implement `PureFunctionalSystem`, which the
-/// library is able to automatically parallelize.
-pub trait PureFunctionalSystem<I, O: SystemOutputTuple> {
-    /// Process one input.
-    fn process(&self, data: &I) -> <O as SystemOutputTuple>::OutputTuple;
-}
-
-mod private {
-    pub trait Sealed {}
-}
+define_world!(
+    pub world {
+        components {
+            test1: DumbVecStorage<f64>,
+        }
+        resources {
+            test2: String,
+        }
+    }
+);
 
 #[cfg(test)]
 mod tests {
+    use crate::bitset::*;
     use crate::typelist::*;
     use crate::*;
     #[test]
     fn can_provide() {
         define_world!(
-            CanProvideTestWorld {
-                test1: BlockStorage<f64>,
-                test2: BlockStorage<&'static str>,
-                test3: BlockStorage<u32>,
+            pub world {
+                components {
+                    test1: DumbVecStorage<f64>,
+                }
+                resources {
+                    test2: String,
+                }
             }
         );
-        let _w = CanProvideTestWorld::default();
+        let mut w = World::default();
+        struct Poop {}
+        impl System for Poop {
+            type Dependencies = (f64,);
+            fn run(&mut self, dependencies: Self::Dependencies) {}
+        }
+        let mut poop = Poop {};
+        w.run_system(&mut poop);
         //<World as CanProvide<(f64, u32, f64)>>::test();
     }
+    /*
     #[test]
     fn join_basic() {
         #[derive(Default, Debug, Eq, PartialEq)]
@@ -592,4 +646,5 @@ mod tests {
             assert_eq!(b1, b2);
         }
     }
+    */
 }
