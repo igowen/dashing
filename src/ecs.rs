@@ -23,8 +23,6 @@
 
 #![recursion_limit = "72"]
 
-use std::cell::RefCell;
-
 /// `typelist` contains some type-level metaprogramming that allows the library to validate certain
 /// invariants at compile time.
 ///
@@ -311,28 +309,82 @@ where
 }
 */
 
-#[macro_export]
+/// Defines the set of data structures necessary for using `ecstatic`.
+///
+/// ```
+/// # use ecstatic::*;
+/// #[derive(Default, Debug)]
+/// struct Data {
+///     info: String,
+/// }
+///
+/// define_world!(
+///     // You can apply trait derivations to the output structs. Whatever is specified here will
+///     // apply to both the `World` struct and the `Resources` struct.
+///     #[derive(Default, Debug)]
+///     // The visibility specifier is optional. It applies to all of the types defined by the
+///     // macro.
+///     pub world {
+///         // Components must all go in collections that implement `ComponentStorage`. They are
+///         // addressed by type, so you can only have one field per type.
+///         components {
+///             strings: DumbVecStorage<String>,
+///         }
+///         // Resources are just stored bare, but the same restriction on unique fields per type
+///         // applies (but only within resources -- you can have a resource of the same type as a
+///         // component).
+///         resources {
+///             data: Data,
+///         }
+///     }
+/// );
+/// ```
+#[macro_export(local_inner_macros)]
 macro_rules! define_world {
-    (@define_resource_struct $v:vis (
+    ($(#[$meta:meta])*
+     $v:vis world {
+        components {
+            $($component:ident : $($component_storage:ident) :: + < $component_type:ty >),* $(,)*
+        }
+        resources {
+            $($resource:ident : $resource_type:ty),* $(,)*
+        }
+    }) => {
+        __define_world_internal!{@define_world_struct $(#[$meta])* $v
+                                           ($($component: $component_type)*)}
+        __define_world_internal!{@define_builder_struct $v $($component:$component_type)*}
+        $(
+            __define_world_internal!{@impl_build_with $component $component_type}
+        )*
+        __define_world_internal!{@define_resource_struct $(#[$meta])* $v (
+                                              {$($component:($($component_storage)::*; $component_type))*}
+                                              {$($resource : $resource_type)*})}
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __define_world_internal {
+    (@define_resource_struct $(#[$meta:meta])* $v:vis (
                              {$($component:ident : ($($component_storage:ident) :: +; $component_type:ty))*}
                              {$($resource:ident : $resource_type:ty)*})) => {
-        #[derive(Clone, Debug, Default)]
+        $(#[$meta])*
         $v struct Resources {
             $(
-                $component: RefCell<$($component_storage)::*<$component_type>>,
+                $component: std::cell::RefCell<$($component_storage)::*<$component_type>>,
             )*
 
             $(
-                $resource: RefCell<$resource_type>,
+                $resource: std::cell::RefCell<$resource_type>,
             )*
         }
     };
 
-    (@define_world_struct $v:vis
+    (@define_world_struct $(#[$meta:meta])* $v:vis
                           ($($component:ident : $type:ty)*)) => {
         /// Encapsulation of a set of component and resource types. Also provides a means for
         /// constructing new entities.
-        #[derive(Default)]
+        $(#[$meta])*
         $v struct World {
             resources: Resources,
             num_entities: usize,
@@ -438,24 +490,6 @@ macro_rules! define_world {
     };
 
     // Entry point
-    ($v:vis world {
-        components {
-            $($component:ident : $($component_storage:ident) :: + < $component_type:ty >),* $(,)*
-        }
-        resources {
-            $($resource:ident : $resource_type:ty),* $(,)*
-        }
-    }) => {
-        define_world!{@define_world_struct $v
-                                           ($($component: $component_type)*)}
-        define_world!{@define_builder_struct $v $($component:$component_type)*}
-        $(
-            define_world!{@impl_build_with $component $component_type}
-        )*
-        define_world!{@define_resource_struct $v (
-                                              {$($component:($($component_storage)::*; $component_type))*}
-                                              {$($resource : $resource_type)*})}
-    };
 }
 
 pub enum SystemOutput<T> {
@@ -471,6 +505,7 @@ impl<T> Default for SystemOutput<T> {
 }
 
 define_world!(
+    #[derive(Default)]
     pub world {
         components {
             test1: DumbVecStorage<f64>,
@@ -489,6 +524,7 @@ mod tests {
     #[test]
     fn can_provide() {
         define_world!(
+            #[derive(Default)]
             pub world {
                 components {
                     test1: DumbVecStorage<f64>,
