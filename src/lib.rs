@@ -99,7 +99,6 @@
 //!   * Don't use glutin/winit event types in the public interface
 //! * GUI library
 //!   * Splash screen support
-//! * Entity-Component system
 //! * Serialization/persistence framework
 //! * Graphics improvements
 //!   * User-specified shaders
@@ -111,6 +110,7 @@
 //! * Audio
 //! * Parallelism
 
+#![recursion_limit = "72"]
 #![deny(missing_docs)]
 #![allow(dead_code)]
 
@@ -128,6 +128,9 @@ pub mod input;
 
 /// Functionality for building in-game UIs.
 pub mod ui;
+
+/// Entity-component-system library
+pub mod ecs;
 
 /// Signals to indicate whether the engine should keep running or halt.
 #[derive(PartialEq, Eq, Debug)]
