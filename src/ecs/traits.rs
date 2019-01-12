@@ -24,7 +24,7 @@ pub trait System {
 
 /// For systems that don't cause side effects or need to reason about entities or components
 /// globally, it is highly recommended that you implement `PureFunctionalSystem`, which the
-/// library is able to automatically parallelize.
+/// library will be able to automatically parallelize.
 pub trait PureFunctionalSystem<I, O: SystemOutputTuple> {
     /// Process one input.
     fn process(&self, data: &I) -> <O as SystemOutputTuple>::OutputTuple;
@@ -55,18 +55,6 @@ where
         T: typelist::IntoTypeList<Type = U>,
         U: typelist::TypeList,
         Self::AvailableTypes: typelist::ConsumeMultiple<U, V>;
-    //fn run_pfs<I, O: SystemOutputTuple, S: PureFunctionalSystem<I, O>
-    /*
-    /// Prepare a system dispatch.
-    fn new_dispatch(&'a self) -> DispatchBuilder<Self, Nil> {
-        DispatchBuilder {
-            world: self,
-            systems: Default::default(),
-            _used: PhantomData,
-            _b: PhantomData,
-        }
-    }
-    */
 }
 
 /// Trait implemented by `EntityBuilder` types.
@@ -146,39 +134,3 @@ impl_output_tuple!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
     EE, FF, GG
 );
-
-/*
-pub trait CanProvide<'a, T> {}
-
-// Recursive macro to implement CanProvide for tuples up to length 32
-macro_rules! impl_can_provide {
-    (@impl_internal $($t:ident,)+) => {
-        impl<'a, WD, $($t),*> CanProvide<'a, ($($t,)*)> for WD
-        where WD: $(Get<$t> +)* WorldInterface<'a> {}
-    };
-
-    // Base case
-    (($($t:ident,)+);) => {
-        impl_can_provide!(@impl_internal $($t,)*);
-    };
-
-    // Produce the actual impl for the tuple represented by $t1, then move $t2 into the tuple and
-    // recursively call impl_can_provide
-    (($($t1:ident,)+); $t2:ident $(,)* $($t3:ident),*) => {
-        impl_can_provide!(@impl_internal $($t1,)*);
-        impl_can_provide!(($($t1),*, $t2,); $($t3),*);
-    };
-
-    // Entry point
-    ($t1:ident, $($t:ident),+) => {
-        impl_can_provide!(($t1,); $($t),*);
-    };
-}
-
-impl<'a, WD> CanProvide<'a, ()> for WD where WD: WorldInterface<'a> {}
-
-impl_can_provide!(
-    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
-    EE, FF, GG
-);
-*/

@@ -177,13 +177,10 @@
 #[macro_use]
 pub mod typelist;
 
-// disable compilation of parallel.rs for now
-// pub mod parallel;
 pub mod traits;
 
 mod bitset;
 
-//use crate::bitset::*;
 pub use crate::traits::*;
 
 /// `Entity` is an opaque identifier that can be used to look up associated components in a
@@ -193,137 +190,6 @@ pub struct Entity {
     pub id: usize,
     pub generation: usize,
 }
-
-/*
-struct Block<T> {
-    data: [T; 32],
-    bits: u32,
-    size: usize,
-}
-
-/// `BlockStorage` stores its components in 32-item blocks.
-#[derive(Default)]
-pub struct BlockStorage<T>
-where
-    T: Default,
-{
-    blocks: Vec<Block<T>>,
-}
-
-impl<'a, T: 'a> ComponentStorage<'a, T> for BlockStorage<T>
-where
-    T: Default,
-{
-    fn get(&self, entity: Entity) -> Option<&'a T> {
-        let index = entity.id;
-        if self.blocks[index / 32].bits.get_bit(index) {
-            Some(&self.blocks[index / 32].data[index % 32])
-        } else {
-            None
-        }
-    }
-
-    fn set(&mut self, entity: Entity, item: Option<T>) {
-        if entity.id == self.size() {
-            if self.blocks.is_empty() || self.blocks[self.blocks.len() - 1].size == 32 {
-                let mut block = Block {
-                    data: Default::default(),
-                    bits: 0,
-                    size: 1,
-                };
-                if let Some(t) = item {
-                    block.data[0] = t;
-                    block.bits.set_bit(0);
-                }
-                self.blocks.push(block);
-            } else {
-                let last = self.blocks.len() - 1;
-                let block = &mut self.blocks[last];
-                let index = block.size;
-                block.size += 1;
-                if let Some(t) = item {
-                    block.data[index] = t;
-                    block.bits.set_bit(index);
-                }
-            }
-        } else {
-            if let Some(t) = item {
-                self.blocks[entity.id / 32].data[entity.id % 32] = t;
-                self.blocks[entity.id / 32].bits.set_bit(entity.id % 32);
-            } else {
-                self.blocks[entity.id / 32].bits.clear_bit(entity.id % 32);
-            }
-        }
-    }
-    fn reserve(&mut self, n: usize) {
-        let mut remaining = n;
-        let last = self.blocks.len() - 1;
-        let last_block = &mut self.blocks[last];
-        if n < 32 - last_block.size {
-            last_block.size += n;
-        } else {
-            remaining -= 32 - last_block.size;
-            last_block.size = 32;
-            while remaining > 0 {
-                let block = Block {
-                    data: Default::default(),
-                    bits: 0,
-                    size: remaining.min(32),
-                };
-                remaining -= block.size;
-                self.blocks.push(block);
-            }
-        }
-    }
-    fn size(&self) -> usize {
-        if self.blocks.len() == 0 {
-            0
-        } else {
-            (self.blocks.len() - 1) * 32 + self.blocks[self.blocks.len() - 1].size
-        }
-    }
-}
-*/
-
-/*
-/// Storage for zero-sized types. Marginally more compact than `BlockStorage`. It's technically
-/// possible to instantiate this with non-ZSTs, but `get()` will always return the default
-/// instance, so don't do that.
-#[derive(Default)]
-pub struct VoidStorage<T> {
-    data: Vec<u32>,
-    size: usize,
-    instance: T,
-    _t: PhantomData<T>,
-}
-
-impl<'a, T> ComponentStorage<'a, T> for VoidStorage<T>
-where
-    T: 'a + Default,
-{
-    fn get(&self, entity: Entity) -> Option<&T> {
-        if entity.id < self.size && self.data[entity.id / 32].get_bit(entity.id % 32) {
-            Some(&self.instance)
-        } else {
-            None
-        }
-    }
-    fn set(&mut self, entity: Entity, item: Option<T>) {
-        if entity.id == self.size {
-            if self.size % 32 == 0 {
-                self.data.push(0);
-                self.size += 1;
-            }
-            if let Some(_) = item {
-                self.data[self.size / 32].set_bit(self.size % 32);
-            }
-        }
-    }
-    fn size(&self) -> usize {
-        self.size
-    }
-}
-*/
 
 pub struct DumbVecIter<'a, T: 'a>(std::slice::Iter<'a, Option<T>>);
 impl<'a, T: 'a> Iterator for DumbVecIter<'a, T> {
@@ -380,76 +246,6 @@ where
         DumbVecIterMut(self.0.iter_mut())
     }
 }
-
-/*
-/// Iterator for two joined `BlockStorage`s.
-pub struct BlockJoinIter<'a, A: Default, B: Default> {
-    a: &'a BlockStorage<A>,
-    b: &'a BlockStorage<B>,
-    curr_block: usize,
-    curr_iter: BitSetIter<u32>,
-}
-
-impl<'a, A: Default, B: Default> BlockJoinIter<'a, A, B> {
-    fn new(a: &'a BlockStorage<A>, b: &'a BlockStorage<B>) -> Self {
-        let iter = if a.blocks.len() > 0 {
-            (a.blocks[0].bits & b.blocks[0].bits).iter()
-        } else {
-            0u32.iter()
-        };
-
-        BlockJoinIter {
-            a: a,
-            b: b,
-            curr_block: 0,
-            curr_iter: iter,
-        }
-    }
-}
-
-impl<'a, A: Default, B: Default> Iterator for BlockJoinIter<'a, A, B> {
-    type Item = (&'a A, &'a B);
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(i) = self.curr_iter.next() {
-                return Some((
-                    &self.a.blocks[self.curr_block].data[i],
-                    &self.b.blocks[self.curr_block].data[i],
-                ));
-            } else {
-                self.curr_block += 1;
-                if self.curr_block < self.a.blocks.len() {
-                    self.curr_iter = (self.a.blocks[self.curr_block].bits
-                        & self.b.blocks[self.curr_block].bits)
-                        .iter();
-                } else {
-                    return None;
-                }
-            }
-        }
-    }
-}
-
-/// Joinable data
-pub trait Join<'a, T: 'a, W> {
-    /// Iterator type.
-    type Iter: Iterator<Item = T>;
-    /// Iterate over the join.
-    fn join(w: &'a W) -> Self::Iter;
-}
-
-impl<'a, A, B, W> Join<'a, (&'a A, &'a B), W> for (A, B)
-where
-    W: Get<'a, A, Storage = BlockStorage<A>> + Get<'a, B, Storage = BlockStorage<B>>,
-    A: 'a + Default,
-    B: 'a + Default,
-{
-    type Iter = BlockJoinIter<'a, A, B>;
-    fn join(w: &'a W) -> Self::Iter {
-        BlockJoinIter::new(<W as Get<'a, A>>::get(w), <W as Get<'a, B>>::get(w))
-    }
-}
-*/
 
 /// Defines the set of data structures necessary for using `ecstatic`.
 ///
@@ -641,8 +437,6 @@ macro_rules! __define_world_internal {
             }
         }
     };
-
-    // Entry point
 }
 
 pub enum SystemOutput<T> {
@@ -676,152 +470,12 @@ mod tests {
             }
         );
         let mut w = World::default();
-        struct Poop {}
-        impl System for Poop {
+        struct TestSystem {}
+        impl System for TestSystem {
             type Dependencies = (f64,);
             fn run(&mut self, dependencies: Self::Dependencies) {}
         }
-        let mut poop = Poop {};
-        w.run_system(&mut poop);
-        //<World as CanProvide<(f64, u32, f64)>>::test();
+        let mut system = TestSystem {};
+        w.run_system(&mut system);
     }
-    /*
-    #[test]
-    fn join_basic() {
-        #[derive(Default, Debug, Eq, PartialEq)]
-        pub struct Position {
-            x: i32,
-            y: i32,
-        }
-
-        #[derive(Default, Debug, Eq, PartialEq)]
-        pub struct Junk {
-            s: String,
-        }
-
-        define_world!(
-            World {
-                position: crate::BlockStorage<Position>,
-                junk: crate::BlockStorage<Junk>
-            }
-        );
-
-        let mut w = World::default();
-        w.new_entity()
-            .with(Junk {
-                s: String::from("Hi!"),
-            })
-            .with(Position { x: 25, y: -104 })
-            .build();
-
-        let entity_to_delete = w
-            .new_entity()
-            .with(Junk {
-                s: String::from("Hello!"),
-            })
-            .with(Position { x: 40, y: 72 })
-            .build();
-
-        w.new_entity().with(Position { x: 723, y: -19458 }).build();
-
-        w.new_entity()
-            .with(Junk {
-                s: String::from("¡Hola!"),
-            })
-            .with(Position { x: 492, y: 2894 })
-            .build();
-
-        w.new_entity()
-            .with(Junk {
-                s: String::from("Only junk"),
-            })
-            .build();
-
-        // First round: join Position and Junk as entered
-        let e1: Vec<(&Position, &Junk)> = <(Position, Junk)>::join(&w).collect();
-        assert_eq!(e1.len(), 3);
-        assert_eq!(e1[0].0, &Position { x: 25, y: -104 });
-        assert_eq!(e1[0].1.s, "Hi!");
-        assert_eq!(e1[1].0, &Position { x: 40, y: 72 });
-        assert_eq!(e1[1].1.s, "Hello!");
-        assert_eq!(e1[2].0, &Position { x: 492, y: 2894 });
-        assert_eq!(e1[2].1.s, "¡Hola!");
-
-        // Delete the second entity.
-        w.delete_entity(entity_to_delete);
-
-        // Second round: make sure the deleted entity doesn't appear in the join.
-        let e2: Vec<(&Position, &Junk)> = <(Position, Junk)>::join(&w).collect();
-        assert_eq!(e2.len(), 2);
-        assert_eq!(e2[0].0, &Position { x: 25, y: -104 });
-        assert_eq!(e2[0].1.s, "Hi!");
-        assert_eq!(e2[1].0, &Position { x: 492, y: 2894 });
-        assert_eq!(e2[1].1.s, "¡Hola!");
-
-        // Create a new entity with `Position` and `Junk`.
-        let new_entity = w
-            .new_entity()
-            .with(Junk {
-                s: String::from("Reused!"),
-            })
-            .with(Position { x: 70, y: 140 })
-            .build();
-
-        // We should get the same entity id as the deleted one, but with a newer generation.
-        assert_eq!(new_entity.id, entity_to_delete.id);
-        assert!(new_entity.generation > entity_to_delete.generation);
-
-        // Round 3: the new entity should appear in the middle of the join because we reused the
-        // second slot.
-        let e3: Vec<(&Position, &Junk)> = <(Position, Junk)>::join(&w).collect();
-        assert_eq!(e3.len(), 3);
-        assert_eq!(e3[0].0, &Position { x: 25, y: -104 });
-        assert_eq!(e3[0].1.s, "Hi!");
-        assert_eq!(e3[1].0, &Position { x: 70, y: 140 });
-        assert_eq!(e3[1].1.s, "Reused!");
-        assert_eq!(e3[2].0, &Position { x: 492, y: 2894 });
-        assert_eq!(e3[2].1.s, "¡Hola!");
-    }
-
-    #[test]
-    fn join_multiple_blocks() {
-        #[derive(Default, Debug, Eq, PartialEq, Copy, Clone)]
-        pub struct A {
-            x: i32,
-        }
-
-        #[derive(Default, Debug, Eq, PartialEq, Clone)]
-        pub struct B {
-            s: String,
-        }
-
-        define_world!(
-            World {
-                position: crate::BlockStorage<A>,
-                junk: crate::BlockStorage<B>
-            }
-        );
-
-        let mut w = World::default();
-        let data = (0..15000_i32)
-            .map(|i| {
-                (
-                    A { x: i },
-                    B {
-                        s: format!("{}", i),
-                    },
-                )
-            })
-            .collect::<Vec<_>>();
-
-        data.iter().for_each(|(a, b)| {
-            w.new_entity().with(*a).with(b.clone()).build();
-        });
-
-        for ((a1, b1), (a2, b2)) in data.iter().zip(<(A, B)>::join(&w)) {
-            assert_eq!(a1, a2);
-            assert_eq!(b1, b2);
-        }
-    }
-    */
 }
