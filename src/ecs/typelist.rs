@@ -18,23 +18,29 @@ mod private {
     pub trait Sealed {}
 }
 
+/// The empty list.
 pub enum Nil {}
 impl private::Sealed for Nil {}
 
+/// A cons cell
 pub struct TypeCons<H, T> {
     _head: PhantomData<*const H>,
     _tail: PhantomData<*const T>,
 }
 impl<H, T> private::Sealed for TypeCons<H, T> {}
 
+/// Trait implemented by `Nil` and `TypeCons`
 pub trait TypeList: private::Sealed {}
 
 impl TypeList for Nil {}
 impl<H, T> TypeList for TypeCons<H, T> {}
 
+/// Index struct for `Consume` that indicates `T` hasn't been found in the list yet.
 pub struct NotFound<T>(PhantomData<*const T>);
-pub struct Found;
+/// Index for `Consume` that indicates a type has been found.
+pub enum Found {}
 
+/// Generically append `T` to the end of a `TypeList`.
 pub trait Append<T>: private::Sealed
 where
     T: TypeList,
@@ -57,44 +63,50 @@ where
     type Output = TypeCons<H, <T as Append<U>>::Output>;
 }
 
-pub trait Consume<Target, Index>: private::Sealed {
+/// Removes all instances of `T`, leaving `Self::Remainder`. `INDEX` must be inferred.
+///
+/// See the [module-level documentation](index.html#examples) for examples.
+pub trait Consume<T, INDEX>: private::Sealed {
     type Remainder: TypeList;
 }
 
-impl<Head, Tail, Target, TailIndex> Consume<Target, NotFound<TailIndex>> for TypeCons<Head, Tail>
+impl<HEAD, TAIL, T, TINDEX> Consume<T, NotFound<TINDEX>> for TypeCons<HEAD, TAIL>
 where
-    Tail: Consume<Target, TailIndex>,
+    TAIL: Consume<T, TINDEX>,
 {
-    type Remainder = TypeCons<Head, <Tail as Consume<Target, TailIndex>>::Remainder>;
+    type Remainder = TypeCons<HEAD, <TAIL as Consume<T, TINDEX>>::Remainder>;
 }
 
-impl<Head, Tail: TypeList> Consume<Head, Found> for TypeCons<Head, Tail> {
-    type Remainder = Tail;
+impl<HEAD, TAIL: TypeList> Consume<HEAD, Found> for TypeCons<HEAD, TAIL> {
+    type Remainder = TAIL;
 }
 
-pub trait ConsumeMultiple<Target, Indices>: private::Sealed {
+/// Remove multiple elements, leaving `Self::Remainder`. `INDICES` must be inferred.
+///
+/// See the [module-level documentation](index.html#examples) for examples.
+pub trait ConsumeMultiple<T, INDICES>: private::Sealed {
     type Remainder;
 }
 
-impl<Source: private::Sealed> ConsumeMultiple<Nil, Nil> for Source {
-    type Remainder = Source;
+impl<BASE: private::Sealed> ConsumeMultiple<Nil, Nil> for BASE {
+    type Remainder = BASE;
 }
 
-impl<THead, TTail, SHead, STail, IndexHead, IndexTail>
-    ConsumeMultiple<TypeCons<THead, TTail>, TypeCons<IndexHead, IndexTail>>
-    for TypeCons<SHead, STail>
+impl<THEAD, TTAIL, SHEAD, STAIL, IHEAD, ITAIL>
+    ConsumeMultiple<TypeCons<THEAD, TTAIL>, TypeCons<IHEAD, ITAIL>> for TypeCons<SHEAD, STAIL>
 where
-    TypeCons<SHead, STail>: Consume<THead, IndexHead>,
-    <TypeCons<SHead, STail> as Consume<THead, IndexHead>>::Remainder:
-        ConsumeMultiple<TTail, IndexTail>,
+    TTAIL: TypeList,
+    TypeCons<SHEAD, STAIL>: Consume<THEAD, IHEAD>,
+    <TypeCons<SHEAD, STAIL> as Consume<THEAD, IHEAD>>::Remainder: ConsumeMultiple<TTAIL, ITAIL>,
 {
     type Remainder =
-        <<TypeCons<SHead, STail> as Consume<THead, IndexHead>>::Remainder as ConsumeMultiple<
-            TTail,
-            IndexTail,
+        <<TypeCons<SHEAD, STAIL> as Consume<THEAD, IHEAD>>::Remainder as ConsumeMultiple<
+            TTAIL,
+            ITAIL,
         >>::Remainder;
 }
 
+/// Easy conversion into `TypeList`.
 pub trait IntoTypeList: private::Sealed {
     type Type: TypeList;
 }

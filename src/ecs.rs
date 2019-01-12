@@ -36,13 +36,26 @@
 /// `TypeList`s are `cons`-style singly linked lists expressed in the type system;
 /// the trait is implemented by [`TypeCons`](struct.TypeCons.html) and [`Nil`](enum.Nil.html).
 /// As mentioned above, the types are effectively empty, and since `Nil` is an empty enum, cannot
-/// even be constructed. The [`tlist!`](macro.tlist.html) macro makes writing these types much
-/// simpler and less verbose.
-///
-/// # Examples
+/// even be constructed.
 ///
 /// The way this is used in the library is to indicate what types are available for Systems to
 /// access within a World.
+///
+/// # Examples
+///
+/// `TypeList`s are constructed from lisp-style `cons` cells, terminating with `Nil`.
+/// ```
+/// # use ecstatic::typelist::*;
+/// type AvailableTypes = TypeCons<f64, TypeCons<u32, TypeCons<String, Nil>>>;
+/// ```
+///
+/// The [`tlist!`](../macro.tlist.html) macro is provided to make writing these types easier and
+/// less verbose.
+/// ```
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// type AvailableTypes = tlist![f64, u32, String];
+/// ```
 ///
 /// In this example, `do_stuff()` will take an argument of type `f64`, `u32`, or `String`. `I` is a
 /// type parameter used by `Consume`; it should be left up to the type checker to infer. It's kind
@@ -59,7 +72,7 @@
 /// do_stuff(String::from("Hello!"));
 /// ```
 ///
-/// But other types will fail to type check:
+/// Calling `do_struff()` with types that are not in `AvailableTypes` will fail to type check.
 /// ```compile_fail
 /// # #[macro_use] extern crate ecstatic;
 /// # use ecstatic::typelist::*;
@@ -75,7 +88,7 @@
 /// ```
 ///
 /// Unfortunately, the error messages you get from the type checker failing are not particularly
-/// helpful. For example, in the second example above, you will get something like the following:
+/// helpful. For instance, in the example above, you will get something like the following:
 ///
 /// ```text
 /// error[E0277]: the trait bound `main::ecstatic::typelist::Nil: main::ecstatic::typelist::Consume<main::Whatever, _>` is not satisfied
@@ -101,7 +114,7 @@
 /// do_stuff::<tlist![f64, u32], _>();
 /// ```
 ///
-/// This similarly will fail to type check if the types are not in the source list:
+/// This similarly will fail to type check if not all of the types are available in the source list.
 /// ```compile_fail
 /// # #[macro_use] extern crate ecstatic;
 /// # use ecstatic::typelist::*;
@@ -112,8 +125,8 @@
 /// do_stuff::<tlist![f64, u32, &str], _>();
 /// ```
 ///
-/// Importantly, *`Consume<T, I>` removes all instances of `T` from the source list*; this allows
-/// us to write generic functions over `T`, `U` such that `T != U` (!):
+/// Importantly, `Consume<T, I>` removes *all* instances of `T` from the source list; this allows
+/// us to write generic functions over `T`, `U` such that `T != U` (!).
 ///
 /// ```
 /// # #[macro_use] extern crate ecstatic;
@@ -139,6 +152,26 @@
 /// //   | ^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type for `IndexHead`
 /// do_stuff::<u32, u32, _>();
 /// ```
+///
+/// There is also a trait called `IntoTypeList` that allows easy conversion from tuples (up to
+/// length 32) to `TypeList`.
+/// ```
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// type AvailableTypes = tlist![f64, u32, String];
+/// fn do_stuff<T, U, I>()
+/// where
+///     T: IntoTypeList<Type=U>,
+///     // For some reason we still need to put a trait bound on `U`, even though the associated
+///     // type is constrained in `IntoTypeList`
+///     U: TypeList,
+///     AvailableTypes: ConsumeMultiple<U, I>
+/// {
+///     // Do something
+/// }
+/// do_stuff::<(String, f64), _, _>();
+/// ```
+///
 ///
 /// [1]: https://beachape.com/blog/2017/03/12/gentle-intro-to-type-level-recursion-in-Rust-from-zero-to-frunk-hlist-sculpting/
 #[macro_use]
