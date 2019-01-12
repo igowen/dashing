@@ -30,16 +30,16 @@ pub trait PureFunctionalSystem<I, O: SystemOutputTuple> {
     fn process(&self, data: &I) -> <O as SystemOutputTuple>::OutputTuple;
 }
 
-/// Trait implemented by the type output by the `define_world!` macro.
+/// Interface to the `World` struct generated via the `define_world!` macro.
 pub trait WorldInterface<'a>
 where
     Self: Sized,
 {
-    /// The type returned by new_entity().
+    /// The type returned by `new_entity()`.
     type EntityBuilder: 'a;
-    /// A type representing the union of every type supported by the `World`.
+    /// A type representing the union of every component type supported by the `World`.
     type ComponentSet;
-    /// A TypeList containing all available types.
+    /// A `TypeList` containing all available types.
     type AvailableTypes;
     /// Create a new entity.
     fn new_entity(&'a mut self) -> Self::EntityBuilder;

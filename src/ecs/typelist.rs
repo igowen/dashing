@@ -14,23 +14,28 @@
 
 use std::marker::PhantomData;
 
-pub enum Nil {}
-
-#[derive(Default)]
-pub struct TypeCons<H, T> {
-    _head: PhantomData<H>,
-    _tail: PhantomData<T>,
+mod private {
+    pub trait Sealed {}
 }
 
-pub trait TypeList {}
+pub enum Nil {}
+impl private::Sealed for Nil {}
+
+pub struct TypeCons<H, T> {
+    _head: PhantomData<*const H>,
+    _tail: PhantomData<*const T>,
+}
+impl<H, T> private::Sealed for TypeCons<H, T> {}
+
+pub trait TypeList: private::Sealed {}
 
 impl TypeList for Nil {}
 impl<H, T> TypeList for TypeCons<H, T> {}
 
-pub struct NotFound<T>(PhantomData<T>);
+pub struct NotFound<T>(PhantomData<*const T>);
 pub struct Found;
 
-pub trait Append<T>
+pub trait Append<T>: private::Sealed
 where
     T: TypeList,
 {
@@ -52,7 +57,7 @@ where
     type Output = TypeCons<H, <T as Append<U>>::Output>;
 }
 
-pub trait Consume<Target, Index> {
+pub trait Consume<Target, Index>: private::Sealed {
     type Remainder: TypeList;
 }
 
@@ -67,11 +72,11 @@ impl<Head, Tail: TypeList> Consume<Head, Found> for TypeCons<Head, Tail> {
     type Remainder = Tail;
 }
 
-pub trait ConsumeMultiple<Target, Indices> {
+pub trait ConsumeMultiple<Target, Indices>: private::Sealed {
     type Remainder;
 }
 
-impl<Source> ConsumeMultiple<Nil, Nil> for Source {
+impl<Source: private::Sealed> ConsumeMultiple<Nil, Nil> for Source {
     type Remainder = Source;
 }
 
@@ -90,7 +95,7 @@ where
         >>::Remainder;
 }
 
-pub trait IntoTypeList {
+pub trait IntoTypeList: private::Sealed {
     type Type: TypeList;
 }
 
@@ -105,7 +110,7 @@ where
 #[macro_export]
 macro_rules! tlist {
     ($t:ty $(,)*) => { $crate::typelist::TypeCons<$t, $crate::typelist::Nil> };
-    ($t:ty, $($ts:ty,)+) => {
+    ($t:ty, $($ts:ty),+ $(,)*) => {
         $crate::typelist::TypeCons<$t, tlist!($($ts,)*)>
     };
 }
@@ -120,6 +125,7 @@ macro_rules! impl_into_type_list {
     };
 
     (@impl_internal $($t:ident,)+) => {
+        impl<$($t),*> private::Sealed for ($($t,)*) {}
         impl<$($t),*> IntoTypeList for ($($t,)*) {
             type Type = impl_into_type_list!(@type_cons $($t)*);
         }

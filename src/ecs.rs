@@ -23,13 +23,122 @@
 
 #![recursion_limit = "72"]
 
-/// `typelist` contains some type-level metaprogramming that allows the library to validate certain
-/// invariants at compile time.
+/// Type-level metaprogramming traits that allow the library to validate certain invariants at compile
+/// time.
 ///
 /// This is broadly adapted from Lloyd Chan's excellent article [Gentle Intro to Type-level
 /// Recursion in Rust][1]. However, since it's only used to enforce invariants, the resulting
 /// heterogeneous list type doesn't contain any actual storage; this means that, at least in
 /// theory, the compiler should be able to optimize it out completely.
+///
+/// The meat of the module is found in the [`TypeList`](trait.TypeList.html),
+/// [`Consume`](trait.Consume.html), and [`ConsumeMultiple`](trait.ConsumeMultiple.html) traits.
+/// `TypeList`s are `cons`-style singly linked lists expressed in the type system;
+/// the trait is implemented by [`TypeCons`](struct.TypeCons.html) and [`Nil`](enum.Nil.html).
+/// As mentioned above, the types are effectively empty, and since `Nil` is an empty enum, cannot
+/// even be constructed. The [`tlist!`](macro.tlist.html) macro makes writing these types much
+/// simpler and less verbose.
+///
+/// # Examples
+///
+/// The way this is used in the library is to indicate what types are available for Systems to
+/// access within a World.
+///
+/// In this example, `do_stuff()` will take an argument of type `f64`, `u32`, or `String`. `I` is a
+/// type parameter used by `Consume`; it should be left up to the type checker to infer. It's kind
+/// of a bummer that this has to leak into the public interface, but that's the way it is.
+/// ```
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// type AvailableTypes = tlist![f64, u32, String];
+/// fn do_stuff<T, I>(t: T) where AvailableTypes: Consume<T, I> {
+///     // Do something with `t`
+/// }
+/// do_stuff(25.0f64);
+/// do_stuff(42u32);
+/// do_stuff(String::from("Hello!"));
+/// ```
+///
+/// But other types will fail to type check:
+/// ```compile_fail
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// struct Whatever {
+///     x: f32,
+///     y: f32,
+/// }
+/// type AvailableTypes = tlist![f64, u32, String];
+/// fn do_stuff<T, I>(t: T) where AvailableTypes: Consume<T, I> {
+///     // Do something with `t`
+/// }
+/// do_stuff(Whatever { 1.0, 3.0 });
+/// ```
+///
+/// Unfortunately, the error messages you get from the type checker failing are not particularly
+/// helpful. For example, in the second example above, you will get something like the following:
+///
+/// ```text
+/// error[E0277]: the trait bound `main::ecstatic::typelist::Nil: main::ecstatic::typelist::Consume<main::Whatever, _>` is not satisfied
+///   --> src/lib.rs:75:1
+///    |
+/// 14 | do_stuff(Whatever { 1.0, 3.0 });
+///    | ^^^^^^^^ the trait `main::ecstatic::typelist::Consume<main::Whatever, _>` is not implemented for `main::ecstatic::typelist::Nil`
+///    |
+/// ```
+///
+/// Not the greatest indicator of what the actual problem is.
+///
+/// There is also a trait, `ConsumeMultiple`, that takes a `TypeList` as its type parameter (along
+/// with a similar "Index" type that you should let the compiler infer, like with `Consume`).
+///
+/// ```
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// type AvailableTypes = tlist![f64, u32, String];
+/// fn do_stuff<T, I>() where AvailableTypes: ConsumeMultiple<T, I> {
+///     // Do something
+/// }
+/// do_stuff::<tlist![f64, u32], _>();
+/// ```
+///
+/// This similarly will fail to type check if the types are not in the source list:
+/// ```compile_fail
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// type AvailableTypes = tlist![f64, u32, String];
+/// fn do_stuff<T, I>() where AvailableTypes: ConsumeMultiple<T, I> {
+///     // Do something
+/// }
+/// do_stuff::<tlist![f64, u32, &str], _>();
+/// ```
+///
+/// Importantly, *`Consume<T, I>` removes all instances of `T` from the source list*; this allows
+/// us to write generic functions over `T`, `U` such that `T != U` (!):
+///
+/// ```
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// fn do_stuff<T, U, I>() where tlist![T, U]: ConsumeMultiple<tlist![T, U], I> {
+///     // Do something
+/// }
+/// do_stuff::<u32, f64, _>();
+/// ```
+///
+/// ```compile_fail
+/// # #[macro_use] extern crate ecstatic;
+/// # use ecstatic::typelist::*;
+/// fn do_stuff<T, U, I>() where tlist![T, U]: ConsumeMultiple<tlist![T, U], I> {
+///     // Do something
+/// }
+///
+/// // Using the same type for `T` and `U` causes the following compilation error:
+/// // error[E0282]: type annotations needed
+/// //  --> src/lib.rs:134:1
+/// //   |
+/// // 8 | do_stuff::<u32, u32, _>();
+/// //   | ^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type for `IndexHead`
+/// do_stuff::<u32, u32, _>();
+/// ```
 ///
 /// [1]: https://beachape.com/blog/2017/03/12/gentle-intro-to-type-level-recursion-in-Rust-from-zero-to-frunk-hlist-sculpting/
 #[macro_use]
@@ -311,6 +420,17 @@ where
 
 /// Defines the set of data structures necessary for using `ecstatic`.
 ///
+/// Generates the following structs:
+/// - `Resources`
+///   - All of the components and resources
+/// - `World`
+///   - Wraps `Resources` and contains entity metadata
+/// - `EntityBuilder`
+///   - Helper for `World::new_entity()`
+/// - `ComponentSet`
+///   - Used by `EntityBuilder`. Basically just all of the components wrapped in an `Option`.
+///
+/// # Example
 /// ```
 /// # use ecstatic::*;
 /// #[derive(Default, Debug)]
@@ -401,7 +521,7 @@ macro_rules! __define_world_internal {
         impl<'a> $crate::WorldInterface<'a> for World {
             type EntityBuilder = EntityBuilder<'a>;
             type ComponentSet = ComponentSet;
-            type AvailableTypes = tlist!($($type,)*);
+            type AvailableTypes = tlist!($($type),*);
 
             fn new_entity(&'a mut self) -> Self::EntityBuilder {
                 EntityBuilder {
@@ -503,18 +623,6 @@ impl<T> Default for SystemOutput<T> {
         SystemOutput::Ignore
     }
 }
-
-define_world!(
-    #[derive(Default)]
-    pub world {
-        components {
-            test1: DumbVecStorage<f64>,
-        }
-        resources {
-            test2: String,
-        }
-    }
-);
 
 #[cfg(test)]
 mod tests {
