@@ -185,18 +185,18 @@ pub struct Entity {
     pub generation: usize,
 }
 
-/// Iterator type for `DumbVecStorage`.
-pub struct DumbVecIter<'a, T: 'a>(std::slice::Iter<'a, Option<T>>);
-impl<'a, T: 'a> Iterator for DumbVecIter<'a, T> {
+/// Iterator type for `BasicVecStorage`.
+pub struct BasicVecIter<'a, T: 'a>(std::slice::Iter<'a, Option<T>>);
+impl<'a, T: 'a> Iterator for BasicVecIter<'a, T> {
     type Item = Option<&'a T>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|v| v.as_ref())
     }
 }
 
-/// Mutable iterator for `DumbVecStorage`.
-pub struct DumbVecIterMut<'a, T: 'a>(std::slice::IterMut<'a, Option<T>>);
-impl<'a, T: 'a> Iterator for DumbVecIterMut<'a, T> {
+/// Mutable iterator for `BasicVecStorage`.
+pub struct BasicVecIterMut<'a, T: 'a>(std::slice::IterMut<'a, Option<T>>);
+impl<'a, T: 'a> Iterator for BasicVecIterMut<'a, T> {
     type Item = Option<&'a mut T>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|v| v.as_mut())
@@ -205,14 +205,14 @@ impl<'a, T: 'a> Iterator for DumbVecIterMut<'a, T> {
 
 /// `ComponentStorage` that is just `Vec<Option<T>>`.
 #[derive(Clone, Debug, Default)]
-pub struct DumbVecStorage<T>(Vec<Option<T>>);
+pub struct BasicVecStorage<T>(Vec<Option<T>>);
 
-impl<'a, T> ComponentStorage<'a, T> for DumbVecStorage<T>
+impl<'a, T> ComponentStorage<'a, T> for BasicVecStorage<T>
 where
     T: 'a,
 {
-    type Iter = DumbVecIter<'a, T>;
-    type IterMut = DumbVecIterMut<'a, T>;
+    type Iter = BasicVecIter<'a, T>;
+    type IterMut = BasicVecIterMut<'a, T>;
     fn get(&self, entity: Entity) -> Option<&T> {
         if entity.id < self.0.len() {
             self.0[entity.id].as_ref()
@@ -237,10 +237,10 @@ where
         self.0.len()
     }
     fn iter(&'a self) -> Self::Iter {
-        DumbVecIter(self.0.iter())
+        BasicVecIter(self.0.iter())
     }
     fn iter_mut(&'a mut self) -> Self::IterMut {
-        DumbVecIterMut(self.0.iter_mut())
+        BasicVecIterMut(self.0.iter_mut())
     }
 }
 
@@ -275,7 +275,7 @@ where
 ///         // Components must all go in collections that implement `ComponentStorage`. They are
 ///         // addressed by type, so you can only have one field per type.
 ///         components {
-///             strings: DumbVecStorage<String>,
+///             strings: BasicVecStorage<String>,
 ///         }
 ///         // Resources are just stored bare, but the same restriction on unique fields per type
 ///         // applies (but only within resources -- you can have a resource of the same type as a
@@ -446,7 +446,7 @@ mod tests {
             #[derive(Default)]
             pub world {
                 components {
-                    test1: DumbVecStorage<f64>,
+                    test1: BasicVecStorage<f64>,
                 }
                 resources {
                     test2: String,
