@@ -130,6 +130,7 @@ pub mod input;
 pub mod ui;
 
 /// Entity-component-system library
+#[cfg(feature = "ecs")]
 #[macro_use]
 pub mod ecs;
 
