@@ -130,6 +130,7 @@ pub mod input;
 pub mod ui;
 
 /// Entity-component-system library
+#[macro_use]
 pub mod ecs;
 
 /// Signals to indicate whether the engine should keep running or halt.

@@ -123,6 +123,7 @@ where
     type Type = Self;
 }
 
+/// Helper macro for writing `TypeList`s.
 #[macro_export]
 macro_rules! tlist {
     ($t:ty $(,)*) => { $crate::ecs::typelist::TypeCons<$t, $crate::ecs::typelist::Nil> };
