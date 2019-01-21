@@ -15,22 +15,26 @@ default = ["ecs"]
 ecs = []
 
 [dependencies]
+# gfx* powers the rendering subsystem.
 gfx = "0.17"
 gfx_core = "0.8"
 gfx_device_gl = "0.15"
 gfx_window_glutin = "0.27"
+# gl bindings that allow us to make OpenGL calls directly (this is done sparingly).
 gl = "0.11"
+# glutin provides windowing capabilities.
 glutin = "0.19"
-image = "0.20"
+# miscellaneous dependencies
 log = "0.4.6"
-pretty_logger = "0.1.8"
 time = "0.1.40"
 itertools = "0.7.9"
+paste = "0.1.4"
 
 [dev-dependencies]
 euclid = "0.19"
 gleam = "0.6.7"
 hamcrest = "0.1.5"
+image = "0.20"
 lazy_static = "1.2.0"
 offscreen_gl_context = "0.21.1"
 png = "0.13.1"

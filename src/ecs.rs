@@ -216,11 +216,11 @@ pub struct Entity {
 ///     #[derive(Default, Debug)]
 ///     // The visibility specifier is optional. It applies to all of the types defined by the
 ///     // macro.
-///     pub world {
+///     pub(crate) world {
 ///         // Components must all go in collections that implement `ComponentStorage`. They are
 ///         // addressed by type, so you can only have one field per type.
 ///         components {
-///             strings: BasicVecStorage<String>,
+///             strings: BasicVecStorage<Data>,
 ///         }
 ///         // Resources are just stored bare, but the same restriction on unique fields per type
 ///         // applies (but only within resources -- you can have a resource of the same type as a
@@ -242,6 +242,8 @@ macro_rules! define_world {
             $($resource:ident : $resource_type:ty),* $(,)*
         }
     }) => {
+        __define_world_internal!{@impl_storage_spec {$($component_type; $($component_storage)::*)*}}
+        __define_world_internal!{@impl_get_component $({$component $component_type})*}
         __define_world_internal!{@define_world_struct $(#[$meta])* $v
                                            ($($component: $component_type)*)}
         __define_world_internal!{@define_builder_struct $v $($component:$component_type)*}
@@ -257,6 +259,28 @@ macro_rules! define_world {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __define_world_internal {
+    (@impl_storage_spec {$($component_type:ty; $($component_storage:ident)::+ )*}) => {
+        $(
+            impl<'a> $crate::ecs::StorageSpec<'a> for $component_type {
+                type Storage = $($component_storage)::* <$component_type>;
+                type Component = $component_type;
+            }
+        )*
+    };
+
+    (@impl_get_component $({$component:ident $component_type:ty})*) => {
+        $(
+            impl<'a> GetComponent<'a, $component_type> for World {
+                fn get(&self) -> std::cell::Ref<<$component_type as StorageSpec<'a>>::Storage> {
+                    self.resources.$component.borrow()
+                }
+                fn get_mut(&self) -> std::cell::RefMut<<$component_type as StorageSpec<'a>>::Storage> {
+                    self.resources.$component.borrow_mut()
+                }
+            }
+        )*
+    };
+
     (@define_resource_struct $(#[$meta:meta])* $v:vis (
                              {$($component:ident : ($($component_storage:ident) :: +; $component_type:ty))*}
                              {$($resource:ident : $resource_type:ty)*})) => {
@@ -336,16 +360,6 @@ macro_rules! __define_world_internal {
                     self.free_list.push(entity);
                 }
             }
-
-            fn run_system<S, T, U, V>(&'a mut self, _system: &mut S)
-            where
-                S: System<Dependencies = T>,
-                T: typelist::IntoTypeList<Type = U>,
-                U: typelist::TypeList,
-                Self::AvailableTypes: typelist::ConsumeMultiple<U, V> {
-
-                //system.run(self);
-            }
         }
     };
 
@@ -386,25 +400,73 @@ macro_rules! __define_world_internal {
 mod tests {
     use crate::ecs::*;
     #[test]
-    fn can_provide() {
+    fn test_world() {
+        #[derive(Debug, Default, PartialEq)]
+        pub struct Data {
+            x: u32,
+        }
+        #[derive(Debug, Default, PartialEq)]
+        pub struct MoreData {
+            y: u32,
+        }
+        #[derive(Debug, Default, PartialEq)]
+        pub struct Void {}
+
         define_world!(
             #[derive(Default)]
             pub world {
                 components {
-                    test1: BasicVecStorage<f64>,
+                    test1: BasicVecStorage<Data>,
+                    test2: BasicVecStorage<MoreData>,
+                    test3: VoidStorage<Void>,
                 }
                 resources {
-                    test2: String,
+                    test_resource: String,
                 }
             }
         );
+
         let mut w = World::default();
-        struct TestSystem {}
-        impl System for TestSystem {
-            type Dependencies = (f64,);
-            fn run(&mut self, dependencies: Self::Dependencies) {}
+        w.new_entity().with(Data { x: 1 }).build();
+        w.new_entity().with(Data { x: 1 }).build();
+        let md = w
+            .new_entity()
+            .with(Data { x: 2 })
+            .with(MoreData { y: 10 })
+            .build();
+        w.new_entity().with(Data { x: 3 }).build();
+        w.new_entity().with(Data { x: 5 }).build();
+        w.new_entity().with(Data { x: 8 }).build();
+
+        #[derive(Default)]
+        struct TestSystem {
+            total: u32,
+            chosen: u32,
         }
-        let mut system = TestSystem {};
+
+        impl<'a> System<'a> for TestSystem {
+            type Dependencies = (ReadComponent<'a, Data>, WriteComponent<'a, MoreData>);
+            fn run(&'a mut self, (data, mut more_data): Self::Dependencies) {
+                self.total = 0;
+                self.chosen = 0;
+                for item in data.iter() {
+                    if let Some(d) = item {
+                        self.total += d.x;
+                    }
+                }
+                for item in more_data.iter_mut() {
+                    if let Some(d) = item {
+                        d.y *= 2;
+                    }
+                }
+            }
+        }
+        let mut system = TestSystem::default();
         w.run_system(&mut system);
+        assert_eq!(system.total, 20);
+        assert_eq!(
+            <World as GetComponent<'_, MoreData>>::get(&w).get(md),
+            Some(&MoreData { y: 20 })
+        );
     }
 }

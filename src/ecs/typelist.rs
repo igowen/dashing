@@ -132,7 +132,7 @@ macro_rules! tlist {
     };
 }
 
-// Recursive macro to implement IntoTypeList for tuples up length 32
+// Recursive macro to implement IntoTypeList for tuples up to length 32
 macro_rules! impl_into_type_list {
     // Helpers for building type lists of generic types. We can't use `tlist!` because type
     // parameters don't parse as `ty`.

@@ -36,6 +36,7 @@ pub struct BitSetIter<T: BitSet> {
 
 impl<T: BitSet> Iterator for BitSetIter<T> {
     type Item = usize;
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while self.curr < T::SIZE && !self.bits.get_bit(self.curr) {
             self.curr += 1;

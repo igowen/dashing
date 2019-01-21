@@ -29,8 +29,6 @@ use offscreen_gl_context::{
     NativeGLContextMethods,
 };
 use png::{self, HasParameters};
-#[allow(unused)]
-use pretty_logger;
 use std::os::raw::c_void;
 use std::sync::{Mutex, MutexGuard};
 
