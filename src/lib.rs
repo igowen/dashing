@@ -111,7 +111,7 @@
 //! * Parallelism
 
 #![recursion_limit = "72"]
-//#![deny(missing_docs)]
+#![deny(missing_docs)]
 #![allow(dead_code)]
 
 /// Routines for creating and managing the game window.

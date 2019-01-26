@@ -117,6 +117,7 @@ where
 
 /// Trait that all component storage types must implement.
 pub trait ComponentStorage<'a> {
+    /// The individual type of the Component in this storage
     type Component: 'a;
     /// Immutable iterator type.
     type Iter: Iterator<Item = Option<&'a Self::Component>>;
