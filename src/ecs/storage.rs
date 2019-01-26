@@ -15,14 +15,115 @@
 use crate::ecs::bitset::*;
 use crate::ecs::*;
 
+use std::cell::{Ref, RefMut};
+use std::ops::{Deref, DerefMut};
+
+/// Specifies how a component is stored.
+///
+/// This is automatically implemented for component types by `define_world!`; you shouldn't ever
+/// need to implement it manually.
+pub trait StorageSpec<'a> {
+    /// The component type.
+    type Component: 'a;
+    /// The storage type for this Component.
+    type Storage: ComponentStorage<'a, Component = Self::Component>;
+}
+
+/// Read-only view of a Component storage.
+pub struct ReadComponent<'a, T: StorageSpec<'a>> {
+    // TODO: This probably doesn't need to be crate public.
+    pub(crate) storage: Ref<'a, T::Storage>,
+}
+
+/// Read/write view of a Component storage.
+pub struct WriteComponent<'a, T: 'a + StorageSpec<'a>> {
+    // TODO: This probably doesn't need to be crate public.
+    pub(crate) storage: RefMut<'a, T::Storage>,
+}
+
+// ReadComponent is cloneable; WriteComponent is not.
+impl<'a, T> Clone for ReadComponent<'a, T>
+where
+    T: 'a + StorageSpec<'a>,
+{
+    #[inline]
+    fn clone(&self) -> Self {
+        ReadComponent {
+            storage: Ref::clone(&self.storage),
+        }
+    }
+}
+
+impl<'a, T> ReadComponent<'a, T>
+where
+    T: 'a + StorageSpec<'a>,
+    T::Storage: ComponentStorage<'a>,
+{
+    /// Get a reference to the underlying `Storage`. This is an associated method because
+    /// `ReadComponent` implements `Deref`.
+    #[inline]
+    pub fn get(v: &Self) -> &T::Storage {
+        Deref::deref(&v.storage)
+    }
+}
+
+impl<'a, T> Deref for ReadComponent<'a, T>
+where
+    T: 'a + StorageSpec<'a>,
+    T::Storage: ComponentStorage<'a>,
+{
+    type Target = T::Storage;
+    #[inline]
+    fn deref(&self) -> &T::Storage {
+        Deref::deref(&self.storage)
+    }
+}
+
+impl<'a, T> WriteComponent<'a, T>
+where
+    T: StorageSpec<'a>,
+    T::Storage: ComponentStorage<'a>,
+{
+    /// Get a reference to the underlying `Storage`. This is an associated method because
+    /// `WriteComponent` implements `Deref`/`DerefMut`.
+    #[inline]
+    pub fn get_mut(v: &mut Self) -> &mut T::Storage {
+        DerefMut::deref_mut(&mut v.storage)
+    }
+}
+
+impl<'a, T> Deref for WriteComponent<'a, T>
+where
+    T: StorageSpec<'a>,
+    T::Storage: ComponentStorage<'a>,
+{
+    type Target = T::Storage;
+    #[inline]
+    fn deref(&self) -> &T::Storage {
+        Deref::deref(&self.storage)
+    }
+}
+
+impl<'a, T> DerefMut for WriteComponent<'a, T>
+where
+    T: StorageSpec<'a>,
+    T::Storage: ComponentStorage<'a>,
+{
+    #[inline]
+    fn deref_mut(&mut self) -> &mut T::Storage {
+        DerefMut::deref_mut(&mut self.storage)
+    }
+}
+
 /// Trait that all component storage types must implement.
-pub trait ComponentStorage<'a, T: 'a> {
+pub trait ComponentStorage<'a> {
+    type Component: 'a;
     /// Immutable iterator type.
-    type Iter: Iterator<Item = Option<&'a T>>;
+    type Iter: Iterator<Item = Option<&'a Self::Component>>;
     /// Get the component corresponding to the given entity, if it exists.
-    fn get(&self, entity: Entity) -> Option<&T>;
+    fn get(&self, entity: Entity) -> Option<&Self::Component>;
     /// Set the component for the given entity.
-    fn set(&mut self, entity: Entity, item: Option<T>);
+    fn set(&mut self, entity: Entity, item: Option<Self::Component>);
     /// Reserve `n` additional slots without affecting the size of the storage. The default
     /// implementation is a no-op; only implement if it makes sense for your storage type.
     fn reserve(&mut self, _n: usize) {}
@@ -35,9 +136,9 @@ pub trait ComponentStorage<'a, T: 'a> {
 }
 
 /// Trait that component storage may optionally implement.
-pub trait MutableComponentStorage<'a, T: 'a>: ComponentStorage<'a, T> {
+pub trait MutableComponentStorage<'a>: ComponentStorage<'a> {
     /// Mutable iterator type.
-    type IterMut: Iterator<Item = Option<&'a mut T>>;
+    type IterMut: Iterator<Item = Option<&'a mut <Self as ComponentStorage<'a>>::Component>>;
     /// Mutably iterate over the components in this storage.
     ///
     /// **This *must* output a value for every entity it knows about, in `id` order.**
@@ -48,11 +149,12 @@ pub trait MutableComponentStorage<'a, T: 'a>: ComponentStorage<'a, T> {
 #[derive(Clone, Debug, Default)]
 pub struct BasicVecStorage<T>(Vec<Option<T>>);
 
-impl<'a, T> ComponentStorage<'a, T> for BasicVecStorage<T>
+impl<'a, T> ComponentStorage<'a> for BasicVecStorage<T>
 where
     T: 'a,
 {
-    type Iter = BasicVecIter<'a, T>;
+    type Component = T;
+    type Iter = std::iter::Map<std::slice::Iter<'a, Option<T>>, fn(&'a Option<T>) -> Option<&'a T>>;
     #[inline]
     fn get(&self, entity: Entity) -> Option<&T> {
         if entity.id < self.0.len() {
@@ -82,35 +184,18 @@ where
     }
     #[inline]
     fn iter(&'a self) -> Self::Iter {
-        BasicVecIter(self.0.iter())
+        self.0.iter().map(|v| v.as_ref())
     }
 }
 
-impl<'a, T: 'a> MutableComponentStorage<'a, T> for BasicVecStorage<T> {
-    type IterMut = BasicVecIterMut<'a, T>;
+impl<'a, T: 'a> MutableComponentStorage<'a> for BasicVecStorage<T> {
+    type IterMut = std::iter::Map<
+        std::slice::IterMut<'a, Option<T>>,
+        fn(&'a mut Option<T>) -> Option<&'a mut T>,
+    >;
     #[inline]
     fn iter_mut(&'a mut self) -> Self::IterMut {
-        BasicVecIterMut(self.0.iter_mut())
-    }
-}
-
-/// Iterator type for `BasicVecStorage`.
-pub struct BasicVecIter<'a, T: 'a>(std::slice::Iter<'a, Option<T>>);
-impl<'a, T: 'a> Iterator for BasicVecIter<'a, T> {
-    type Item = Option<&'a T>;
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|v| v.as_ref())
-    }
-}
-
-/// Mutable iterator for `BasicVecStorage`.
-pub struct BasicVecIterMut<'a, T: 'a>(std::slice::IterMut<'a, Option<T>>);
-impl<'a, T: 'a> Iterator for BasicVecIterMut<'a, T> {
-    type Item = Option<&'a mut T>;
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|v| v.as_mut())
+        self.0.iter_mut().map(|v| v.as_mut())
     }
 }
 
@@ -125,7 +210,8 @@ pub struct VoidStorage<T: Default> {
     instance: T,
 }
 
-impl<'a, T: 'a + Default> ComponentStorage<'a, T> for VoidStorage<T> {
+impl<'a, T: 'a + Default> ComponentStorage<'a> for VoidStorage<T> {
+    type Component = T;
     type Iter = VoidStorageIter<'a, T>;
 
     #[inline]

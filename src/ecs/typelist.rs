@@ -12,6 +12,159 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Type-level metaprogramming traits that allow the library to validate certain invariants at compile
+//! time.
+//!
+//! This is broadly adapted from Lloyd Chan's excellent article [Gentle Intro to Type-level
+//! Recursion in Rust][1]. However, since it's only used to enforce invariants, the resulting
+//! heterogeneous list type doesn't contain any actual storage; this means that, at least in
+//! theory, the compiler should be able to optimize it out completely.
+//!
+//! The meat of the module is found in the [`TypeList`](trait.TypeList.html),
+//! [`Consume`](trait.Consume.html), and [`ConsumeMultiple`](trait.ConsumeMultiple.html) traits.
+//! `TypeList`s are `cons`-style singly linked lists expressed in the type system;
+//! the trait is implemented by [`TypeCons`](struct.TypeCons.html) and [`Nil`](enum.Nil.html).
+//! As mentioned above, the types are effectively empty, and since `Nil` is an empty enum, cannot
+//! even be constructed.
+//!
+//! The way this is used in the library is to indicate what types are available for Systems to
+//! access within a World.
+//!
+//! # Examples
+//!
+//! `TypeList`s are constructed from lisp-style `cons` cells, terminating with `Nil`.
+//! ```
+//! # use dashing::ecs::typelist::*;
+//! type AvailableTypes = TypeCons<f64, TypeCons<u32, TypeCons<String, Nil>>>;
+//! ```
+//!
+//! The [`tlist!`](../macro.tlist.html) macro is provided to make writing these types easier and
+//! less verbose.
+//! ```
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! type AvailableTypes = tlist![f64, u32, String];
+//! ```
+//!
+//! In this example, `do_stuff()` will take an argument of type `f64`, `u32`, or `String`. `I` is a
+//! type parameter used by `Consume`; it should be left up to the type checker to infer. It's kind
+//! of a bummer that this has to leak into the public interface, but that's the way it is.
+//! ```
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! type AvailableTypes = tlist![f64, u32, String];
+//! fn do_stuff<T, I>(t: T) where AvailableTypes: Consume<T, I> {
+//!     // Do something with `t`
+//! }
+//! do_stuff(25.0f64);
+//! do_stuff(42u32);
+//! do_stuff(String::from("Hello!"));
+//! ```
+//!
+//! Calling `do_struff()` with types that are not in `AvailableTypes` will fail to type check.
+//! ```compile_fail
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! struct Whatever {
+//!     x: f32,
+//!     y: f32,
+//! }
+//! type AvailableTypes = tlist![f64, u32, String];
+//! fn do_stuff<T, I>(t: T) where AvailableTypes: Consume<T, I> {
+//!     // Do something with `t`
+//! }
+//! do_stuff(Whatever { x: 1.0, y: 3.0 });
+//! ```
+//!
+//! Unfortunately, the error messages you get from the type checker failing are not particularly
+//! helpful. For instance, in the example above, you will get something like the following:
+//!
+//! ```text
+//! error[E0277]: the trait bound `main::dashing::ecs::typelist::Nil: main::dashing::ecs::typelist::Consume<main::Whatever, _>` is not satisfied
+//!   --> src/lib.rs:75:1
+//!    |
+//! 14 | do_stuff(Whatever { 1.0, 3.0 });
+//!    | ^^^^^^^^ the trait `main::dashing::ecs::typelist::Consume<main::Whatever, _>` is not implemented for `main::dashing::ecs::typelist::Nil`
+//!    |
+//! ```
+//!
+//! Not the greatest indicator of what the actual problem is.
+//!
+//! There is also a trait, `ConsumeMultiple`, that takes a `TypeList` as its type parameter (along
+//! with a similar "Index" type that you should let the compiler infer, like with `Consume`).
+//!
+//! ```
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! type AvailableTypes = tlist![f64, u32, String];
+//! fn do_stuff<T, I>() where AvailableTypes: ConsumeMultiple<T, I> {
+//!     // Do something
+//! }
+//! do_stuff::<tlist![f64, u32], _>();
+//! ```
+//!
+//! This similarly will fail to type check if not all of the types are available in the source list.
+//! ```compile_fail
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! type AvailableTypes = tlist![f64, u32, String];
+//! fn do_stuff<T, I>() where AvailableTypes: ConsumeMultiple<T, I> {
+//!     // Do something
+//! }
+//! do_stuff::<tlist![f64, u32, &str], _>();
+//! ```
+//!
+//! Importantly, `Consume<T, I>` removes *all* instances of `T` from the source list; this allows
+//! us to write generic functions over `T`, `U` such that `T != U` (!).
+//!
+//! ```
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! fn do_stuff<T, U, I>() where tlist![T, U]: ConsumeMultiple<tlist![T, U], I> {
+//!     // Do something
+//! }
+//! do_stuff::<u32, f64, _>();
+//! ```
+//!
+//! ```compile_fail
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! fn do_stuff<T, U, I>() where tlist![T, U]: ConsumeMultiple<tlist![T, U], I> {
+//!     // Do something
+//! }
+//!
+//! // Using the same type for `T` and `U` causes a compilation error along the lines of the
+//! // following:
+//! //
+//! // error[E0282]: type annotations needed
+//! //  --> src/ecs.rs:147:1
+//! //   |
+//! // 8 | do_stuff::<u32, u32, _>();
+//! //   | ^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type for `IHEAD`
+//! do_stuff::<u32, u32, _>();
+//! ```
+//!
+//! There is also a trait called `IntoTypeList` that allows easy conversion from tuples (up to
+//! length 32) to `TypeList`.
+//! ```
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::typelist::*;
+//! type AvailableTypes = tlist![f64, u32, String];
+//! fn do_stuff<T, U, I>()
+//! where
+//!     T: IntoTypeList<Type=U>,
+//!     // For some reason we still need to put a trait bound on `U`, even though the associated
+//!     // type is constrained in `IntoTypeList`
+//!     U: TypeList,
+//!     AvailableTypes: ConsumeMultiple<U, I>
+//! {
+//!     // Do something
+//! }
+//! do_stuff::<(String, f64), _, _>();
+//! ```
+//!
+//!
+//! [1]: https://beachape.com/blog/2017/03/12/gentle-intro-to-type-level-recursion-in-Rust-from-zero-to-frunk-hlist-sculpting/
 use std::marker::PhantomData;
 
 mod private {

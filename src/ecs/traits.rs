@@ -15,89 +15,6 @@
 use crate::ecs::typelist::*;
 use crate::ecs::*;
 
-use std::cell::{Ref, RefMut};
-use std::ops::{Deref, DerefMut};
-
-/// Specifies how a component is stored.
-///
-/// This is automatically implemented for component types by `define_world!`; you shouldn't ever
-/// need to implement it manually.
-pub trait StorageSpec<'a> {
-    /// The component type.
-    type Component: 'a;
-    /// The storage type for this Component.
-    type Storage: ComponentStorage<'a, Self::Component>;
-}
-
-/// Read-only view of a Component.
-pub struct ReadComponent<'a, T: StorageSpec<'a>> {
-    storage: Ref<'a, T::Storage>,
-}
-
-impl<'a, T> ReadComponent<'a, T>
-where
-    T: 'a + StorageSpec<'a>,
-    T::Storage: ComponentStorage<'a, T>,
-{
-    /// Get a reference to the underlying `Storage`. This is an associated method because
-    /// `ReadComponent` implements `Deref` and `ComponentStorage` also has a method called `get()`.
-    pub fn get(v: &Self) -> Ref<T::Storage> {
-        Ref::clone(&v.storage)
-    }
-}
-
-impl<'a, T> Deref for ReadComponent<'a, T>
-where
-    T: 'a + StorageSpec<'a>,
-    T::Storage: ComponentStorage<'a, T>,
-{
-    type Target = T::Storage;
-    fn deref(&self) -> &T::Storage {
-        Deref::deref(&self.storage)
-    }
-}
-
-/// Write component
-pub struct WriteComponent<'a, T: 'a + StorageSpec<'a>> {
-    storage: RefMut<'a, T::Storage>,
-}
-
-impl<'a, T> WriteComponent<'a, T>
-where
-    T: 'a + StorageSpec<'a>,
-    T::Storage: ComponentStorage<'a, T>,
-{
-    /// Get a reference to the underlying `Storage`. This is an associated method because
-    /// `ReadComponent` implements `Deref`.
-    ///
-    /// Since `RefMut` cannot be cloned (write access must be exclusive), this consumes its
-    /// argument.
-    pub fn get_mut(v: Self) -> RefMut<'a, T::Storage> {
-        v.storage
-    }
-}
-
-impl<'a, T> Deref for WriteComponent<'a, T>
-where
-    T: 'a + StorageSpec<'a>,
-    T::Storage: ComponentStorage<'a, T>,
-{
-    type Target = T::Storage;
-    fn deref(&self) -> &T::Storage {
-        Deref::deref(&self.storage)
-    }
-}
-
-impl<'a, T> DerefMut for WriteComponent<'a, T>
-where
-    T: 'a + StorageSpec<'a>,
-    T::Storage: ComponentStorage<'a, T>,
-{
-    fn deref_mut(&mut self) -> &mut T::Storage {
-        DerefMut::deref_mut(&mut self.storage)
-    }
-}
-
 /// Trait that allows us to convert flat tuple types to nested tuple types (e.g.,
 /// `(A, B, C)` → `(A, (B, (C, ())))`).
 ///
@@ -105,14 +22,14 @@ where
 /// flat tuple.
 ///
 /// This trait is provided for tuples up to length 32.
-pub trait Unflatten: private::Sealed {
+pub trait Nest: private::Sealed {
     /// Equivalent nested tuple type.
-    type Unflattened;
+    type Nested;
     /// Flatten the thing back out.
-    fn reflatten(v: Self::Unflattened) -> Self;
+    fn flatten(v: Self::Nested) -> Self;
 }
 
-// helper macro for `impl_unflatten!`.
+// helper macros for `impl_nested!`.
 macro_rules! unnest {
     (($layer:expr); ($($v:expr),*); ($u:ident, $($us:ident,)*)) => {
         unnest!(($layer . 1); ($($v,)* $layer.0); ($($us,)*))
@@ -120,13 +37,13 @@ macro_rules! unnest {
     (($layer:expr); ($($v:expr),*); ()) => { ($($v,)*) };
 }
 
-// Implement `Unflatten` for tuples up to length 32.
-macro_rules! impl_unflatten {
+// Implement `Nest` for tuples up to length 32.
+macro_rules! impl_nested {
     (@impl_internal $t: ident, $($ts:ident,)*) => {
-        impl<$t, $($ts),*> Unflatten for ($t, $($ts,)*) {
-            type Unflattened = impl_unflatten!(@nest $t, $($ts,)*);
+        impl<$t, $($ts),*> Nest for ($t, $($ts,)*) {
+            type Nested = impl_nested!(@nest $t, $($ts,)*);
             #[inline]
-            fn reflatten(v: Self::Unflattened) -> Self {
+            fn flatten(v: Self::Nested) -> Self {
                 unnest!((v); (); ($t, $($ts,)*))
             }
         }
@@ -137,28 +54,28 @@ macro_rules! impl_unflatten {
     };
 
     (@nest $t: ident, $($ts:ident,)*) => {
-        ($t, impl_unflatten!(@nest $($ts,)*))
+        ($t, impl_nested!(@nest $($ts,)*))
     };
 
     // Base case
     (($($t:ident,)+);) => {
-        impl_unflatten!(@impl_internal $($t,)*);
+        impl_nested!(@impl_internal $($t,)*);
     };
 
     // Produce the actual impl for the tuple represented by $t1, then move $t2 into the tuple and
-    // recursively call impl_unflatten
+    // recursively call impl_nested
     (($($t1:ident,)+); $t2:ident $(,)* $($t3:ident),*) => {
-        impl_unflatten!(@impl_internal $($t1,)*);
-        impl_unflatten!(($($t1),*, $t2,); $($t3),*);
+        impl_nested!(@impl_internal $($t1,)*);
+        impl_nested!(($($t1),*, $t2,); $($t3),*);
     };
 
     // Entry point
     ($t1:ident, $($t:ident),+) => {
-        impl_unflatten!(($t1,); $($t),*);
+        impl_nested!(($t1,); $($t),*);
     };
 }
 
-impl_unflatten!(
+impl_nested!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
     EE, FF, GG
 );
@@ -170,28 +87,26 @@ pub trait ComponentProviderRec<'a, T> {
 }
 
 /// Component provider for flat tuples.
-pub trait ComponentProvider<'a, T: Unflatten> {
+pub trait ComponentProvider<'a, T: Nest> {
     /// Get the components.
     fn fetch(&'a self) -> T;
 }
 
 impl<'a, T, W> ComponentProvider<'a, T> for W
 where
-    T: Unflatten,
-    W: WorldInterface<'a> + ComponentProviderRec<'a, T::Unflattened>,
+    T: Nest,
+    W: WorldInterface<'a> + ComponentProviderRec<'a, T::Nested>,
 {
     #[inline]
     fn fetch(&'a self) -> T {
-        <T as Unflatten>::reflatten(<Self as ComponentProviderRec<'a, T::Unflattened>>::fetch(
-            self,
-        ))
+        <T as Nest>::flatten(<Self as ComponentProviderRec<'a, T::Nested>>::fetch(self))
     }
 }
 
 impl<'a, H, T, WD> ComponentProviderRec<'a, (ReadComponent<'a, H>, T)> for WD
 where
     H: 'a + StorageSpec<'a>,
-    H::Storage: ComponentStorage<'a, H>,
+    H::Storage: ComponentStorage<'a>,
     WD: WorldInterface<'a> + ComponentProviderRec<'a, T> + GetComponent<'a, H>,
 {
     #[inline]
@@ -208,7 +123,7 @@ where
 impl<'a, H, T, WD> ComponentProviderRec<'a, (WriteComponent<'a, H>, T)> for WD
 where
     H: 'a + StorageSpec<'a>,
-    H::Storage: ComponentStorage<'a, H>,
+    H::Storage: ComponentStorage<'a>,
     WD: WorldInterface<'a> + ComponentProviderRec<'a, T> + GetComponent<'a, H>,
 {
     #[inline]
@@ -256,7 +171,7 @@ where
 /// Trait that systems must implement.
 pub trait System<'a> {
     /// The components and resources this system needs to run.
-    type Dependencies: Unflatten; // +IntoTypeList;
+    type Dependencies: Nest; // +IntoTypeList;
     /// Run the system.
     fn run(&'a mut self, dependencies: Self::Dependencies);
 }
@@ -279,9 +194,13 @@ impl<T> Default for SystemOutput<T> {
 /// For systems that don't cause side effects or need to reason about entities or components
 /// globally, it is highly recommended that you implement `PureFunctionalSystem`, which the
 /// library will be able to automatically parallelize.
-pub trait PureFunctionalSystem<I, O: SystemOutputTuple> {
+pub trait PureFunctionalSystem {
+    /// Input types
+    type Inputs;
+    /// Output types.
+    type Outputs: SystemOutputTuple;
     /// Process one input.
-    fn process(&self, data: &I) -> <O as SystemOutputTuple>::OutputTuple;
+    fn process(&self, data: &Self::Inputs) -> <Self::Outputs as SystemOutputTuple>::OutputTuple;
 }
 
 /// Interface to the `World` struct generated via the `define_world!` macro.
@@ -306,10 +225,10 @@ where
     fn run_system<'b, S, T /*, U, V*/>(&'a mut self, system: &'b mut S)
     where
         S: System<'b, Dependencies = T>,
-        T: Unflatten,
+        T: Nest,
         //U: typelist::TypeList,
         //Self::AvailableTypes: typelist::ConsumeMultiple<U, V>,
-        Self: ComponentProviderRec<'a, T::Unflattened>,
+        Self: ComponentProviderRec<'a, T::Nested>,
     {
         system.run(<Self as ComponentProvider<'a, T>>::fetch(self));
     }
@@ -330,11 +249,11 @@ pub trait ResourceProvider {
 }
 
 /// Indicates that the implementor stores components of type `T`.
-pub trait GetComponent<'a, T: 'a + StorageSpec<'a>> {
+pub trait GetComponent<'a, T: StorageSpec<'a>> {
     /// Get the storage.
-    fn get(&self) -> std::cell::Ref<T::Storage>;
+    fn get<'r>(&'r self) -> std::cell::Ref<'r, T::Storage>;
     /// Get the storage mutably.
-    fn get_mut(&self) -> std::cell::RefMut<T::Storage>;
+    fn get_mut<'r>(&'r self) -> std::cell::RefMut<'r, T::Storage>;
 }
 
 mod private {

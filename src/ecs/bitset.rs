@@ -16,6 +16,9 @@
 pub trait BitSet {
     /// Number of bits stored in this bitset.
     const SIZE: usize;
+
+    /// Create a new, empty bitset.
+    fn new() -> Self;
     /// Return `true` iff bit `i` is set.
     fn get_bit(&self, i: usize) -> bool;
     /// Set bit `i` to `true`.
@@ -57,6 +60,10 @@ macro_rules! bitset_impl {
             const SIZE: usize = $b;
             type Iter = BitSetIter<$t>;
             #[inline]
+            fn new() -> Self {
+                0
+            }
+            #[inline]
             fn get_bit(&self, i: usize) -> bool {
                 if i < Self::SIZE {
                     (self & (1 << i)) != 0
@@ -95,6 +102,55 @@ bitset_impl!(u16, 16);
 bitset_impl!(u32, 32);
 bitset_impl!(u64, 64);
 bitset_impl!(u128, 128);
+
+pub trait BitVec {
+    type Rep: BitSet;
+    /// Return `true` iff bit `i` is set.
+    fn get_bit(&self, i: usize) -> bool;
+    /// Set bit `i` to `true`.
+    fn set_bit(&mut self, i: usize);
+    /// Set bit `i` to `false`.
+    fn clear_bit(&mut self, i: usize);
+
+    fn and(&self, other: &Self) -> Self;
+}
+
+impl<T> BitVec for Vec<T>
+where
+    T: BitSet + Copy + std::ops::BitAnd<Output = T>,
+{
+    type Rep = T;
+    #[inline]
+    fn get_bit(&self, i: usize) -> bool {
+        if i / 32 >= self.len() {
+            false
+        } else {
+            self[i / 32].get_bit(i % 32)
+        }
+    }
+    #[inline]
+    fn set_bit(&mut self, i: usize) {
+        while i / 32 >= self.len() {
+            self.push(T::new());
+        }
+        self[i / 32].set_bit(i % 32);
+    }
+
+    #[inline]
+    fn clear_bit(&mut self, i: usize) {
+        if i / 32 < self.len() {
+            self[i / 32].clear_bit(i % 32);
+        }
+    }
+
+    #[inline]
+    fn and(&self, other: &Self) -> Self {
+        self.iter()
+            .zip(other.iter())
+            .map(|(x, y)| *x & *y)
+            .collect()
+    }
+}
 
 #[cfg(test)]
 mod tests {
