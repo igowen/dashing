@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::ecs::typelist::*;
 use crate::ecs::*;
 
 /// Trait that allows us to convert flat tuple types to nested tuple types (e.g.,
@@ -25,59 +24,111 @@ use crate::ecs::*;
 pub trait Nest: private::Sealed {
     /// Equivalent nested tuple type.
     type Nested;
-    /// Flatten the thing back out.
+    /// Convert a nested tuple to its flat representation.
     fn flatten(v: Self::Nested) -> Self;
+    /// Convert `self` to its nested representation.
+    fn nest(self) -> Self::Nested;
+}
+
+/// Inverse of `Nest`.
+pub trait Flatten: private::Sealed {
+    /// Equivalent flat tuple type.
+    type Flattened;
+    /// Convert `self` to its flat representation.
+    fn flatten(self) -> Self::Flattened;
+    /// Convert a flat tuple to its nested representation.
+    fn nest(v: Self::Flattened) -> Self;
 }
 
 // helper macros for `impl_nested!`.
 macro_rules! unnest {
     (($layer:expr); ($($v:expr),*); ($u:ident, $($us:ident,)*)) => {
-        unnest!(($layer . 1); ($($v,)* $layer.0); ($($us,)*))
+        unnest!(($layer . 1); ($($v,)* $layer . 0); ($($us,)*))
     };
     (($layer:expr); ($($v:expr),*); ()) => { ($($v,)*) };
 }
 
+impl Nest for () {
+    type Nested = ();
+    #[inline]
+    fn flatten(_v: ()) -> () {
+        ()
+    }
+    #[inline]
+    fn nest(self) -> () {
+        ()
+    }
+}
+
+macro_rules! nest {
+    ($v:ident,) => { () };
+    ($v:ident, $n:tt, $($ns:tt,)*) => {
+        ($v.$n, nest!($v, $($ns,)*))
+    }
+}
+
 // Implement `Nest` for tuples up to length 32.
 macro_rules! impl_nested {
-    (@impl_internal $t: ident, $($ts:ident,)*) => {
-        impl<$t, $($ts),*> Nest for ($t, $($ts,)*) {
-            type Nested = impl_nested!(@nest $t, $($ts,)*);
+    (@impl_internal {($t:ident, $n:tt), $(($ts:ident, $ns:tt),)*}) => {
+        impl<$t, $($ts),*> Nest for ($t, $($ts,)*) where ($($ts,)*): Nest {
+            type Nested = impl_nested!(@nest_type $t, $($ts,)*);
             #[inline]
             fn flatten(v: Self::Nested) -> Self {
                 unnest!((v); (); ($t, $($ts,)*))
             }
+            #[inline]
+            fn nest(self) -> Self::Nested {
+                nest!(self, $n, $($ns,)*)
+            }
+        }
+
+        impl<$t, $($ts),*> Flatten for impl_nested!(@nest_type $t, $($ts,)*) {
+            type Flattened = ($t, $($ts,)*);
+            #[inline]
+            fn flatten(self) -> Self::Flattened {
+                unnest!((self); (); ($t, $($ts,)*))
+            }
+            #[inline]
+            fn nest(v: Self::Flattened) -> Self {
+                nest!(v, $n, $($ns,)*)
+            }
         }
     };
 
-    (@nest) => {
+    (@nest_type) => {
         ()
     };
 
-    (@nest $t: ident, $($ts:ident,)*) => {
-        ($t, impl_nested!(@nest $($ts,)*))
+    (@nest_type $t:ident, $($ts:ident,)*) => {
+        ($t, impl_nested!(@nest_type $($ts,)*))
     };
 
     // Base case
-    (($($t:ident,)+);) => {
-        impl_nested!(@impl_internal $($t,)*);
+    (@internal {$(($t:ident,$n:tt),)+}; {}; {}) => {
+        impl_nested!(@impl_internal {$(($t, $n),)*});
     };
 
     // Produce the actual impl for the tuple represented by $t1, then move $t2 into the tuple and
     // recursively call impl_nested
-    (($($t1:ident,)+); $t2:ident $(,)* $($t3:ident),*) => {
-        impl_nested!(@impl_internal $($t1,)*);
-        impl_nested!(($($t1),*, $t2,); $($t3),*);
+    (@internal {$(($t1:ident,$n1:tt),)+};
+               {$t2:ident, $($t3:ident,)*};
+               {$n2:tt, $($n3:tt,)*}) => {
+        impl_nested!(@impl_internal {$(($t1, $n1),)*});
+        impl_nested!(@internal {$(($t1, $n1),)* ($t2, $n2),};
+                               {$($t3,)*};
+                               {$($n3,)*});
     };
 
     // Entry point
-    ($t1:ident, $($t:ident),+) => {
-        impl_nested!(($t1,); $($t),*);
+    (($t:ident, $($ts:ident,)+); ($n:tt, $($ns:tt,)+)) => {
+        impl_nested!(@internal {($t, $n),}; {$($ts,)*}; {$($ns,)*});
     };
 }
 
 impl_nested!(
-    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
-    EE, FF, GG
+    (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
+    EE, FF,);
+    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,)
 );
 
 /// Internal version of `ComponentProvider` that is implemented for nested tuples.
@@ -296,5 +347,5 @@ macro_rules! impl_output_tuple {
 
 impl_output_tuple!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, BB, CC, DD,
-    EE, FF, GG
+    EE, FF
 );

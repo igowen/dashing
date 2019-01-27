@@ -21,8 +21,11 @@ pub mod traits;
 /// Component storage infrastructure
 pub mod storage;
 
+pub mod join;
+
 mod bitset;
 
+pub use crate::ecs::join::*;
 pub use crate::ecs::storage::*;
 pub use crate::ecs::traits::*;
 
@@ -341,7 +344,7 @@ mod tests {
             .with(MoreData { y: 42 })
             .build();
         w.new_entity().with(Data { x: 3 }).build();
-        let v = w.new_entity().with(Data { x: 5 }).with(Void {}).build();
+        w.new_entity().with(Data { x: 5 }).with(Void {}).build();
         w.new_entity().with(Data { x: 8 }).build();
 
         #[derive(Default)]
@@ -352,40 +355,31 @@ mod tests {
 
         impl<'a> System<'a> for TestSystem {
             type Dependencies = (
-                ReadComponent<'a, Data>,
+                WriteComponent<'a, Data>,
                 WriteComponent<'a, MoreData>,
                 ReadComponent<'a, Void>,
             );
             fn run(&'a mut self, (data, mut more_data, void): Self::Dependencies) {
                 self.total = 0;
                 self.chosen = 0;
-                // We'd like to write this as `for (d,) in (&data,).join() {`
-                for d in data.iter().filter_map(|a| a) {
-                    self.total += d.x;
-                }
 
-                // We'd like to write this as `for (d, md) in (&data, &mut more_data).join() {`
-                for (d, md) in data
-                    .iter()
-                    .zip(more_data.iter_mut())
-                    .filter_map(|ab| match ab {
-                        (Some(a), Some(b)) => Some((a, b)),
-                        _ => None,
-                    })
-                {
+                (&data,).for_each(|(d,)| {
+                    self.total += d.x;
+                });
+
+                (&data, &mut more_data).for_each(|(d, md)| {
                     md.y *= d.x;
-                }
-                // We'd like to write this as `for (d, v) in (&data, &void).join() {`
-                for (d, v) in data.iter().zip(void.iter()).filter_map(|ab| match ab {
-                    (Some(a), Some(b)) => Some((a, b)),
-                    _ => None,
-                }) {
+                });
+
+                (&data, &void).for_each(|(d, _v)| {
                     self.chosen = d.x;
-                }
+                });
             }
         }
+
         let mut system = TestSystem::default();
         w.run_system(&mut system);
+
         assert_eq!(system.total, 20);
         assert_eq!(
             <World as GetComponent<'_, MoreData>>::get(&w).get(md),

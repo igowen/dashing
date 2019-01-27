@@ -15,7 +15,7 @@
 use crate::ecs::bitset::*;
 use crate::ecs::*;
 
-use std::cell::{Ref, RefMut};
+use std::cell::{Ref, RefMut, UnsafeCell};
 use std::ops::{Deref, DerefMut};
 
 /// Specifies how a component is stored.
@@ -122,7 +122,10 @@ pub trait ComponentStorage<'a> {
     /// Immutable iterator type.
     type Iter: Iterator<Item = Option<&'a Self::Component>>;
     /// Get the component corresponding to the given entity, if it exists.
-    fn get(&self, entity: Entity) -> Option<&Self::Component>;
+    fn get<'b>(&'b self, entity: Entity) -> Option<&'b Self::Component>;
+    /// Get a raw pointer to the component corresponding to the given entity, if it exists. Must
+    /// return `std::ptr::null()` if the component doesn't exist for the given entity.
+    fn get_raw(&self, entity: Entity) -> *const Self::Component;
     /// Set the component for the given entity.
     fn set(&mut self, entity: Entity, item: Option<Self::Component>);
     /// Reserve `n` additional slots without affecting the size of the storage. The default
@@ -136,8 +139,13 @@ pub trait ComponentStorage<'a> {
     fn iter(&'a self) -> Self::Iter;
 }
 
-/// Trait that component storage may optionally implement.
+/// Trait that component storage may optionally implement if it supports in-place modification.
 pub trait MutableComponentStorage<'a>: ComponentStorage<'a> {
+    /// Get a mutable reference to the component corresponding to the given entity, if it exists.
+    fn get_mut<'b>(&'b mut self, entity: Entity) -> Option<&'b mut Self::Component>;
+    /// Get a mutable raw pointer to the component corresponding to the given entity, if it exists.
+    /// Must return `std::ptr::null()` if the component doesn't exist for the given entity.
+    fn get_raw_mut(&mut self, entity: Entity) -> *mut Self::Component;
     /// Mutable iterator type.
     type IterMut: Iterator<Item = Option<&'a mut <Self as ComponentStorage<'a>>::Component>>;
     /// Mutably iterate over the components in this storage.
@@ -147,22 +155,33 @@ pub trait MutableComponentStorage<'a>: ComponentStorage<'a> {
 }
 
 /// `ComponentStorage` that is just `Vec<Option<T>>`.
-#[derive(Clone, Debug, Default)]
-pub struct BasicVecStorage<T>(Vec<Option<T>>);
+#[derive(Debug, Default)]
+pub struct BasicVecStorage<T>(Vec<Option<UnsafeCell<T>>>);
 
 impl<'a, T> ComponentStorage<'a> for BasicVecStorage<T>
 where
     T: 'a,
 {
     type Component = T;
-    type Iter = std::iter::Map<std::slice::Iter<'a, Option<T>>, fn(&'a Option<T>) -> Option<&'a T>>;
+    type Iter = std::iter::Map<
+        std::slice::Iter<'a, Option<UnsafeCell<T>>>,
+        fn(&'a Option<UnsafeCell<T>>) -> Option<&'a T>,
+    >;
     #[inline]
-    fn get(&self, entity: Entity) -> Option<&T> {
+    fn get<'b>(&'b self, entity: Entity) -> Option<&'b T> {
         if entity.id < self.0.len() {
-            self.0[entity.id].as_ref()
+            // This unsafe block should be sound, because the borrow of the returned reference is
+            // tied to the borrow of `&self`.
+            self.0[entity.id].as_ref().map(|v| unsafe { &*v.get() })
         } else {
             None
         }
+    }
+    #[inline]
+    fn get_raw(&self, entity: Entity) -> *const T {
+        self.0[entity.id]
+            .as_ref()
+            .map_or(std::ptr::null(), |v| v.get())
     }
     #[inline]
     fn set(&mut self, entity: Entity, item: Option<T>) {
@@ -173,7 +192,7 @@ where
                 self.0.push(None);
             }
         }
-        self.0[entity.id] = item;
+        self.0[entity.id] = item.map(|x| UnsafeCell::new(x));
     }
     #[inline]
     fn reserve(&mut self, n: usize) {
@@ -185,18 +204,46 @@ where
     }
     #[inline]
     fn iter(&'a self) -> Self::Iter {
-        self.0.iter().map(|v| v.as_ref())
+        // This unsafe block should be sound, because the borrows of the returned references are
+        // tied to the borrow of `&self`.
+        self.0
+            .iter()
+            .map(|v| v.as_ref().map(|u| unsafe { &*(u.get()) }))
     }
 }
 
 impl<'a, T: 'a> MutableComponentStorage<'a> for BasicVecStorage<T> {
     type IterMut = std::iter::Map<
-        std::slice::IterMut<'a, Option<T>>,
-        fn(&'a mut Option<T>) -> Option<&'a mut T>,
+        std::slice::IterMut<'a, Option<UnsafeCell<T>>>,
+        fn(&mut Option<UnsafeCell<T>>) -> Option<&'a mut T>,
     >;
     #[inline]
     fn iter_mut(&'a mut self) -> Self::IterMut {
-        self.0.iter_mut().map(|v| v.as_mut())
+        // This unsafe block should be sound, because the borrows of the returned references are
+        // tied to the borrow of `&mut self`.
+        self.0
+            .iter_mut()
+            .map(|v| v.as_ref().map(|u| unsafe { &mut *(u.get()) }))
+    }
+    #[inline]
+    fn get_mut<'b>(&'b mut self, entity: Entity) -> Option<&'b mut T> {
+        if entity.id < self.0.len() {
+            // This unsafe block should be sound, because the borrow of the returned references is
+            // tied to the borrow of `&mut self`.
+            self.0[entity.id].as_ref().map(|v| unsafe { &mut *v.get() })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn get_raw_mut(&mut self, entity: Entity) -> *mut T {
+        if entity.id < self.0.len() {
+            self.0[entity.id]
+                .as_ref()
+                .map_or(std::ptr::null_mut(), |v| unsafe { &mut *v.get() })
+        } else {
+            std::ptr::null_mut()
+        }
     }
 }
 
@@ -223,6 +270,17 @@ impl<'a, T: 'a + Default> ComponentStorage<'a> for VoidStorage<T> {
             Some(&self.instance)
         } else {
             None
+        }
+    }
+
+    #[inline]
+    fn get_raw(&self, entity: Entity) -> *const T {
+        if entity.id / 32 < self.storage.len()
+            && self.storage[entity.id / 32].get_bit(entity.id % 32)
+        {
+            &self.instance as *const T
+        } else {
+            std::ptr::null()
         }
     }
 
