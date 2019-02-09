@@ -380,15 +380,15 @@ mod tests {
                 self.total = 0;
                 self.chosen = 0;
 
-                (&data,).for_each(|(d,)| {
+                (&data,).for_each(|_, (d,)| {
                     self.total += d.x;
                 });
 
-                (&data, &mut more_data).for_each(|(d, md)| {
+                (&data, &mut more_data).for_each(|_, (d, md)| {
                     md.y *= d.x;
                 });
 
-                (&data, &void).for_each(|(d, _v)| {
+                (&data, &void).for_each(|_, (d, _v)| {
                     self.chosen = d.x;
                 });
             }

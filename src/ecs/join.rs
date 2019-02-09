@@ -121,11 +121,11 @@
 //!     fn run(&'a mut self, (data, mut more_data): Self::Dependencies) {
 //!         self.total = 0;
 //!
-//!         (&data,).for_each(|(d,)| {
+//!         (&data,).for_each(|_, (d,)| {
 //!             self.total += d.x;
 //!         });
 //!
-//!         (&data, &mut more_data).for_each(|(d, md)| {
+//!         (&data, &mut more_data).for_each(|_, (d, md)| {
 //!             md.y *= d.x;
 //!         });
 //!     }
@@ -271,7 +271,7 @@ pub trait Join {
     /// Call `f` on each entity that contains all of the components in `Output`.
     fn for_each<F>(self, f: F)
     where
-        F: FnMut(Self::Output);
+        F: FnMut(Entity, Self::Output);
 }
 
 impl<T> Join for T
@@ -283,17 +283,15 @@ where
     type Output = <<T::Nested as Joinable>::Output as Flatten>::Flattened;
     fn for_each<F>(self, mut f: F)
     where
-        F: FnMut(Self::Output),
+        F: FnMut(Entity, Self::Output),
     {
         let mut storage = self.nest();
         for i in 0..storage.size() {
-            storage.process(
-                Entity {
-                    id: i,
-                    generation: 0,
-                },
-                |v| f(v.flatten()),
-            );
+            let e = Entity {
+                id: i,
+                generation: 0,
+            };
+            storage.process(e, |v| f(e, v.flatten()));
         }
     }
 }
