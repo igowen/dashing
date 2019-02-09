@@ -94,6 +94,7 @@ macro_rules! define_world {
     }) => {
         __define_world_internal!{@impl_storage_spec {$($component_type; $($component_storage)::*)*}}
         __define_world_internal!{@impl_get_component $({$component $component_type})*}
+        __define_world_internal!{@impl_get_resource $({$resource $resource_type})*}
         __define_world_internal!{@define_world_struct
             $(#[$meta])* $v ($($component: $component_type)*)}
         __define_world_internal!{@define_builder_struct $v $($component:$component_type)*}
@@ -117,6 +118,22 @@ macro_rules! __define_world_internal {
             impl<'a> $crate::ecs::StorageSpec<'a> for $component_type {
                 type Storage = $($component_storage)::* <$component_type>;
                 type Component = $component_type;
+            }
+        )*
+    };
+
+    (@impl_get_resource $({$resource:ident $resource_type:ty})*) => {
+        $(
+            impl GetResource<$resource_type> for World {
+                fn get(&self) -> std::cell::Ref<$resource_type> {
+                    self.resources.$resource.borrow()
+                }
+                fn get_mut(&self) -> std::cell::RefMut<$resource_type> {
+                    self.resources.$resource.borrow_mut()
+                }
+                fn set(&self, t: $resource_type) {
+                    self.resources.$resource.replace(t);
+                }
             }
         )*
     };

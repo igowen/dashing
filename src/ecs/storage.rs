@@ -41,6 +41,16 @@ pub struct WriteComponent<'a, T: 'a + StorageSpec<'a>> {
     pub(crate) storage: RefMut<'a, T::Storage>,
 }
 
+/// Read-only view of a resource.
+pub struct ReadResource<'a, T> {
+    pub(crate) resource: Ref<'a, T>,
+}
+
+/// Read/write view of a resource.
+pub struct WriteResource<'a, T> {
+    pub(crate) resource: RefMut<'a, T>,
+}
+
 // ReadComponent is cloneable; WriteComponent is not.
 impl<'a, T> Clone for ReadComponent<'a, T>
 where
@@ -112,6 +122,57 @@ where
     #[inline]
     fn deref_mut(&mut self) -> &mut T::Storage {
         DerefMut::deref_mut(&mut self.storage)
+    }
+}
+
+impl<'a, T> ReadResource<'a, T> {
+    /// Get a reference to the underlying `Storage`. This is an associated method because
+    /// `ReadResource` implements `Deref`.
+    #[inline]
+    pub fn get(v: &Self) -> &T {
+        Deref::deref(&v.resource)
+    }
+}
+
+impl<'a, T> Deref for ReadResource<'a, T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &T {
+        Deref::deref(&self.resource)
+    }
+}
+
+// ReadResource is cloneable; WriteResource is not.
+impl<'a, T> Clone for ReadResource<'a, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        ReadResource {
+            resource: Ref::clone(&self.resource),
+        }
+    }
+}
+
+impl<'a, T> WriteResource<'a, T> {
+    /// Get a reference to the underlying `Storage`. This is an associated method because
+    /// `WriteResource` implements `Deref`/`DerefMut`.
+    #[inline]
+    pub fn get_mut(v: &mut Self) -> &mut T {
+        DerefMut::deref_mut(&mut v.resource)
+    }
+}
+
+impl<'a, T> Deref for WriteResource<'a, T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &T {
+        Deref::deref(&self.resource)
+    }
+}
+
+impl<'a, T> DerefMut for WriteResource<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut T {
+        DerefMut::deref_mut(&mut self.resource)
     }
 }
 

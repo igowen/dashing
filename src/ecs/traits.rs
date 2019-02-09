@@ -171,6 +171,38 @@ where
     }
 }
 
+impl<'a, H, T, WD> ComponentProviderRec<'a, (ReadResource<'a, H>, T)> for WD
+where
+    H: 'a,
+    WD: WorldInterface<'a> + ComponentProviderRec<'a, T> + GetResource<H>,
+{
+    #[inline]
+    fn fetch(&'a self) -> (ReadResource<'a, H>, T) {
+        (
+            ReadResource {
+                resource: <Self as GetResource<H>>::get(self),
+            },
+            <Self as ComponentProviderRec<T>>::fetch(self),
+        )
+    }
+}
+
+impl<'a, H, T, WD> ComponentProviderRec<'a, (WriteResource<'a, H>, T)> for WD
+where
+    H: 'a,
+    WD: WorldInterface<'a> + ComponentProviderRec<'a, T> + GetResource<H>,
+{
+    #[inline]
+    fn fetch(&'a self) -> (WriteResource<'a, H>, T) {
+        (
+            WriteResource {
+                resource: <Self as GetResource<H>>::get_mut(self),
+            },
+            <Self as ComponentProviderRec<T>>::fetch(self),
+        )
+    }
+}
+
 impl<'a, H, T, WD> ComponentProviderRec<'a, (WriteComponent<'a, H>, T)> for WD
 where
     H: 'a + StorageSpec<'a>,
@@ -302,9 +334,19 @@ pub trait ResourceProvider {
 /// Indicates that the implementor stores components of type `T`.
 pub trait GetComponent<'a, T: StorageSpec<'a>> {
     /// Get the storage.
-    fn get<'r>(&'r self) -> std::cell::Ref<'r, T::Storage>;
+    fn get(&self) -> std::cell::Ref<T::Storage>;
     /// Get the storage mutably.
-    fn get_mut<'r>(&'r self) -> std::cell::RefMut<'r, T::Storage>;
+    fn get_mut(&self) -> std::cell::RefMut<T::Storage>;
+}
+
+/// Indicates that the implementor stores a resource of type `T`.
+pub trait GetResource<T> {
+    /// Get the resource.
+    fn get(&self) -> std::cell::Ref<T>;
+    /// Get the resource mutably.
+    fn get_mut(&self) -> std::cell::RefMut<T>;
+    /// Set the resource.
+    fn set(&self, t: T);
 }
 
 mod private {
