@@ -129,7 +129,6 @@ pub mod input;
 /// Functionality for building in-game UIs.
 pub mod ui;
 
-/// Entity-component-system library
 #[cfg(feature = "ecs")]
 #[macro_use]
 pub mod ecs;

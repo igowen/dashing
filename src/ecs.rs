@@ -12,6 +12,154 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Library for implementing the entity-component-system (ECS) pattern.
+//!
+//! # Usage
+//!
+//! Implementing an ECS requires the following:
+//!
+//! 1. Define the components and resources you need to store using the
+//!    [`define_world!`](../macro.define_world.html) macro. This generates a struct called `World`,
+//!    along with trait implementations necessary for the library to interact with it
+//! 2. Implement one or more [`System`s](traits/trait.System.html)
+//! 3. Run your `System`s on the World using the
+//!    (`run_system`)[traits/trait.WorldInterface.html#method.run_system] method.
+//!
+//! # Peculiarities
+//!
+//! This library uses Rust's type system in a somewhat advanced manner. In the
+//! [`traits`](traits/index.html) module you will find the [`Nest`](traits/trait.Nest.html) and
+//! [`Flatten`](traits/trait.Flatten.html) traits, which allow flat tuples (such as `(A, B, C)`) to
+//! be converted to a nested representation `(A, (B, (C, ())))` and back again. These traits are
+//! implemented for tuples up to length 32, which ought to be enough for most use cases.
+//!
+//! Converting flat tuples to nested tuples at the API boundary allows us to implement certain
+//! traits recursively, rather than needing to write macros for each trait to implement them for
+//! flat tuple types. As a result, you will see type parameters that have `Nest`/`Flatten` trait
+//! bounds all over the code base. Because there's no way to tell the compiler that `Nest` and
+//! `Flatten` are inverse operations, occasionally you will see bounds that specify that the nested
+//! represenation is also flattenable.
+//!
+//! Additionally, we have some [type-level metaprogramming](ecs/typelist/index.html) traits that
+//! provide some amount of compile-time invariant checking.
+//!
+//! In general, client code shouldn't need to worry about these too much, but it does have the
+//! unfortunate side effect of making compiler error messages less helpful.
+//!
+//! # Examples
+//!
+//! ```
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::*;
+//! #[derive(Debug, PartialEq)]
+//! pub struct Data {
+//!     x: u32,
+//! }
+//!
+//! // `Default` impl that isn't the additive identity.
+//! impl Default for Data {
+//!     fn default() -> Data {
+//!         Data { x: 128 }
+//!     }
+//! }
+//!
+//! #[derive(Debug, Default, PartialEq)]
+//! pub struct MoreData {
+//!     y: u32,
+//! }
+//!
+//! define_world!(
+//!     #[derive(Default)]
+//!     pub world {
+//!         components {
+//!             test1: BasicVecStorage<Data>,
+//!             test2: BasicVecStorage<MoreData>,
+//!         }
+//!         resources {}
+//!     }
+//! );
+//!
+//! let mut w = World::default();
+//! w.new_entity().with(Data { x: 1 }).build();
+//! w.new_entity().with(Data { x: 1 }).build();
+//! let md = w
+//!     .new_entity()
+//!     .with(Data { x: 2 })
+//!     .with(MoreData { y: 42 })
+//!     .build();
+//! w.new_entity().with(Data { x: 3 }).build();
+//! w.new_entity().with(Data { x: 5 }).build();
+//! w.new_entity().with(Data { x: 8 }).build();
+//!
+//! /// `TestSystem` adds up the values in every `Data` component (storing the result in `total`),
+//! /// and multiplies every `MoreData` by the `Data` in the same component.
+//! #[derive(Default)]
+//! struct TestSystem {
+//!     total: u32,
+//! }
+//!
+//! impl<'a> System<'a> for TestSystem {
+//!     type Dependencies = (
+//!         ReadComponent<'a, Data>,
+//!         WriteComponent<'a, MoreData>,
+//!     );
+//!     fn run(&'a mut self, (data, mut more_data): Self::Dependencies) {
+//!         self.total = 0;
+//!
+//!         (&data,).for_each(|_, (d,)| {
+//!             self.total += d.x;
+//!         });
+//!
+//!         (&data, &mut more_data).for_each(|_, (d, md)| {
+//!             md.y *= d.x;
+//!         });
+//!     }
+//! }
+//!
+//! let mut system = TestSystem::default();
+//! w.run_system(&mut system);
+//!
+//! assert_eq!(system.total, 20);
+//! assert_eq!(
+//!     <World as GetComponent<'_, MoreData>>::get(&w).get(md),
+//!     Some(&MoreData { y: 84 })
+//! );
+//! ```
+//!
+//! Components accessed via `ReadComponent` cannot be iterated over mutably:
+//!
+//! ```compile_fail
+//! # #[macro_use] extern crate dashing;
+//! # use dashing::ecs::*;
+//! #[derive(Debug, PartialEq)]
+//! pub struct Data {
+//!     x: u32,
+//! }
+//!
+//! define_world!(
+//!     pub world {
+//!         components {
+//!             test1: BasicVecStorage<Data>,
+//!         }
+//!         resources {}
+//!     }
+//! );
+//!
+//! #[derive(Default)]
+//! struct TestSystem {}
+//!
+//! impl<'a> System<'a> for TestSystem {
+//!     type Dependencies = (
+//!         ReadComponent<'a, Data>,
+//!     );
+//!     fn run(&'a mut self, (data,): Self::Dependencies) {
+//!         (&mut data,).for_each(|(d,)| {
+//!             // do something
+//!         });
+//!     }
+//! }
+//! ```
+//!
 #[macro_use]
 pub mod typelist;
 
