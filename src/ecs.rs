@@ -14,6 +14,13 @@
 
 //! Library for implementing the entity-component-system (ECS) pattern.
 //!
+//! The API is very loosely based on [`specs`](https://slide-rs.github.io/specs/), but with an
+//! emphasis on statically validating the usage of the library (instead of dynamically, as specs
+//! does). This comes at the cost of some flexibility, but almost all logic errors are detected at
+//! compile time.
+//!
+//! It's also not as optimized as `specs` is (yet), since it's designed for roguelikes.
+//!
 //! # Usage
 //!
 //! Implementing an ECS requires the following:
