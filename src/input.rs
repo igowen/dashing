@@ -18,7 +18,7 @@ use std::collections::HashMap;
 pub use glutin::VirtualKeyCode;
 
 /// KeyBinding is a specification for a keyboard shortcut.
-#[derive(Hash, Clone, Debug, PartialEq, Eq)]
+#[derive(Hash, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct KeyBinding {
     key: VirtualKeyCode,
     shift: bool,
@@ -110,10 +110,7 @@ pub struct EventDispatcher<C> {
     command_queue: std::sync::mpsc::SyncSender<C>,
 }
 
-impl<C> EventDispatcher<C>
-where
-    C: Copy,
-{
+impl<C: Clone> EventDispatcher<C> {
     /// Set a key binding.
     pub fn bind(&mut self, key: KeyBinding, command: C) {
         self.key_bindings.insert(key, command);
@@ -140,13 +137,13 @@ where
                 glutin::WindowEvent::KeyboardInput { input: ke, .. } => {
                     if let Some(binding) = KeyBinding::try_from_event(ke) {
                         if let Some(command) = self.key_bindings.get(&binding) {
-                            self.command_queue.send(*command)?;
+                            self.command_queue.send(command.clone())?;
                         }
                     }
                 }
                 glutin::WindowEvent::CloseRequested | glutin::WindowEvent::Destroyed => {
-                    if let Some(command) = self.window_close_command {
-                        self.command_queue.send(command)?;
+                    if let Some(ref command) = self.window_close_command {
+                        self.command_queue.send(command.clone())?;
                     }
                 }
                 _ => {}
