@@ -113,7 +113,7 @@ impl<'a> WindowBuilder<'a> {
             .with_dimensions(size)
             .with_maximized(self.full_screen)
             .with_decorations(!self.full_screen)
-            .with_resizable(false);
+            .with_resizable(true);
         let context = glutin::ContextBuilder::new()
             .with_gl(glutin::GlRequest::GlThenGles {
                 opengl_version: (GL_MAJOR_VERSION, GL_MINOR_VERSION),
@@ -180,8 +180,8 @@ impl<'a> WindowBuilder<'a> {
 pub struct Window {
     // Handles to device resources we need to hold onto.
     event_loop: glutin::EventsLoop,
-    window: glutin::WindowedContext<glutin::PossiblyCurrent>,
-    renderer: render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
+    pub(crate) window: glutin::WindowedContext<glutin::PossiblyCurrent>,
+    pub(crate) renderer: render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
 
     width: u32,
     height: u32,

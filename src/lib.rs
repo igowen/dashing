@@ -196,9 +196,27 @@ where
     pub fn run_once(&mut self) -> EngineSignal {
         let mut control = EngineSignal::Continue;
         let driver = &mut self.driver;
+        let mut resized = false;
         self.window.event_loop_mut().poll_events(|e| {
+            if let glutin::Event::WindowEvent { event: w, .. } = &e {
+                match w {
+                    glutin::WindowEvent::Resized(_) => {
+                        resized = true;
+                    }
+                    _ => {}
+                }
+            }
             control.update(driver.handle_input(e));
         });
+
+        if resized {
+            gfx_window_glutin::update_views(
+                &self.window.window,
+                &mut self.window.renderer.screen_pipeline_data.out,
+                &mut self.window.renderer.depth_view,
+            );
+        }
+
         if control == EngineSignal::Halt {
             return control;
         }

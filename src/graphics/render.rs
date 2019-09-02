@@ -15,6 +15,7 @@
 use gfx;
 use gfx_core;
 use itertools;
+use log::info;
 use std;
 use time;
 
@@ -60,7 +61,7 @@ mod internal {
     // Need both of these `use` statements due to the way the macros are written :/
     use gfx;
     use gfx::*;
-    gfx_defines!{
+    gfx_defines! {
         // Individual vertices.
         vertex Vertex {
             pos: [f32; 2] = "a_Pos",
@@ -85,6 +86,7 @@ mod internal {
             screen_size: [f32; 2] = "u_ScreenSizeInPixels",
             frame_counter: u32 = "u_FrameCounter",
             elapsed_time: f32 = "u_ElapsedTime",
+            scale_factor: [f32; 2] = "u_ScaleFactor",
         }
 
         // Character cell pipeline.
@@ -102,6 +104,7 @@ mod internal {
             vertex_buffer: gfx::VertexBuffer<Vertex> = (),
             screen_texture: gfx::TextureSampler<[f32; 4]> = "t_ScreenTexture",
             globals: gfx::ConstantBuffer<ScreenGlobals> = "ScreenGlobals",
+            scissor: Scissor = (),
             out: gfx::RenderTarget<super::super::ColorFormat> = "Target0",
         }
     }
@@ -178,8 +181,7 @@ where
     factory: F,
     encoder: gfx::Encoder<D::Resources, D::CommandBuffer>,
 
-    color_view: gfx_core::handle::RenderTargetView<D::Resources, ColorFormat>,
-    depth_view: gfx_core::handle::DepthStencilView<D::Resources, DepthFormat>,
+    pub(crate) depth_view: gfx_core::handle::DepthStencilView<D::Resources, DepthFormat>,
 
     // GPU-side resources.
     vertex_slice: gfx::Slice<D::Resources>,
@@ -188,11 +190,12 @@ where
     pipeline: gfx::pso::PipelineState<D::Resources, pipe::Meta>,
     screen_pipeline: gfx::pso::PipelineState<D::Resources, screen_pipe::Meta>,
     pipeline_data: pipe::Data<D::Resources>,
-    screen_pipeline_data: screen_pipe::Data<D::Resources>,
+    pub(crate) screen_pipeline_data: screen_pipe::Data<D::Resources>,
 
     // CPU-side resources.
     width: usize,
     height: usize,
+    aspect_ratio: (usize, usize),
     sprite_width: usize,
     sprite_height: usize,
     instance_count: usize,
@@ -358,15 +361,40 @@ where
         let final_data = screen_pipe::Data {
             vertex_buffer: screen_vertex_buffer,
             screen_texture: (screen_texture, screen_sampler),
-            out: color_view.clone(),
+            scissor: gfx::Rect {
+                x: 0,
+                y: 0,
+                w: (width * sprite_texture.sprite_width()) as u16,
+                h: (height * sprite_texture.sprite_height()) as u16,
+            },
+            out: color_view,
             globals: screen_globals_buffer,
         };
+
+        // Calculate aspect ratio. This is used for letterboxing the screen when the window's
+        // aspect ratio doesn't match.
+        let (mut ax, mut ay) = (
+            width * sprite_texture.sprite_width(),
+            height * sprite_texture.sprite_height(),
+        );
+        fn gcd(mut a: usize, mut b: usize) -> usize {
+            while b != 0 {
+                let t = b;
+                b = a % b;
+                a = t;
+            }
+            return a;
+        }
+        let g = gcd(ax, ay);
+        ax /= g;
+        ay /= g;
+
+        info!("Aspect ratio: {}:{}", ax, ay);
 
         Ok(Renderer {
             device: device,
             factory: factory,
             encoder: encoder,
-            color_view: color_view,
             depth_view: depth_view,
 
             vertex_slice: cell_slice,
@@ -379,6 +407,7 @@ where
 
             width: width,
             height: height,
+            aspect_ratio: (ax, ay),
             sprite_width: sprite_texture.sprite_width(),
             sprite_height: sprite_texture.sprite_height(),
             instance_count: instance_count,
@@ -393,7 +422,7 @@ where
         })
     }
 
-    /// Render one one frame.
+    /// Render one frame.
     pub(crate) fn render(&mut self) -> Result<(), RenderError> {
         {
             let mut writer = self.factory.write_mapping(&self.upload_buffer)?;
@@ -431,6 +460,24 @@ where
         self.encoder
             .draw(&self.vertex_slice, &self.pipeline, &self.pipeline_data);
 
+        self.encoder
+            .clear(&self.screen_pipeline_data.out, [0.0, 0.2, 0.0, 1.0]);
+
+        let (screen_w, screen_h, _, _) = self.screen_pipeline_data.out.get_dimensions();
+        let (ax, ay) = self.aspect_ratio;
+        let target_w = std::cmp::min(screen_w as usize, (screen_h as usize * ax) / ay);
+        let target_h = std::cmp::min(screen_h as usize, (screen_w as usize * ay) / ax);
+
+        let left = (screen_w as usize - target_w) / 2;
+        let top = (screen_h as usize - target_h) / 2;
+
+        self.screen_pipeline_data.scissor = gfx::Rect {
+            x: left as u16,
+            y: top as u16,
+            w: target_w as u16,
+            h: target_h as u16,
+        };
+
         self.encoder.update_constant_buffer(
             &self.screen_pipeline_data.globals,
             &ScreenGlobals {
@@ -440,11 +487,12 @@ where
                 ],
                 frame_counter: self.frame_counter,
                 elapsed_time: self.elapsed_time_ns as f32 / 1_000_000_000.0,
+                scale_factor: [
+                    target_w as f32 / screen_w as f32,
+                    target_h as f32 / screen_h as f32,
+                ],
             },
         );
-
-        self.encoder
-            .clear(&self.screen_pipeline_data.out, [0.0, 0.2, 0.0, 1.0]);
 
         self.encoder.draw(
             &self.screen_vertex_slice,

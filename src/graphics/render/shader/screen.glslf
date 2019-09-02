@@ -20,6 +20,7 @@ uniform ScreenGlobals {
   vec2 u_ScreenSizeInPixels;
   uint u_FrameCounter;
   float u_ElapsedTime;
+  vec2 u_ScaleFactor;
 };
 
 in vec2 v_Uv;
