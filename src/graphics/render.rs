@@ -104,7 +104,6 @@ mod internal {
             vertex_buffer: gfx::VertexBuffer<Vertex> = (),
             screen_texture: gfx::TextureSampler<[f32; 4]> = "t_ScreenTexture",
             globals: gfx::ConstantBuffer<ScreenGlobals> = "ScreenGlobals",
-            scissor: Scissor = (),
             out: gfx::RenderTarget<super::super::ColorFormat> = "Target0",
         }
     }
@@ -361,12 +360,6 @@ where
         let final_data = screen_pipe::Data {
             vertex_buffer: screen_vertex_buffer,
             screen_texture: (screen_texture, screen_sampler),
-            scissor: gfx::Rect {
-                x: 0,
-                y: 0,
-                w: (width * sprite_texture.sprite_width()) as u16,
-                h: (height * sprite_texture.sprite_height()) as u16,
-            },
             out: color_view,
             globals: screen_globals_buffer,
         };
@@ -467,16 +460,6 @@ where
         let (ax, ay) = self.aspect_ratio;
         let target_w = std::cmp::min(screen_w as usize, (screen_h as usize * ax) / ay);
         let target_h = std::cmp::min(screen_h as usize, (screen_w as usize * ay) / ax);
-
-        let left = (screen_w as usize - target_w) / 2;
-        let top = (screen_h as usize - target_h) / 2;
-
-        self.screen_pipeline_data.scissor = gfx::Rect {
-            x: left as u16,
-            y: top as u16,
-            w: target_w as u16,
-            h: target_h as u16,
-        };
 
         self.encoder.update_constant_buffer(
             &self.screen_pipeline_data.globals,
