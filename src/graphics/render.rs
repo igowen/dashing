@@ -201,6 +201,7 @@ where
     instances: Box<[Instance]>,
     palette_texture: gfx::handle::Texture<D::Resources, gfx::format::R8_G8_B8_A8>,
     palette_data: Box<[[[u8; 3]; 16]]>,
+    clear_color: [f32; 4],
 
     // Renderer metadata.
     frame_counter: u32,
@@ -225,6 +226,7 @@ where
         width: usize,
         height: usize,
         sprite_texture: &'a SpriteTexture,
+        clear_color: [f32; 4],
     ) -> Result<Self, RenderError> {
         let encoder: gfx::Encoder<D::Resources, D::CommandBuffer> = command_buffer.into();
 
@@ -407,6 +409,7 @@ where
             instances: instance_templates.into_boxed_slice(),
             palette_texture: palette_texture,
             palette_data: palette_data.into_boxed_slice(),
+            clear_color: clear_color,
 
             frame_counter: 0,
             last_render_time_ns: 0,
@@ -422,8 +425,9 @@ where
             writer.copy_from_slice(&self.instances[..]);
         }
 
+        // Clear with a bright color so it's extra-obvious if something goes wrong.
         self.encoder
-            .clear(&self.pipeline_data.screen_target, [0.1, 0.0, 0.0, 1.0]);
+            .clear(&self.pipeline_data.screen_target, [1.0, 0.0, 0.0, 1.0]);
 
         self.encoder.copy_buffer(
             &self.upload_buffer,
@@ -454,7 +458,7 @@ where
             .draw(&self.vertex_slice, &self.pipeline, &self.pipeline_data);
 
         self.encoder
-            .clear(&self.screen_pipeline_data.out, [0.0, 0.2, 0.0, 1.0]);
+            .clear(&self.screen_pipeline_data.out, self.clear_color);
 
         let (screen_w, screen_h, _, _) = self.screen_pipeline_data.out.get_dimensions();
         let (ax, ay) = self.aspect_ratio;

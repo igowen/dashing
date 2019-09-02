@@ -281,6 +281,16 @@ impl Color {
     }
 }
 
+impl From<Color> for [f32; 4] {
+    fn from(c: Color) -> Self {
+        [
+            c.0[0] as f32 / 255.0,
+            c.0[1] as f32 / 255.0,
+            c.0[2] as f32 / 255.0,
+            1.0,
+        ]
+    }
+}
 impl From<Color> for [u8; 3] {
     fn from(c: Color) -> Self {
         c.0

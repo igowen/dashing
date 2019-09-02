@@ -19,6 +19,7 @@ use log::info;
 use std;
 
 use crate::graphics::render;
+use crate::resources::color::Color;
 use crate::resources::sprite::SpriteTexture;
 
 const GL_MAJOR_VERSION: u8 = 3;
@@ -59,6 +60,7 @@ pub struct WindowBuilder<'a> {
     sprite_texture: &'a SpriteTexture,
     vsync: bool,
     full_screen: bool,
+    clear_color: Color,
 }
 
 impl<'a> WindowBuilder<'a> {
@@ -77,6 +79,7 @@ impl<'a> WindowBuilder<'a> {
             sprite_texture: sprite_texture,
             vsync: true,
             full_screen: false,
+            clear_color: [0, 255, 0].into(),
         }
     }
 
@@ -90,6 +93,14 @@ impl<'a> WindowBuilder<'a> {
     /// Enable full screen mode.
     pub fn enable_full_screen(mut self) -> Self {
         self.full_screen = true;
+
+        self
+    }
+
+    /// Set the color that will be used to clear the screen. This color will be visible when the
+    /// viewport's aspect ratio does not match the aspect ratio of the character display.
+    pub fn with_clear_color(mut self, c: Color) -> Self {
+        self.clear_color = c;
 
         self
     }
@@ -158,6 +169,7 @@ impl<'a> WindowBuilder<'a> {
                 self.width as usize,
                 self.height as usize,
                 self.sprite_texture,
+                self.clear_color.into(),
             )?;
 
             Ok(Window {
