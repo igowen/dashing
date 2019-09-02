@@ -16,14 +16,14 @@ ecs = []
 
 [dependencies]
 # gfx* powers the rendering subsystem.
-gfx = "0.17"
-gfx_core = "0.8"
-gfx_device_gl = "0.15"
-gfx_window_glutin = "0.27"
+gfx = "0.18.1"
+gfx_core = "0.9.1"
+gfx_device_gl = "0.16.2"
+gfx_window_glutin = "0.31"
 # gl bindings that allow us to make OpenGL calls directly (this is done sparingly).
 gl = "0.11"
 # glutin provides windowing capabilities.
-glutin = "0.19"
+glutin = "0.21.1"
 # miscellaneous dependencies
 log = "0.4.6"
 time = "0.1.40"

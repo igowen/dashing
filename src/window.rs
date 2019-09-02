@@ -122,47 +122,57 @@ impl<'a> WindowBuilder<'a> {
             .with_gl_profile(glutin::GlProfile::Core)
             .with_vsync(self.vsync)
             .with_double_buffer(Some(true));
-        let (window, mut device, mut factory, color_view, depth_view) =
-            gfx_window_glutin::init::<render::ColorFormat, render::DepthFormat>(
-                window_builder,
-                context,
-                &event_loop,
-            );
-        info!(
-            "physical size: {:?}",
-            size.to_physical(window.get_current_monitor().get_hidpi_factor())
+        let window_result = gfx_window_glutin::init::<render::ColorFormat, render::DepthFormat>(
+            window_builder,
+            context,
+            &event_loop,
         );
+        if let Ok((window_context, mut device, mut factory, color_view, depth_view)) = window_result
+        {
+            info!(
+                "physical size: {:?}",
+                size.to_physical(
+                    window_context
+                        .window()
+                        .get_current_monitor()
+                        .get_hidpi_factor()
+                )
+            );
 
-        let command_buffer = factory.create_command_buffer();
+            let command_buffer = factory.create_command_buffer();
 
-        // OpenGL seems to give us an SRGB surface whether we ask for it or not, so we disable it
-        // entirely here. This is kind of a hack but it's the only way i've found to get around it.
-        unsafe {
-            use gl;
-            device.with_gl(|gl| {
-                gl.Disable(gl::FRAMEBUFFER_SRGB);
+            // OpenGL seems to give us an SRGB surface whether we ask for it or not, so we disable it
+            // entirely here. This is kind of a hack but it's the only way i've found to get around it.
+            unsafe {
+                device.with_gl(|gl| {
+                    gl.Disable(gl::FRAMEBUFFER_SRGB);
+                })
+            }
+
+            let renderer = render::Renderer::new(
+                device,
+                factory,
+                command_buffer,
+                color_view,
+                depth_view,
+                self.width as usize,
+                self.height as usize,
+                self.sprite_texture,
+            )?;
+
+            Ok(Window {
+                event_loop: event_loop,
+                window: window_context,
+                renderer: renderer,
+
+                width: self.width,
+                height: self.height,
             })
+        } else {
+            return Err(WindowError::GeneralError(
+                window_result.err().unwrap().to_string(),
+            ));
         }
-
-        let renderer = render::Renderer::new(
-            device,
-            factory,
-            command_buffer,
-            color_view,
-            depth_view,
-            self.width as usize,
-            self.height as usize,
-            self.sprite_texture,
-        )?;
-
-        Ok(Window {
-            event_loop: event_loop,
-            window: window,
-            renderer: renderer,
-
-            width: self.width,
-            height: self.height,
-        })
     }
 }
 
@@ -170,7 +180,7 @@ impl<'a> WindowBuilder<'a> {
 pub struct Window {
     // Handles to device resources we need to hold onto.
     event_loop: glutin::EventsLoop,
-    window: glutin::GlWindow,
+    window: glutin::WindowedContext<glutin::PossiblyCurrent>,
     renderer: render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
 
     width: u32,
