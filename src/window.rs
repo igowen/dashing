@@ -52,6 +52,27 @@ impl std::convert::From<render::RenderError> for WindowError {
     }
 }
 
+/// Enum for specifying the filter method used on the screen.
+pub enum FilterMethod {
+    /// Nearest neighbor filtering. Only looks good when the screen is an integral multiple of the
+    /// unscaled screen size.
+    NearestNeighbor,
+    /// Bilinear filter.
+    Bilinear,
+    /// Trilinear filter.
+    Trilinear,
+}
+
+impl From<FilterMethod> for gfx::texture::FilterMethod {
+    fn from(f: FilterMethod) -> Self {
+        match f {
+            FilterMethod::NearestNeighbor => gfx::texture::FilterMethod::Scale,
+            FilterMethod::Bilinear => gfx::texture::FilterMethod::Bilinear,
+            FilterMethod::Trilinear => gfx::texture::FilterMethod::Trilinear,
+        }
+    }
+}
+
 /// Helper for constructing windows.
 pub struct WindowBuilder<'a> {
     window_title: &'a str,
@@ -59,13 +80,22 @@ pub struct WindowBuilder<'a> {
     height: u32,
     sprite_texture: &'a SpriteTexture,
     vsync: bool,
+    resizable: bool,
     full_screen: bool,
     clear_color: Color,
+    filter_method: gfx::texture::FilterMethod,
 }
 
 impl<'a> WindowBuilder<'a> {
     /// Create a new `WindowBuilder` with the given width and height (measured in sprites, not
     /// pixels).
+    ///
+    /// Defaults:
+    ///   - Vsync enabled
+    ///   - Not resizable
+    ///   - Not full screen
+    ///   - Clear color 100% green
+    ///   - Trilinear filtering
     pub fn new(
         window_title: &'a str,
         width: u32,
@@ -78,14 +108,23 @@ impl<'a> WindowBuilder<'a> {
             height: height,
             sprite_texture: sprite_texture,
             vsync: true,
+            resizable: false,
             full_screen: false,
             clear_color: [0, 255, 0].into(),
+            filter_method: gfx::texture::FilterMethod::Trilinear,
         }
     }
 
     /// Enable/disable vsync.
     pub fn with_vsync(mut self, enable: bool) -> Self {
         self.vsync = enable;
+
+        self
+    }
+
+    /// Enable/disable window resizing.
+    pub fn with_resizable(mut self, enable: bool) -> Self {
+        self.resizable = enable;
 
         self
     }
@@ -101,6 +140,13 @@ impl<'a> WindowBuilder<'a> {
     /// viewport's aspect ratio does not match the aspect ratio of the character display.
     pub fn with_clear_color(mut self, c: Color) -> Self {
         self.clear_color = c;
+
+        self
+    }
+
+    /// Set the filter method used when scaling the screen.
+    pub fn with_filter_method(mut self, f: FilterMethod) -> Self {
+        self.filter_method = f.into();
 
         self
     }
@@ -124,7 +170,7 @@ impl<'a> WindowBuilder<'a> {
             .with_dimensions(size)
             .with_maximized(self.full_screen)
             .with_decorations(!self.full_screen)
-            .with_resizable(true);
+            .with_resizable(self.resizable);
         let context = glutin::ContextBuilder::new()
             .with_gl(glutin::GlRequest::GlThenGles {
                 opengl_version: (GL_MAJOR_VERSION, GL_MINOR_VERSION),
@@ -170,6 +216,7 @@ impl<'a> WindowBuilder<'a> {
                 self.height as usize,
                 self.sprite_texture,
                 self.clear_color.into(),
+                self.filter_method,
             )?;
 
             Ok(Window {

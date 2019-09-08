@@ -227,6 +227,7 @@ where
         height: usize,
         sprite_texture: &'a SpriteTexture,
         clear_color: [f32; 4],
+        screen_filter_method: gfx::texture::FilterMethod,
     ) -> Result<Self, RenderError> {
         let encoder: gfx::Encoder<D::Resources, D::CommandBuffer> = command_buffer.into();
 
@@ -304,7 +305,7 @@ where
             factory.create_render_target(screen_width as u16, screen_height as u16)?;
 
         let screen_sampler = factory.create_sampler(gfx::texture::SamplerInfo::new(
-            gfx::texture::FilterMethod::Scale,
+            screen_filter_method,
             gfx::texture::WrapMode::Clamp,
         ));
 

@@ -140,6 +140,7 @@ impl RenderTestSupportHarness {
             height,
             &tex,
             [0.0, 1.0, 0.0, 0.0],
+            gfx::texture::FilterMethod::Scale,
         )
         .unwrap();
 
