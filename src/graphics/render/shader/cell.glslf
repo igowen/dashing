@@ -24,11 +24,15 @@ uniform CellGlobals {
 
 in vec2 v_Uv;
 flat in uint v_Index;
+in vec2 v_SpritePos;
 
 out vec4 IntermediateTarget;
 
 void main() {
   vec4 t = texture(t_SpriteTexture, v_Uv);
-  vec4 p = texelFetch(t_Palette, ivec2(clamp(t.x, 0, 15), v_Index), 0);
+  vec4 p = texelFetch(t_Palette,
+                      ivec2(v_SpritePos.x * 16 + clamp(t.x, 0, 15),
+                            v_SpritePos.y),
+                      0);
   IntermediateTarget = p;
 }

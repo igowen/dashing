@@ -71,6 +71,7 @@ mod internal {
         // Character cell index vertices.
         vertex Instance {
             translate: [f32; 2] = "a_Translate",
+            sprite_pos: [f32; 2] = "a_SpritePos",
             sprite: u32 = "a_Sprite",
             index: u32 = "a_Index",
         }
@@ -112,6 +113,7 @@ mod internal {
         fn default() -> Self {
             Instance {
                 translate: [0.0, 0.0],
+                sprite_pos: [0.0, 0.0],
                 sprite: 0,
                 index: 0,
             }
@@ -282,6 +284,7 @@ where
                         -1.0 + (x as f32 * 2.0 / width as f32),
                         1.0 - ((y as f32 + 1.0) * 2.0 / height as f32),
                     ],
+                    sprite_pos: [x as f32, y as f32],
                     sprite: 0,
                     index: (y * width + x) as u32,
                 }
@@ -322,8 +325,11 @@ where
                 &[&sprite_texture.pixels()],
             )?;
 
-        let palette_texture_kind =
-            gfx::texture::Kind::D2(16, instance_count as u16, gfx::texture::AaMode::Single);
+        let palette_texture_kind = gfx::texture::Kind::D2(
+            16 * width as u16,
+            height as u16,
+            gfx::texture::AaMode::Single,
+        );
 
         let mut palette_data = vec![[[255, 0, 255]; 16]; instance_count];
 
