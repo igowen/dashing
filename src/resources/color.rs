@@ -15,7 +15,7 @@
 use std;
 
 /// 8-bit RGB color. Wrapped so color space conversion is easy.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Color([u8; 3]);
 
 impl Color {
