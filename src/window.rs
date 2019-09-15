@@ -242,8 +242,9 @@ pub struct Window {
     pub(crate) window: glutin::WindowedContext<glutin::PossiblyCurrent>,
     pub(crate) renderer: render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
 
-    width: u32,
-    height: u32,
+    // Width & height of the window (in sprites).
+    pub(crate) width: u32,
+    pub(crate) height: u32,
 }
 
 impl Window {

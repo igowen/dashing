@@ -196,9 +196,9 @@ where
     // CPU-side resources.
     width: usize,
     height: usize,
-    aspect_ratio: (usize, usize),
-    sprite_width: usize,
-    sprite_height: usize,
+    pub(crate) aspect_ratio: (usize, usize),
+    pub(crate) sprite_width: usize,
+    pub(crate) sprite_height: usize,
     instance_count: usize,
     instances: Box<[Instance]>,
     palette_texture: gfx::handle::Texture<D::Resources, gfx::format::R8_G8_B8_A8>,
