@@ -38,8 +38,8 @@
 //!     // method needs to be lightweight, because it blocks the render thread.
 //!     fn handle_input(&mut self, e: Event) -> EngineSignal {
 //!         match e {
-//!                 Event::WindowCloseRequested | Event::WindowDestroyed => EngineSignal::Halt
-//!                 _ => EngineSignal::Continue
+//!                 Event::WindowCloseRequested | Event::WindowDestroyed => EngineSignal::Halt,
+//!                 _ => EngineSignal::Continue,
 //!             }
 //!     }
 //!
@@ -144,8 +144,10 @@ impl EngineSignal {
     }
 }
 
-/// Describes a generic event. Events are (generally) an interpetation of an underlying window
-/// manager or user input event, but simplified.
+/// Describes a generic event. Events are (generally) directly converted from an underlying window
+/// manager or user input event provided by `glutin`, but simplified. For example, most window
+/// events have a `WindowId` to discern where the event originated; `dashing` creates and manages a
+/// single window, so this is unnecessary (and discarded).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     /// The window was destroyed.
@@ -349,14 +351,14 @@ where
 }
 
 /// `Driver` is the primary means by which an `Engine` communicates with client code. Clients
-/// are expected to implement this trait themselves, but there are abstractions provided for
+/// are required to implement this trait themselves, but there are abstractions provided for
 /// dealing with input in the [input] module.
 pub trait Driver {
     /// Handle an input event. This will be called for every event received by the main window, so
     /// it needs to be fast.
     fn handle_input(&mut self, event: Event) -> EngineSignal;
     /// Client hook for processing in the main loop. This gets called immediately before the
-    /// renderer runs.
+    /// renderer runs, but after all pending events have been processed via `handle_input()`.
     fn process_frame<R>(&mut self, renderer: &mut R) -> EngineSignal
     where
         R: graphics::render::RenderInterface;

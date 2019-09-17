@@ -25,10 +25,9 @@ gl = "0.11"
 # glutin provides windowing capabilities.
 glutin = "0.21.1"
 # miscellaneous dependencies
-log = "0.4.6"
-time = "0.1.40"
-itertools = "0.7.9"
-paste = "0.1.4"
+log = "0.4.8"
+time = "0.1.42"
+itertools = "0.8.0"
 
 [dev-dependencies]
 euclid = "0.20"
