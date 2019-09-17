@@ -19,7 +19,6 @@ use euclid::Size2D;
 use gfx::Factory;
 use gfx_core::memory::Typed;
 use gfx_device_gl;
-use gleam::gl::GlType;
 use hamcrest::prelude::*;
 use hamcrest::*;
 use image;
@@ -29,6 +28,7 @@ use offscreen_gl_context::{
     NativeGLContextMethods,
 };
 use png::{self, HasParameters};
+use sparkle::gl::GlType;
 use std::os::raw::c_void;
 use std::sync::{Mutex, MutexGuard};
 

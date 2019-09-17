@@ -36,17 +36,11 @@
 //! impl Driver for ExampleDriver {
 //!     // The driver handles all the user input events the window receives. The `handle_input`
 //!     // method needs to be lightweight, because it blocks the render thread.
-//!     fn handle_input(&mut self, e: glutin::Event) -> EngineSignal {
+//!     fn handle_input(&mut self, e: Event) -> EngineSignal {
 //!         match e {
-//!             glutin::Event::WindowEvent { event: w, .. } => match w {
-//!                 glutin::WindowEvent::CloseRequested | glutin::WindowEvent::Destroyed => {
-//!                     return EngineSignal::Halt;
-//!                 }
-//!                 _ => {}
-//!             },
-//!             _ => {}
-//!         }
-//!         EngineSignal::Continue
+//!                 Event::WindowCloseRequested | Event::WindowDestroyed => EngineSignal::Halt
+//!                 _ => EngineSignal::Continue
+//!             }
 //!     }
 //!
 //!     // After the engine processes all pending events, `process_frame` is called. This is where
