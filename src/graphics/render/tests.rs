@@ -333,26 +333,29 @@ fn gray() {
 }
 
 #[test]
-#[ignore]
 fn big() {
-    let mut harness = RenderTestSupportHarness::new(1000, 60);
+    let mut harness = RenderTestSupportHarness::new(1000, 10);
 
     harness.renderer.update(
-        [SpriteCell {
-            palette: Palette::mono([128, 128, 128]),
-            sprite: 0,
-            ..Default::default()
-        }]
+        vec![
+            SpriteCell {
+                palette: Palette::mono([128, 128, 128]).set(1, [255, 0, 0]),
+                sprite: 1,
+                ..Default::default()
+            };
+            10000
+        ]
         .iter(),
     );
 
     // Render the frame.
     harness.renderer.render().unwrap();
 
-    let _actual_image = harness.extract_render_result();
+    let actual_image = harness.extract_render_result();
 
-    //let expected_image = image::load_from_memory(include_bytes!("testdata/50pct_gray.png"))
-    //    .unwrap()
-    //    .to_rgba()
-    //    .into_raw();
+    let expected_image = image::load_from_memory(include_bytes!("testdata/big.png"))
+        .unwrap()
+        .to_rgba()
+        .into_raw();
+    assert_that!(&actual_image, is(equal_to(&expected_image)));
 }

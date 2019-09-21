@@ -550,7 +550,7 @@ where
         }
     }
 
-    /// Get the current frames per second. This is based on a rolling average, not the
+    /// Get the current frames per second. This is based on a rolling average, not an
     /// instantaneous measurement.
     fn get_fps(&self) -> f32 {
         self.fps
