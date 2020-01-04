@@ -17,6 +17,8 @@ use std::collections::HashMap;
 
 pub use glutin::VirtualKeyCode;
 
+use crate::Event;
+
 /// KeyBinding is a specification for a keyboard shortcut.
 #[derive(Hash, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct KeyBinding {
@@ -131,23 +133,20 @@ impl<C: Clone> EventDispatcher<C> {
     }
 
     /// Handle an event.
-    pub fn dispatch(&self, event: glutin::Event) -> Result<(), std::sync::mpsc::SendError<C>> {
+    pub fn dispatch(&self, event: &Event) -> Result<(), std::sync::mpsc::SendError<C>> {
         match event {
-            glutin::Event::WindowEvent { event: w, .. } => match w {
-                glutin::WindowEvent::KeyboardInput { input: ke, .. } => {
-                    if let Some(binding) = KeyBinding::try_from_event(ke) {
-                        if let Some(command) = self.key_bindings.get(&binding) {
-                            self.command_queue.send(command.clone())?;
-                        }
-                    }
-                }
-                glutin::WindowEvent::CloseRequested | glutin::WindowEvent::Destroyed => {
-                    if let Some(ref command) = self.window_close_command {
+            Event::KeyboardInput(ref ke) => {
+                if let Some(binding) = KeyBinding::try_from_event(*ke) {
+                    if let Some(command) = self.key_bindings.get(&binding) {
                         self.command_queue.send(command.clone())?;
                     }
                 }
-                _ => {}
-            },
+            }
+            Event::WindowDestroyed | Event::WindowCloseRequested => {
+                if let Some(ref command) = self.window_close_command {
+                    self.command_queue.send(command.clone())?;
+                }
+            }
             _ => {}
         };
         Ok(())
