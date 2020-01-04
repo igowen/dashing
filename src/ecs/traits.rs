@@ -364,6 +364,7 @@ pub trait SystemOutputTuple: private::Sealed {
 macro_rules! impl_output_tuple {
     (@impl_internal $($t:ident,)+) => {
         impl<$($t),*> SystemOutputTuple for ($($t,)*) {
+            #[allow(unused_parens)]
             type OutputTuple = ($(SystemOutput<$t>),*);
         }
         impl<$($t),*> private::Sealed for ($($t,)*) {}
