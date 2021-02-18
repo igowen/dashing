@@ -93,7 +93,7 @@ pub trait Joinable: private::Sealed {
 
 impl<'a, 'b, H, T> Joinable for (&'a ReadComponent<'b, H>, T)
 where
-    H: StorageSpec<'b, Component = H>,
+    H: StorageSpec<'b, Component = H> + 'b,
     T: Joinable,
 {
     type Output = (&'a H, T::Output);
