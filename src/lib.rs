@@ -117,8 +117,10 @@ pub mod graphics;
 /// Functionality for loading and managing game data, such as sprite textures.
 pub mod resources;
 
+/*
 /// Keyboard & mouse input handling.
 pub mod input;
+*/
 
 /// Functionality for building in-game UIs.
 pub mod ui;
@@ -126,6 +128,8 @@ pub mod ui;
 #[cfg(feature = "ecs")]
 #[macro_use]
 pub mod ecs;
+
+use log::info;
 
 /// Signals to indicate whether the engine should keep running or halt.
 #[derive(PartialEq, Eq, Debug)]
@@ -156,8 +160,9 @@ pub enum Event {
     WindowCloseRequested,
     /// The window gained or lost focus. The `bool` is set to true iff the window gained focus.
     Focused(bool),
-    /// Keyboard input. TODO: don't expose glutin types here.
-    KeyboardInput(glutin::KeyboardInput),
+    /*
+    ///// Keyboard input. TODO: don't expose glutin types here.
+    //KeyboardInput(glutin::KeyboardInput),
     /// The cursor was moved to a new position.
     CursorMoved {
         /// Sprite-level position of the cursor.
@@ -184,6 +189,7 @@ pub enum Event {
         modifiers: glutin::ModifiersState,
     },
     // TODO: mouse wheel, etc.
+    */
 }
 
 /// `Engine` is an abstraction of the main event loop for the game. Its functionality
@@ -206,7 +212,7 @@ where
 
 impl<D> Engine<D>
 where
-    D: Driver,
+    D: Driver + 'static,
 {
     /// Create a new `Engine`.
     pub fn new(
@@ -220,53 +226,87 @@ where
     }
 
     /// Run the main loop until one of the library hooks tells us to quit.
-    pub fn run_forever(mut self) {
-        let mut control = EngineSignal::Continue;
-        while control == EngineSignal::Continue {
-            control = (&mut self).run_once();
-        }
+    pub fn run(self) -> ! {
+        let (window, _) = (self.window, self.driver);
+
+        let (mut renderer, winit_window, event_loop) =
+            (window.renderer, window.window, window.event_loop);
+        let winit_window_id = winit_window.id();
+        use winit::event::{Event, WindowEvent};
+        event_loop.run(move |event, _, control_flow| match event {
+            Event::RedrawRequested(_) => {
+                renderer.render_frame();
+            }
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == winit_window_id => {
+                info!("{:?}", event);
+                match event {
+                    WindowEvent::Resized(physical_size) => {
+                        renderer.resize(*physical_size);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        renderer.resize(**new_inner_size);
+                    }
+                    WindowEvent::CloseRequested => {
+                        *control_flow = winit::event_loop::ControlFlow::Exit
+                    }
+                    _ => {}
+                }
+            }
+            Event::MainEventsCleared => {
+                winit_window.request_redraw();
+            }
+            _ => {}
+        })
     }
 
+    /*
     /// Run the engine for a single frame.
     /// This allows clients to have more control over the main loop.
     pub fn run_once(&mut self) -> EngineSignal {
         let mut control = EngineSignal::Continue;
         let driver = &mut self.driver;
-        let mut new_size: Option<glutin::dpi::LogicalSize> = Option::None;
-        let mut cursor_position: Option<glutin::dpi::LogicalPosition> = Option::None;
+        let mut new_size: Option<wgpu::dpi::LogicalSize> = Option::None;
+        let mut cursor_position: Option<wgpu::dpi::LogicalPosition> = Option::None;
         self.window.event_loop_mut().poll_events(|e| {
             let interpreted_event = match &e {
                 // Assumption: there is a single window, so we can safely discard fields used to
                 // discern which window should receive the event.
                 // Assumption: client code doesn't care what device the event originated from.
-                glutin::Event::WindowEvent { event: w, .. } => match w {
+                winit::event::Event::WindowEvent { event: w, .. } => match w {
                     // Easy passthrough cases.
-                    glutin::WindowEvent::CloseRequested => Some(Event::WindowCloseRequested),
-                    glutin::WindowEvent::Destroyed => Some(Event::WindowDestroyed),
-                    glutin::WindowEvent::CursorEntered { .. } => Some(Event::CursorEntered),
-                    glutin::WindowEvent::CursorLeft { .. } => Some(Event::CursorLeft),
-                    glutin::WindowEvent::Focused(focused) => Some(Event::Focused(*focused)),
-                    glutin::WindowEvent::KeyboardInput { input, .. } => {
-                        Some(Event::KeyboardInput(*input))
+                    winit::event::WindowEvent::CloseRequested => Some(Event::WindowCloseRequested),
+                    winit::event::WindowEvent::Destroyed => Some(Event::WindowDestroyed),
+                    winit::event::WindowEvent::CursorEntered { .. } => Some(Event::CursorEntered),
+                    winit::event::WindowEvent::CursorLeft { .. } => Some(Event::CursorLeft),
+                    winit::event::WindowEvent::Focused(focused) => Some(Event::Focused(*focused)),
+                    winit::event::WindowEvent::KeyboardInput { input, .. } => {
+                        //Some(Event::KeyboardInput(*input))
+                        None
                     }
-                    glutin::WindowEvent::MouseInput {
+                    winit::event::WindowEvent::MouseInput {
                         state,
                         button,
                         modifiers,
                         ..
-                    } => Some(Event::MouseButton {
-                        state: *state,
-                        button: *button,
-                        modifiers: *modifiers,
-                    }),
+                    } => {
+                        //Some(Event::MouseButton {
+                        //    state: *state,
+                        //    button: *button,
+                        //    modifiers: *modifiers,
+                        //})
+                        None
+                    },
                     // Resize is handled below.
-                    glutin::WindowEvent::Resized(s) => {
+                    winit::event::WindowEvent::Resized(s) => {
                         new_size = Some(*s);
                         None
                     }
                     // The sprite position calculation happens after all events have been
                     // processed.
-                    glutin::WindowEvent::CursorMoved { position: p, .. } => {
+                    winit::event::WindowEvent::CursorMoved { position: p, .. } => {
                         cursor_position = Some(*p);
                         None
                     }
@@ -286,12 +326,14 @@ where
             .get_current_monitor()
             .get_hidpi_factor();
         if let Some(s) = new_size {
+            /*
             gfx_window_glutin::update_views(
                 &self.window.window,
                 &mut self.window.renderer.screen_pipeline_data.out,
                 &mut self.window.renderer.depth_view,
             );
             self.window.window.resize(s.to_physical(hidpi_factor));
+            */
         }
         if let Some(p) = cursor_position {
             let (ax, ay) = self.window.renderer.aspect_ratio;
@@ -329,10 +371,12 @@ where
                     let xs = (xp / sx) as u32;
                     let ys = (yp / sy) as u32;
 
+                    /*
                     control.update(driver.handle_input(Event::CursorMoved {
                         sprite_position: (xs, ys),
                         absolute_position: (x, y),
                     }));
+                    */
                 }
             }
         }
@@ -348,6 +392,7 @@ where
 
         EngineSignal::Continue
     }
+            */
 }
 
 /// `Driver` is the primary means by which an `Engine` communicates with client code. Clients
