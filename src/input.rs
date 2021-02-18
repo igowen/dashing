@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use glutin;
 use std::collections::HashMap;
 
-pub use glutin::VirtualKeyCode;
+use winit;
+
+pub use winit::event::VirtualKeyCode;
 
 use crate::Event;
 
@@ -65,8 +66,8 @@ impl KeyBinding {
     }
 
     /// Returns `true` iff the provided raw keyboard event matches this binding.
-    pub fn matches(&self, event: glutin::KeyboardInput) -> bool {
-        if event.state == glutin::ElementState::Pressed {
+    pub fn matches(&self, event: winit::event::KeyboardInput) -> bool {
+        if event.state == winit::event::ElementState::Pressed {
             match event.virtual_keycode {
                 None => false,
                 Some(vk) => {
@@ -85,8 +86,8 @@ impl KeyBinding {
         }
     }
 
-    fn try_from_event(event: glutin::KeyboardInput) -> Option<KeyBinding> {
-        if event.state == glutin::ElementState::Pressed {
+    fn try_from_event(event: winit::event::KeyboardInput) -> Option<KeyBinding> {
+        if event.state == winit::event::ElementState::Pressed {
             match event.virtual_keycode {
                 None => None,
                 Some(vk) => Some(KeyBinding {
@@ -135,6 +136,7 @@ impl<C: Clone> EventDispatcher<C> {
     /// Handle an event.
     pub fn dispatch(&self, event: &Event) -> Result<(), std::sync::mpsc::SendError<C>> {
         match event {
+            /*
             Event::KeyboardInput(ref ke) => {
                 if let Some(binding) = KeyBinding::try_from_event(*ke) {
                     if let Some(command) = self.key_bindings.get(&binding) {
@@ -147,12 +149,14 @@ impl<C: Clone> EventDispatcher<C> {
                     self.command_queue.send(command.clone())?;
                 }
             }
+            */
             _ => {}
         };
         Ok(())
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     #[test]
@@ -160,25 +164,25 @@ mod tests {
         use super::*;
         let kb = KeyBinding::new(VirtualKeyCode::Z);
 
-        assert!(kb.matches(glutin::KeyboardInput {
+        assert!(kb.matches(winit::KeyboardInput {
             scancode: 0,
-            state: glutin::ElementState::Pressed,
+            state: winit::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: glutin::ModifiersState::default()
+            modifiers: winit::ModifiersState::default()
         }));
 
-        assert!(!kb.matches(glutin::KeyboardInput {
+        assert!(!kb.matches(winit::KeyboardInput {
             scancode: 0,
-            state: glutin::ElementState::Pressed,
+            state: winit::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::X),
-            modifiers: glutin::ModifiersState::default()
+            modifiers: winit::ModifiersState::default()
         }));
 
-        assert!(!kb.matches(glutin::KeyboardInput {
+        assert!(!kb.matches(winit::KeyboardInput {
             scancode: 0,
-            state: glutin::ElementState::Pressed,
+            state: winit::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: glutin::ModifiersState {
+            modifiers: winit::ModifiersState {
                 shift: true,
                 ctrl: false,
                 alt: false,
@@ -186,11 +190,11 @@ mod tests {
             }
         }));
 
-        assert!(!kb.matches(glutin::KeyboardInput {
+        assert!(!kb.matches(winit::KeyboardInput {
             scancode: 0,
-            state: glutin::ElementState::Pressed,
+            state: winit::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: glutin::ModifiersState {
+            modifiers: winit::ModifiersState {
                 shift: false,
                 ctrl: true,
                 alt: false,
@@ -198,11 +202,11 @@ mod tests {
             }
         }));
 
-        assert!(!kb.matches(glutin::KeyboardInput {
+        assert!(!kb.matches(winit::KeyboardInput {
             scancode: 0,
-            state: glutin::ElementState::Pressed,
+            state: winit::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: glutin::ModifiersState {
+            modifiers: winit::ModifiersState {
                 shift: false,
                 ctrl: false,
                 alt: true,
@@ -210,11 +214,11 @@ mod tests {
             }
         }));
 
-        assert!(!kb.matches(glutin::KeyboardInput {
+        assert!(!kb.matches(winit::KeyboardInput {
             scancode: 0,
-            state: glutin::ElementState::Pressed,
+            state: winit::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: glutin::ModifiersState {
+            modifiers: winit::ModifiersState {
                 shift: false,
                 ctrl: false,
                 alt: false,
@@ -223,3 +227,4 @@ mod tests {
         }));
     }
 }
+*/

@@ -12,20 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use gfx_device_gl;
-use gfx_window_glutin;
-use glutin;
 use log::info;
 use std;
+use wgpu;
 
 use crate::graphics::render;
 use crate::resources::color::Color;
 use crate::resources::sprite::SpriteTexture;
-
-const GL_MAJOR_VERSION: u8 = 3;
-const GL_MINOR_VERSION: u8 = 2;
-const GLES_MAJOR_VERSION: u8 = 3;
-const GLES_MINOR_VERSION: u8 = 0;
 
 /// `WindowError` represents an error that occurred in the window system.
 #[derive(Debug)]
@@ -58,17 +51,14 @@ pub enum FilterMethod {
     /// unscaled screen size.
     NearestNeighbor,
     /// Bilinear filter.
-    Bilinear,
-    /// Trilinear filter.
-    Trilinear,
+    Linear,
 }
 
-impl From<FilterMethod> for gfx::texture::FilterMethod {
+impl From<FilterMethod> for wgpu::FilterMode {
     fn from(f: FilterMethod) -> Self {
         match f {
-            FilterMethod::NearestNeighbor => gfx::texture::FilterMethod::Scale,
-            FilterMethod::Bilinear => gfx::texture::FilterMethod::Bilinear,
-            FilterMethod::Trilinear => gfx::texture::FilterMethod::Trilinear,
+            FilterMethod::NearestNeighbor => wgpu::FilterMode::Nearest,
+            FilterMethod::Linear => wgpu::FilterMode::Linear,
         }
     }
 }
@@ -83,7 +73,7 @@ pub struct WindowBuilder<'a> {
     resizable: bool,
     full_screen: bool,
     clear_color: Color,
-    filter_method: gfx::texture::FilterMethod,
+    filter_method: FilterMethod,
 }
 
 impl<'a> WindowBuilder<'a> {
@@ -111,7 +101,7 @@ impl<'a> WindowBuilder<'a> {
             resizable: false,
             full_screen: false,
             clear_color: [0, 255, 0].into(),
-            filter_method: gfx::texture::FilterMethod::Trilinear,
+            filter_method: FilterMethod::NearestNeighbor,
         }
     }
 
@@ -154,93 +144,119 @@ impl<'a> WindowBuilder<'a> {
     /// Build the window.
     pub fn build(self) -> Result<Window, WindowError> {
         // TODO: Don't create a window bigger than the display.
-        let screen_width = (self.width * self.sprite_texture.sprite_width() as u32) as f64;
-        let screen_height = (self.height * self.sprite_texture.sprite_height() as u32) as f64;
+        let screen_width = (self.width * self.sprite_texture.sprite_width() as u32) as f32;
+        let screen_height = (self.height * self.sprite_texture.sprite_height() as u32) as f32;
         info!("Screen dimensions {}x{}", screen_width, screen_height);
-
-        let event_loop = glutin::EventsLoop::new();
         // TODO: Figure out how to deal with hidpi
-        let size = glutin::dpi::LogicalSize::from_physical(
-            glutin::dpi::PhysicalSize::new(screen_width, screen_height),
+        let screen_dimensions = winit::dpi::LogicalSize::<f32>::from_physical(
+            winit::dpi::PhysicalSize::new(screen_width, screen_height),
             1.0,
         );
-        info!("logical size: {:?}", size);
-        let window_builder = glutin::WindowBuilder::new()
+        info!("logical size: {:?}", screen_dimensions);
+        let event_loop = winit::event_loop::EventLoop::new();
+        let window = winit::window::WindowBuilder::new()
             .with_title(self.window_title.to_string())
-            .with_dimensions(size)
+            .with_inner_size(screen_dimensions)
             .with_maximized(self.full_screen)
             .with_decorations(!self.full_screen)
-            .with_resizable(self.resizable);
-        let context = glutin::ContextBuilder::new()
-            .with_gl(glutin::GlRequest::GlThenGles {
-                opengl_version: (GL_MAJOR_VERSION, GL_MINOR_VERSION),
-                opengles_version: (GLES_MAJOR_VERSION, GLES_MINOR_VERSION),
-            })
-            .with_gl_profile(glutin::GlProfile::Core)
-            .with_vsync(self.vsync)
-            .with_double_buffer(Some(true));
-        let window_result = gfx_window_glutin::init::<render::ColorFormat, render::DepthFormat>(
-            window_builder,
-            context,
-            &event_loop,
-        );
-        if let Ok((window_context, mut device, mut factory, color_view, depth_view)) = window_result
-        {
-            info!(
-                "physical size: {:?}",
-                size.to_physical(
-                    window_context
-                        .window()
-                        .get_current_monitor()
-                        .get_hidpi_factor()
-                )
-            );
+            .with_resizable(self.resizable)
+            .build(&event_loop)?;
 
-            let command_buffer = factory.create_command_buffer();
+        let renderer = crate::graphics::render::Renderer::new(
+            &window,
+            (self.width as _, self.height as _),
+            self.sprite_texture,
+            self.clear_color.into(),
+            self.filter_method.into(),
+        )?;
 
-            // OpenGL seems to give us an SRGB surface whether we ask for it or not, so we disable it
-            // entirely here. This is kind of a hack but it's the only way i've found to get around it.
-            unsafe {
-                device.with_gl(|gl| {
-                    gl.Disable(gl::FRAMEBUFFER_SRGB);
+        Ok(Window {
+            width: self.width,
+            height: self.height,
+            window: window,
+            event_loop: event_loop,
+            renderer: renderer,
+        })
+
+        /*
+
+            let window_builder = glutin::WindowBuilder::new()
+                .with_title(self.window_title.to_string())
+                .with_dimensions(size)
+                .with_maximized(self.full_screen)
+                .with_decorations(!self.full_screen)
+                .with_resizable(self.resizable);
+            let context = glutin::ContextBuilder::new()
+                .with_gl(glutin::GlRequest::GlThenGles {
+                    opengl_version: (GL_MAJOR_VERSION, GL_MINOR_VERSION),
+                    opengles_version: (GLES_MAJOR_VERSION, GLES_MINOR_VERSION),
                 })
+                .with_gl_profile(glutin::GlProfile::Core)
+                .with_vsync(self.vsync)
+                .with_double_buffer(Some(true));
+            let window_result = gfx_window_glutin::init::<render::ColorFormat, render::DepthFormat>(
+                window_builder,
+                context,
+                &event_loop,
+            );
+            if let Ok((window_context, mut device, mut factory, color_view, depth_view)) = window_result
+            {
+                info!(
+                    "physical size: {:?}",
+                    size.to_physical(
+                        window_context
+                            .window()
+                            .get_current_monitor()
+                            .get_hidpi_factor()
+                    )
+                );
+
+                let command_buffer = factory.create_command_buffer();
+
+                // OpenGL seems to give us an SRGB surface whether we ask for it or not, so we disable it
+                // entirely here. This is kind of a hack but it's the only way i've found to get around it.
+                unsafe {
+                    device.with_gl(|gl| {
+                        gl.Disable(gl::FRAMEBUFFER_SRGB);
+                    })
+                }
+
+                let renderer = render::Renderer::new(
+                    device,
+                    factory,
+                    command_buffer,
+                    color_view,
+                    depth_view,
+                    self.width as usize,
+                    self.height as usize,
+                    self.sprite_texture,
+                    self.clear_color.into(),
+                    self.filter_method,
+                )?;
+
+                Ok(Window {
+                    event_loop: event_loop,
+                    window: window_context,
+                    renderer: renderer,
+
+                    width: self.width,
+                    height: self.height,
+                })
+            } else {
+                return Err(WindowError::GeneralError(
+                    window_result.err().unwrap().to_string(),
+                ));
             }
-
-            let renderer = render::Renderer::new(
-                device,
-                factory,
-                command_buffer,
-                color_view,
-                depth_view,
-                self.width as usize,
-                self.height as usize,
-                self.sprite_texture,
-                self.clear_color.into(),
-                self.filter_method,
-            )?;
-
-            Ok(Window {
-                event_loop: event_loop,
-                window: window_context,
-                renderer: renderer,
-
-                width: self.width,
-                height: self.height,
-            })
-        } else {
-            return Err(WindowError::GeneralError(
-                window_result.err().unwrap().to_string(),
-            ));
-        }
+        */
     }
 }
 
 /// `Window` is responsible for creating and managing the game window and underlying GL context.
 pub struct Window {
     // Handles to device resources we need to hold onto.
-    event_loop: glutin::EventsLoop,
-    pub(crate) window: glutin::WindowedContext<glutin::PossiblyCurrent>,
-    pub(crate) renderer: render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory>,
+    pub(crate) renderer: render::Renderer,
+    pub(crate) window: winit::window::Window,
+    pub(crate) event_loop: winit::event_loop::EventLoop<()>,
 
     // Width & height of the window (in sprites).
     pub(crate) width: u32,
@@ -250,30 +266,16 @@ pub struct Window {
 impl Window {
     /// Render one frame.
     pub(crate) fn render(&mut self) -> Result<(), WindowError> {
-        self.renderer.render()?;
-        self.window.swap_buffers()?;
-        Ok(())
+        unimplemented!();
     }
 
     /// Get a mutable reference to the underlying renderer.
-    pub(crate) fn renderer_mut(
-        &mut self,
-    ) -> &mut render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
+    pub(crate) fn renderer_mut(&mut self) -> &mut render::Renderer {
         &mut self.renderer
     }
 
     /// Get an immutable reference to the underlying renderer.
-    pub(crate) fn renderer(
-        &self,
-    ) -> &render::Renderer<gfx_device_gl::Device, gfx_device_gl::Factory> {
+    pub(crate) fn renderer(&self) -> &render::Renderer {
         &self.renderer
-    }
-
-    pub(crate) fn event_loop_mut(&mut self) -> &mut glutin::EventsLoop {
-        &mut self.event_loop
-    }
-
-    pub(crate) fn event_loop(&self) -> &glutin::EventsLoop {
-        &self.event_loop
     }
 }
