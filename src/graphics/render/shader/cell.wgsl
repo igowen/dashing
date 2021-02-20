@@ -20,45 +20,6 @@ struct CellGlobals {
 
 [[group(0), binding(0)]] var<uniform> cell_globals: CellGlobals;
 
-
-fn hsv2rgb(h: f32, s: f32, v: f32) -> vec4<f32> {
-    var hh: f32 = h % 360.0;
-    if (h < 0.0) {
-      hh = hh + 360.0;
-    }
-    hh = hh / 60.0;
-
-    var ss: f32 = clamp(s, 0.0, 1.0);
-    var vv: f32 = clamp(v, 0.0, 1.0);
-
-    var chroma: f32 = vv * ss;
-    var x: f32 = chroma * (1.0 - abs(hh % 2.0 - 1.0));
-
-    var m: f32 = vv - chroma;
-
-    var i: f32 = chroma + m;
-    var j: f32 = x + m;
-    var k: f32 = m;
-
-    var hhi: u32 = u32(hh);
-    if (hhi == 0) {
-      return vec4<f32>(i, j, k, 1.0);
-    }
-    if (hhi == 1) {
-      return vec4<f32>(j, i, k, 1.0);
-    }
-    if (hhi == 2) {
-      return vec4<f32>(k, i, j, 1.0);
-    }
-    if (hhi == 3) {
-      return vec4<f32>(k, j, i, 1.0);
-    }
-    if (hhi == 4) {
-      return vec4<f32>(j, k, i, 1.0);
-    }
-    return vec4<f32>(i, k, j, 1.0);
-}
-
 [[stage(vertex)]]
 fn vs_main() {
     var sprite_offset: vec2<f32> = vec2<f32>(
