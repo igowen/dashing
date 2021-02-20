@@ -1,12 +1,10 @@
 use dashing::*;
 use pretty_logger;
+use time;
 
 // Screen dimensions in characters.
-//const WIDTH: u32 = 21;
-//const HEIGHT: u32 = 3;
-
-const WIDTH: u32 = 80;
-const HEIGHT: u32 = 25;
+const WIDTH: u32 = 21;
+const HEIGHT: u32 = 3;
 
 // Client code must implement a "driver", which is a combination of input handler and
 // interface to the renderer.
@@ -36,15 +34,17 @@ impl Driver for ExampleDriver {
     {
         // Clear the sprite layer.
         self.root_layer.clear();
-        for (i, mut c) in self.root_layer.iter_mut().enumerate() {
-            c.sprite = (i % 256) as u32;
-            c.palette = resources::color::Palette::mono([0, 0, 0])
-                .set(1, resources::color::Color::from_hsv(i as f32, 1.0, 1.0));
-        }
         // Print the message to the screen.
         for (i, c) in self.message.chars().enumerate() {
             self.root_layer[WIDTH as usize + 1 + i] = graphics::drawing::SpriteCell {
-                palette: resources::color::Palette::mono([0, 0, 0]).set(1, [255, 255, 255]),
+                palette: resources::color::Palette::mono([0, 0, 0]).set(
+                    1,
+                    resources::color::Color::from_hsv(
+                        time::OffsetDateTime::now_utc().millisecond() as f32 * 360.0 / 1000.0,
+                        1.0 - (i as f32 / self.message.len() as f32) * 0.5,
+                        1.0,
+                    ),
+                ),
                 sprite: c as u32,
                 transparent: false,
             };
@@ -59,8 +59,7 @@ impl Driver for ExampleDriver {
 pub fn main() {
     pretty_logger::init_to_defaults().unwrap();
 
-    //let tex_png = include_bytes!("../src/graphics/render/testdata/12x12.png");
-    let tex_png = include_bytes!("test.png");
+    let tex_png = include_bytes!("../src/graphics/render/testdata/12x12.png");
     let mut decoder = png::Decoder::new(&tex_png[..]);
     decoder.set_transformations(png::Transformations::IDENTITY);
 
@@ -80,7 +79,7 @@ pub fn main() {
 
     let window_builder = window::WindowBuilder::new("hello world", WIDTH, HEIGHT, &tex)
         .with_clear_color((0.2, 0.2, 0.2).into())
-        .with_vsync(false);
+        .with_vsync(true);
 
     let driver = ExampleDriver {
         root_layer: graphics::drawing::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),
@@ -89,6 +88,5 @@ pub fn main() {
 
     let engine = dashing::Engine::new(window_builder, driver).unwrap();
 
-    // `run_forever()` consumes the `Engine` object, so it cannot be used after this returns.
     engine.run();
 }
