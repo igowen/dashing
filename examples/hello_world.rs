@@ -5,8 +5,8 @@ use pretty_logger;
 //const WIDTH: u32 = 21;
 //const HEIGHT: u32 = 3;
 
-const WIDTH: u32 = 40;
-const HEIGHT: u32 = 20;
+const WIDTH: u32 = 80;
+const HEIGHT: u32 = 25;
 
 // Client code must implement a "driver", which is a combination of input handler and
 // interface to the renderer.
@@ -36,6 +36,11 @@ impl Driver for ExampleDriver {
     {
         // Clear the sprite layer.
         self.root_layer.clear();
+        for (i, mut c) in self.root_layer.iter_mut().enumerate() {
+            c.sprite = (i % 256) as u32;
+            c.palette = resources::color::Palette::mono([0, 0, 0])
+                .set(1, resources::color::Color::from_hsv(i as f32, 1.0, 1.0));
+        }
         // Print the message to the screen.
         for (i, c) in self.message.chars().enumerate() {
             self.root_layer[WIDTH as usize + 1 + i] = graphics::drawing::SpriteCell {
@@ -57,8 +62,7 @@ pub fn main() {
     //let tex_png = include_bytes!("../src/graphics/render/testdata/12x12.png");
     let tex_png = include_bytes!("test.png");
     let mut decoder = png::Decoder::new(&tex_png[..]);
-    use png::HasParameters;
-    decoder.set(png::Transformations::IDENTITY);
+    decoder.set_transformations(png::Transformations::IDENTITY);
 
     let (info, mut reader) = decoder.read_info().unwrap();
     assert!(info.color_type == png::ColorType::Indexed);
@@ -74,7 +78,8 @@ pub fn main() {
     )
     .unwrap();
 
-    let window_builder = window::WindowBuilder::new("hello world", WIDTH, HEIGHT, &tex);
+    let window_builder = window::WindowBuilder::new("hello world", WIDTH, HEIGHT, &tex)
+        .with_clear_color((0.2, 0.2, 0.2).into());
 
     let driver = ExampleDriver {
         root_layer: graphics::drawing::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),

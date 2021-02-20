@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use bytemuck;
 use std;
 
 /// 8-bit RGB color. Wrapped so color space conversion is easy.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Color([u8; 3]);
 
 impl Color {
@@ -317,6 +319,17 @@ impl From<Color> for [u8; 3] {
 impl From<[u8; 3]> for Color {
     fn from(c: [u8; 3]) -> Self {
         Color([c[0], c[1], c[2]])
+    }
+}
+
+impl From<Color> for wgpu::Color {
+    fn from(c: Color) -> Self {
+        wgpu::Color {
+            r: c.0[0] as f64 / 255.0,
+            g: c.0[1] as f64 / 255.0,
+            b: c.0[2] as f64 / 255.0,
+            a: 1.0,
+        }
     }
 }
 

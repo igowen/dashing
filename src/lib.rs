@@ -90,7 +90,7 @@
 //! ## Features to be implemented
 //!
 //! * Input handling
-//!   * Don't use glutin/winit event types in the public interface
+//!   * Don't use winit event types in the public interface
 //! * GUI library
 //!   * Splash screen support
 //! * Serialization/persistence framework
@@ -148,8 +148,10 @@ impl EngineSignal {
     }
 }
 
+pub use winit::event::{ElementState, KeyboardInput, ModifiersState, MouseButton};
+
 /// Describes a generic event. Events are (generally) directly converted from an underlying window
-/// manager or user input event provided by `glutin`, but simplified. For example, most window
+/// manager or user input event provided by `winit`, but simplified. For example, most window
 /// events have a `WindowId` to discern where the event originated; `dashing` creates and manages a
 /// single window, so this is unnecessary (and discarded).
 #[derive(Debug, Clone, PartialEq)]
@@ -160,9 +162,8 @@ pub enum Event {
     WindowCloseRequested,
     /// The window gained or lost focus. The `bool` is set to true iff the window gained focus.
     Focused(bool),
-    /*
-    ///// Keyboard input. TODO: don't expose glutin types here.
-    //KeyboardInput(glutin::KeyboardInput),
+    /// Keyboard input. TODO: don't expose winit types here.
+    KeyboardInput(KeyboardInput),
     /// The cursor was moved to a new position.
     CursorMoved {
         /// Sprite-level position of the cursor.
@@ -179,17 +180,16 @@ pub enum Event {
     CursorEntered,
     /// The mouse cursor left the window.
     CursorLeft,
-    /// A mouse button was pressed. TODO: don't expose glutin types here.
+    /// A mouse button was pressed. TODO: don't expose winit types here.
     MouseButton {
         /// Pressed/released
-        state: glutin::ElementState,
+        state: ElementState,
         /// Which button
-        button: glutin::MouseButton,
+        button: MouseButton,
         /// Modifier key state
-        modifiers: glutin::ModifiersState,
+        modifiers: ModifiersState,
     },
     // TODO: mouse wheel, etc.
-    */
 }
 
 /// `Engine` is an abstraction of the main event loop for the game. Its functionality
@@ -227,7 +227,7 @@ where
 
     /// Run the main loop until one of the library hooks tells us to quit.
     pub fn run(self) -> ! {
-        let (window, _) = (self.window, self.driver);
+        let (window, mut driver) = (self.window, self.driver);
 
         let (mut renderer, winit_window, event_loop) =
             (window.renderer, window.window, window.event_loop);
@@ -256,6 +256,10 @@ where
                 }
             }
             Event::MainEventsCleared => {
+                if driver.process_frame(&mut renderer) == EngineSignal::Halt {
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                }
+
                 winit_window.request_redraw();
             }
             _ => {}
@@ -402,6 +406,7 @@ pub trait Driver {
     /// Handle an input event. This will be called for every event received by the main window, so
     /// it needs to be fast.
     fn handle_input(&mut self, event: Event) -> EngineSignal;
+
     /// Client hook for processing in the main loop. This gets called immediately before the
     /// renderer runs, but after all pending events have been processed via `handle_input()`.
     fn process_frame<R>(&mut self, renderer: &mut R) -> EngineSignal
