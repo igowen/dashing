@@ -15,7 +15,7 @@
 use itertools;
 #[allow(unused)]
 use itertools::Itertools;
-use log::info;
+use log::{info, trace};
 
 use crate::graphics::drawing::SpriteCell;
 use crate::resources::sprite::SpriteTexture;
@@ -257,24 +257,22 @@ impl Renderer {
         let adapter =
             futures::executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
-                // Request an adapter which can render to our surface
                 compatible_surface: Some(&surface),
             }))
             .expect("Failed to find an appropriate adapter");
 
-        // Create the logical device and command queue
         let (device, queue) = futures::executor::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Primary device"),
                 features: wgpu::Features::empty(),
                 limits: wgpu::Limits::default(),
             },
-            Some(std::path::Path::new("./trace")),
-            //None,
+            None,
         ))
         .expect("Failed to create device");
 
-        let swapchain_format = wgpu::TextureFormat::Bgra8Unorm; //adapter.get_swap_chain_preferred_format(&surface);
+        // TODO: Determine whether this is portable. We definitely want Unorm, not Srgb, here.
+        let swapchain_format = wgpu::TextureFormat::Bgra8Unorm;
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
@@ -331,7 +329,7 @@ impl Renderer {
         });
 
         for y in 0..sprite_texture.height() {
-            info!(
+            trace!(
                 "{:?}",
                 &sprite_texture.pixels()[y * sprite_texture.width()
                     ..y * sprite_texture.width() + sprite_texture.width()]
@@ -516,8 +514,6 @@ impl Renderer {
             palette_texture_dimensions: [palette_texture_size.width, palette_texture_size.height],
         };
 
-        info!("{:?}", cell_uniforms);
-
         let cell_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Cell uniform buffer"),
             contents: bytemuck::cast_slice(&[cell_uniforms]),
@@ -700,11 +696,6 @@ impl Renderer {
         ay /= g;
 
         info!("Aspect ratio: {}:{}", ax, ay);
-        info!("clear color: {:?}", clear_color);
-        info!(
-            "clear color wgpu: {:?}",
-            Into::<wgpu::Color>::into(clear_color)
-        );
         info!("swapchain format: {:?}", swapchain_format);
 
         Ok(Renderer {
