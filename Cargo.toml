@@ -19,10 +19,9 @@ bytemuck = { version = "1.5.0", features = ["derive"] }
 futures = "0.3"
 wgpu = "0.7.0"
 winit = "0.24"
-# miscellaneous dependencies
 log = "0.4.8"
-time = "0.1.42"
-itertools = "0.8.0"
+time = "0.2"
+itertools = "0.10.0"
 
 [dev-dependencies]
 euclid = "0.20"
