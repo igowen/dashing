@@ -868,10 +868,12 @@ impl Renderer {
 
         let t = time::OffsetDateTime::now_utc();
         let dt = t - self.last_render_time;
-        let dt_millis = dt.whole_milliseconds() as f32;
-        let new_fps = 1_000.0 / dt_millis;
-        self.fps = 0.9 * self.fps + 0.1 * new_fps;
-        self.elapsed_time += dt;
+        let dt_micros = dt.whole_microseconds();
+        if dt_micros > 0 {
+            let new_fps = 1_000_000.0 / dt_micros as f32;
+            self.fps = 0.9 * self.fps + 0.1 * new_fps;
+            self.elapsed_time += dt;
+        }
         if self.frame_counter % 1000 == 0 {
             info!("{} FPS", self.fps);
         }
