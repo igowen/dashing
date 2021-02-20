@@ -1,5 +1,5 @@
 use dashing::*;
-use pretty_logger;
+use pretty_env_logger;
 use time;
 
 // Screen dimensions in characters.
@@ -57,7 +57,7 @@ impl Driver for ExampleDriver {
 }
 
 pub fn main() {
-    pretty_logger::init_to_defaults().unwrap();
+    pretty_env_logger::init();
 
     let tex_png = include_bytes!("../src/graphics/render/testdata/12x12.png");
     let mut decoder = png::Decoder::new(&tex_png[..]);
