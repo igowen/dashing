@@ -79,7 +79,8 @@ pub fn main() {
     .unwrap();
 
     let window_builder = window::WindowBuilder::new("hello world", WIDTH, HEIGHT, &tex)
-        .with_clear_color((0.2, 0.2, 0.2).into());
+        .with_clear_color((0.2, 0.2, 0.2).into())
+        .with_vsync(false);
 
     let driver = ExampleDriver {
         root_layer: graphics::drawing::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),

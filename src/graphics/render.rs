@@ -22,6 +22,7 @@ use crate::resources::sprite::SpriteTexture;
 use bytemuck;
 use wgpu::util::DeviceExt;
 
+// TODO: rewrite and re-enable the render tests.
 //#[cfg(test)]
 //mod tests;
 
@@ -215,8 +216,8 @@ pub(crate) struct Renderer {
     clear_color: wgpu::Color,
 
     current_screen_size: winit::dpi::PhysicalSize<u32>,
-    last_render_time_ns: u64,
-    elapsed_time_ns: u64,
+    last_render_time: time::OffsetDateTime,
+    elapsed_time: time::Duration,
     frame_counter: u32,
     fps: f32,
 }
@@ -228,6 +229,7 @@ impl Renderer {
         sprite_texture: &SpriteTexture,
         clear_color: crate::resources::color::Color,
         screen_filter_method: wgpu::FilterMode,
+        present_mode: wgpu::PresentMode,
     ) -> Result<Self, RenderError> {
         let mut instances = vec![Instance::default(); dimensions.0 * dimensions.1];
         let palette_data = vec![[[255, 255, 255]; 16]; dimensions.0 * dimensions.1];
@@ -279,8 +281,7 @@ impl Renderer {
             format: swapchain_format,
             width: size.width,
             height: size.height,
-            // TODO: Mailbox -> Fifo
-            present_mode: wgpu::PresentMode::Mailbox,
+            present_mode,
         };
 
         let render_target_size = wgpu::Extent3d {
@@ -744,8 +745,8 @@ impl Renderer {
             ),
 
             clear_color: clear_color.into(),
-            last_render_time_ns: 0,
-            elapsed_time_ns: 0,
+            last_render_time: time::OffsetDateTime::now_utc(),
+            elapsed_time: time::Duration::zero(),
             frame_counter: 0,
             fps: 0.0,
         })
@@ -763,7 +764,7 @@ impl Renderer {
         let screen_uniforms = ScreenGlobals {
             screen_size: [screen_w as _, screen_h as _],
             frame_counter: self.frame_counter,
-            elapsed_time: self.elapsed_time_ns as f32 / 1_000_000_000.0,
+            elapsed_time: self.elapsed_time.as_seconds_f32(),
             scale_factor: [
                 target_w as f32 / screen_w as f32,
                 target_h as f32 / screen_h as f32,
@@ -865,17 +866,16 @@ impl Renderer {
         }
         self.queue.submit(Some(encoder.finish()));
 
-        let t = time::precise_time_ns();
-        if self.last_render_time_ns > 0 {
-            let dt = (t - self.last_render_time_ns) as f32;
-            let new_fps = 1_000_000_000.0 / dt;
-            self.fps = 0.9 * self.fps + 0.1 * new_fps;
-            self.elapsed_time_ns += t - self.last_render_time_ns;
-            if self.frame_counter % 1000 == 0 {
-                info!("{} FPS", self.fps);
-            }
+        let t = time::OffsetDateTime::now_utc();
+        let dt = t - self.last_render_time;
+        let dt_millis = dt.whole_milliseconds() as f32;
+        let new_fps = 1_000.0 / dt_millis;
+        self.fps = 0.9 * self.fps + 0.1 * new_fps;
+        self.elapsed_time += dt;
+        if self.frame_counter % 1000 == 0 {
+            info!("{} FPS", self.fps);
         }
-        self.last_render_time_ns = t;
+        self.last_render_time = t;
         self.frame_counter += 1;
     }
 

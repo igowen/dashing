@@ -168,6 +168,11 @@ impl<'a> WindowBuilder<'a> {
             self.sprite_texture,
             self.clear_color.into(),
             self.filter_method.into(),
+            if self.vsync {
+                wgpu::PresentMode::Fifo
+            } else {
+                wgpu::PresentMode::Mailbox
+            },
         )?;
 
         Ok(Window {
