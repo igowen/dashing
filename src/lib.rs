@@ -164,7 +164,7 @@ where
         use winit::event::{Event, WindowEvent};
         event_loop.run(move |event, _, control_flow| match event {
             Event::RedrawRequested(_) => {
-                renderer.render_frame();
+                renderer.render_frame().unwrap();
             }
             Event::WindowEvent {
                 ref event,

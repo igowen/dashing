@@ -22,9 +22,8 @@ use crate::resources::sprite::SpriteTexture;
 use bytemuck;
 use wgpu::util::DeviceExt;
 
-// TODO: rewrite and re-enable the render tests.
-//#[cfg(test)]
-//mod tests;
+#[cfg(test)]
+mod tests;
 
 /// Error type for the renderer.
 #[derive(Debug)]
@@ -176,12 +175,50 @@ const SCREEN_QUAD_VERTICES: [Vertex; 4] = [
 // Triangulation for the above vertices, shared by both the cell quads and the screen quad.
 const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
+/// Encapsulates the destination of the rendered output (SwapChain or texture).
+enum RenderOutput {
+    SwapChain {
+        swap_chain: wgpu::SwapChain,
+        swap_chain_format: wgpu::TextureFormat,
+        swap_chain_descriptor: wgpu::SwapChainDescriptor,
+        surface: wgpu::Surface,
+        current_screen_size: winit::dpi::PhysicalSize<u32>,
+    },
+    Texture {
+        texture: wgpu::Texture,
+        texture_view: wgpu::TextureView,
+        output_size: wgpu::Extent3d,
+    },
+}
+
+impl RenderOutput {
+    fn output_size(&self) -> (u32, u32) {
+        match self {
+            RenderOutput::SwapChain {
+                current_screen_size: size,
+                ..
+            } => (size.width as _, size.height as _),
+            RenderOutput::Texture {
+                output_size: size, ..
+            } => (size.width as _, size.height as _),
+        }
+    }
+
+    fn output_format(&self) -> wgpu::TextureFormat {
+        match self {
+            RenderOutput::SwapChain {
+                swap_chain_format, ..
+            } => *swap_chain_format,
+            RenderOutput::Texture { .. } => wgpu::TextureFormat::Rgba8Unorm,
+        }
+    }
+}
+
 pub(crate) struct Renderer {
-    pub(crate) swap_chain: wgpu::SwapChain,
-    pub(crate) swap_chain_descriptor: wgpu::SwapChainDescriptor,
     pub(crate) device: wgpu::Device,
     pub(crate) queue: wgpu::Queue,
-    surface: wgpu::Surface,
+
+    render_output: RenderOutput,
 
     cell_render_pipeline: wgpu::RenderPipeline,
 
@@ -210,12 +247,12 @@ pub(crate) struct Renderer {
     palette_texture: wgpu::Texture,
     palette_texture_size: wgpu::Extent3d,
 
+    pub(crate) pixel_dimensions: (u32, u32),
     pub(crate) aspect_ratio: (usize, usize),
     pub(crate) dimensions: (usize, usize),
 
     clear_color: wgpu::Color,
 
-    current_screen_size: winit::dpi::PhysicalSize<u32>,
     last_render_time: time::OffsetDateTime,
     elapsed_time: time::Duration,
     frame_counter: u32,
@@ -224,7 +261,7 @@ pub(crate) struct Renderer {
 
 impl Renderer {
     pub(crate) fn new(
-        window: &winit::window::Window,
+        window: Option<&winit::window::Window>,
         dimensions: (usize, usize),
         sprite_texture: &SpriteTexture,
         clear_color: crate::resources::color::Color,
@@ -251,13 +288,17 @@ impl Renderer {
         let screen_width = dimensions.0 * sprite_texture.sprite_width();
         let screen_height = dimensions.1 * sprite_texture.sprite_height();
 
-        let size = window.inner_size();
-        let instance = wgpu::Instance::new(wgpu::BackendBit::all());
-        let surface = unsafe { instance.create_surface(window) };
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+
+        // TODO: Determine whether this is portable. We definitely want Unorm, not Srgb, here.
+        let swap_chain_format = wgpu::TextureFormat::Bgra8Unorm;
+
+        let surface = window.map(|w| unsafe { instance.create_surface(w) });
+
         let adapter =
             futures::executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
+                compatible_surface: surface.as_ref(),
             }))
             .expect("Failed to find an appropriate adapter");
 
@@ -271,29 +312,62 @@ impl Renderer {
         ))
         .expect("Failed to create device");
 
-        // TODO: Determine whether this is portable. We definitely want Unorm, not Srgb, here.
-        let swapchain_format = wgpu::TextureFormat::Bgra8Unorm;
-
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
-            format: swapchain_format,
-            width: size.width,
-            height: size.height,
-            present_mode,
-        };
-
         let render_target_size = wgpu::Extent3d {
             width: screen_width as _,
             height: screen_height as _,
             depth: 1,
         };
 
+        let render_output = surface.map_or_else(
+            || {
+                let output_texture = device.create_texture(&wgpu::TextureDescriptor {
+                    size: render_target_size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm, //swapchain_format,
+                    usage: wgpu::TextureUsage::RENDER_ATTACHMENT | wgpu::TextureUsage::COPY_SRC,
+                    label: Some("final output texture"),
+                });
+
+                let texture_view = output_texture.create_view(&Default::default());
+                RenderOutput::Texture {
+                    texture: output_texture,
+                    texture_view,
+                    output_size: render_target_size,
+                }
+            },
+            |surface| {
+                let sc_desc = wgpu::SwapChainDescriptor {
+                    usage: wgpu::TextureUsage::RENDER_ATTACHMENT,
+                    format: swap_chain_format,
+                    width: screen_width as _,
+                    height: screen_height as _,
+                    present_mode,
+                };
+
+                let swap_chain = device.create_swap_chain(&surface, &sc_desc);
+
+                RenderOutput::SwapChain {
+                    swap_chain,
+                    swap_chain_format,
+                    swap_chain_descriptor: sc_desc,
+                    surface,
+
+                    current_screen_size: winit::dpi::PhysicalSize::<u32>::new(
+                        screen_width as _,
+                        screen_height as _,
+                    ),
+                }
+            },
+        );
+
         let render_target_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: render_target_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: swapchain_format,
+            format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsage::RENDER_ATTACHMENT
                 | wgpu::TextureUsage::COPY_SRC
                 | wgpu::TextureUsage::SAMPLED,
@@ -535,8 +609,6 @@ impl Renderer {
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
         });
 
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
         let cell_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cell pipeline layout"),
             bind_group_layouts: &[
@@ -557,7 +629,7 @@ impl Renderer {
             fragment: Some(wgpu::FragmentState {
                 module: &cell_shader,
                 entry_point: "fs_main",
-                targets: &[swapchain_format.into()],
+                targets: &[wgpu::TextureFormat::Rgba8Unorm.into()], //swapchain_format.into()],
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
@@ -670,7 +742,7 @@ impl Renderer {
                 fragment: Some(wgpu::FragmentState {
                     module: &screen_shader,
                     entry_point: "fs_main",
-                    targets: &[swapchain_format.into()],
+                    targets: &[render_output.output_format().into()],
                 }),
                 primitive: wgpu::PrimitiveState::default(),
                 depth_stencil: None,
@@ -696,14 +768,13 @@ impl Renderer {
         ay /= g;
 
         info!("Aspect ratio: {}:{}", ax, ay);
-        info!("swapchain format: {:?}", swapchain_format);
+        info!("swapchain format: {:?}", swap_chain_format);
 
         Ok(Renderer {
-            swap_chain,
-            swap_chain_descriptor: sc_desc,
             device,
             queue,
-            surface,
+
+            render_output,
 
             cell_render_pipeline,
             cell_vertex_buffer,
@@ -728,12 +799,8 @@ impl Renderer {
 
             render_target_view,
             aspect_ratio: (ax, ay),
+            pixel_dimensions: (screen_width as _, screen_height as _),
             dimensions,
-
-            current_screen_size: winit::dpi::PhysicalSize::<u32>::new(
-                screen_width as _,
-                screen_height as _,
-            ),
 
             clear_color: clear_color.into(),
             last_render_time: time::OffsetDateTime::now_utc(),
@@ -743,11 +810,8 @@ impl Renderer {
         })
     }
 
-    pub(crate) fn render_frame(&mut self) {
-        let (screen_w, screen_h) = (
-            self.current_screen_size.width,
-            self.current_screen_size.height,
-        );
+    pub(crate) fn render_frame(&mut self) -> Result<(), RenderError> {
+        let (screen_w, screen_h) = self.render_output.output_size();
         let (ax, ay) = self.aspect_ratio;
         let target_w = std::cmp::min(screen_w as usize, (screen_h as usize * ax) / ay);
         let target_h = std::cmp::min(screen_h as usize, (screen_w as usize * ay) / ax);
@@ -798,14 +862,36 @@ impl Renderer {
             self.palette_texture_size,
         );
 
-        let frame = self
-            .swap_chain
-            .get_current_frame()
-            .expect("Failed to acquire next swap chain texture")
-            .output;
+        enum Output<'a> {
+            SwapChain(wgpu::SwapChainTexture),
+            Texture(&'a wgpu::TextureView),
+        }
+
+        impl<'a> Output<'a> {
+            fn get(&'a self) -> &'a wgpu::TextureView {
+                match self {
+                    Output::SwapChain(sc_tex) => &sc_tex.view,
+                    Output::Texture(tv) => tv,
+                }
+            }
+        }
+
+        let sc_tex = match &self.render_output {
+            RenderOutput::SwapChain { swap_chain, .. } => {
+                let frame = swap_chain
+                    .get_current_frame()
+                    .expect("Couldn't get output frame")
+                    .output;
+                Output::SwapChain(frame)
+            }
+            RenderOutput::Texture { texture_view, .. } => Output::Texture(texture_view),
+        };
+
         let mut encoder = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Main render encoder"),
+            });
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Main sprite cell pass"),
@@ -838,7 +924,7 @@ impl Renderer {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Screen pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
+                    attachment: &sc_tex.get(),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
@@ -870,15 +956,86 @@ impl Renderer {
         }
         self.last_render_time = t;
         self.frame_counter += 1;
+
+        Ok(())
     }
 
     pub(crate) fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.current_screen_size = new_size;
-        self.swap_chain_descriptor.width = new_size.width;
-        self.swap_chain_descriptor.height = new_size.height;
-        self.swap_chain = self
-            .device
-            .create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+        match &mut self.render_output {
+            RenderOutput::SwapChain {
+                ref mut swap_chain,
+                ref mut swap_chain_descriptor,
+                ref mut current_screen_size,
+                surface,
+                ..
+            } => {
+                *current_screen_size = new_size;
+                swap_chain_descriptor.width = new_size.width;
+                swap_chain_descriptor.height = new_size.height;
+                *swap_chain = self
+                    .device
+                    .create_swap_chain(&surface, &swap_chain_descriptor);
+            }
+            _ => {}
+        };
+    }
+
+    pub(crate) fn fetch_render_output(&self) -> Option<Box<[u8]>> {
+        if let RenderOutput::Texture {
+            texture,
+            output_size,
+            ..
+        } = &self.render_output
+        {
+            let unpadded_bytes_per_row = output_size.width * 4;
+            let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+            let padded_bytes_per_row_padding = (align - unpadded_bytes_per_row % align) % align;
+            let padded_bytes_per_row = unpadded_bytes_per_row + padded_bytes_per_row_padding;
+            let download_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Render download buffer"),
+                size: (padded_bytes_per_row * output_size.height) as u64,
+                usage: wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST,
+                mapped_at_creation: false,
+            });
+            {
+                let mut encoder =
+                    self.device
+                        .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("Main render encoder"),
+                        });
+                encoder.copy_texture_to_buffer(
+                    wgpu::TextureCopyView {
+                        texture: &texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d::ZERO,
+                    },
+                    wgpu::BufferCopyView {
+                        buffer: &download_buffer,
+                        layout: wgpu::TextureDataLayout {
+                            offset: 0,
+                            bytes_per_row: padded_bytes_per_row,
+                            rows_per_image: 0,
+                        },
+                    },
+                    *output_size,
+                );
+                self.queue.submit(Some(encoder.finish()));
+            }
+            let download_slice = download_buffer.slice(..);
+            let buffer_future = download_slice.map_async(wgpu::MapMode::Read);
+            self.device.poll(wgpu::Maintain::Wait);
+            futures::executor::block_on(buffer_future).expect("Couldn't download render output");
+            let unpadded_image = download_slice.get_mapped_range()[..]
+                .chunks(padded_bytes_per_row as usize)
+                .flat_map(|row| row.iter().take(unpadded_bytes_per_row as usize))
+                .cloned()
+                .collect::<Vec<_>>();
+            drop(download_slice);
+            download_buffer.unmap();
+            Some(unpadded_image.into_boxed_slice())
+        } else {
+            None
+        }
     }
 
     /// Get the number of frames that have been rendered.

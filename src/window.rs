@@ -163,7 +163,7 @@ impl<'a> WindowBuilder<'a> {
             .build(&event_loop)?;
 
         let renderer = crate::graphics::render::Renderer::new(
-            &window,
+            Some(&window),
             (self.width as _, self.height as _),
             self.sprite_texture,
             self.clear_color.into(),
