@@ -310,6 +310,12 @@ impl From<(f32, f32, f32)> for Color {
     }
 }
 
+impl From<[f32; 3]> for Color {
+    fn from([r, g, b]: [f32; 3]) -> Self {
+        Color([(r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8])
+    }
+}
+
 impl From<Color> for [u8; 3] {
     fn from(c: Color) -> Self {
         c.0
@@ -319,6 +325,12 @@ impl From<Color> for [u8; 3] {
 impl From<[u8; 3]> for Color {
     fn from(c: [u8; 3]) -> Self {
         Color([c[0], c[1], c[2]])
+    }
+}
+
+impl From<(u8, u8, u8)> for Color {
+    fn from((r, g, b): (u8, u8, u8)) -> Self {
+        Color([r, g, b])
     }
 }
 

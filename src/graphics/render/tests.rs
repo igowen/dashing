@@ -247,3 +247,57 @@ fn big() {
         .into_raw();
     assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
 }
+
+#[test]
+fn full_palette() {
+    let img = include_bytes!("testdata/full_palette.png");
+    let mut decoder = png::Decoder::new(&img[..]);
+    // Need to set this so the index values don't get converted to RGBA.
+    decoder.set_transformations(png::Transformations::IDENTITY);
+    let (_, mut reader) = decoder.read_info().unwrap();
+    let mut imgdata = vec![0u8; reader.output_buffer_size()];
+    reader.next_frame(&mut imgdata[..]).unwrap();
+    let tex = SpriteTexture::new_from_pixels(
+        &imgdata[..],
+        reader.info().size().0 as usize,
+        reader.info().size().1 as usize,
+        reader.info().size().0 as usize,
+        reader.info().size().1 as usize,
+        1,
+    )
+    .unwrap();
+
+    let mut renderer = Renderer::new(
+        None,
+        (1, 1),
+        &tex,
+        [0, 255, 0].into(),
+        wgpu::FilterMode::Nearest,
+        wgpu::PresentMode::Fifo,
+    )
+    .unwrap();
+
+    renderer.update(
+        vec![
+            SpriteCell {
+                palette: Default::default(),
+                sprite: 0,
+                ..Default::default()
+            };
+            1
+        ]
+        .iter(),
+    );
+
+    // Render the frame.
+    renderer.render_frame().unwrap();
+
+    let actual_image = renderer.fetch_render_output().unwrap();
+
+    let expected_image =
+        image::load_from_memory(include_bytes!("testdata/full_palette_output.png"))
+            .unwrap()
+            .to_rgba()
+            .into_raw();
+    assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
+}
