@@ -30,8 +30,6 @@ mod tests;
 pub enum RenderError {
     /// Generic error.
     GeneralError(String),
-    /// Error from the OpenGL subsystem.
-    OpenGLError(String),
 }
 
 impl<S> std::convert::From<S> for RenderError
@@ -248,8 +246,8 @@ pub(crate) struct Renderer {
     palette_texture_size: wgpu::Extent3d,
 
     pub(crate) pixel_dimensions: (u32, u32),
-    pub(crate) aspect_ratio: (usize, usize),
-    pub(crate) dimensions: (usize, usize),
+    pub(crate) aspect_ratio: (u32, u32),
+    pub(crate) dimensions: (u32, u32),
 
     clear_color: wgpu::Color,
 
@@ -262,14 +260,14 @@ pub(crate) struct Renderer {
 impl Renderer {
     pub(crate) fn new(
         window: Option<&winit::window::Window>,
-        dimensions: (usize, usize),
+        dimensions: (u32, u32),
         sprite_texture: &SpriteTexture,
         clear_color: crate::resources::color::Color,
         screen_filter_method: wgpu::FilterMode,
         present_mode: wgpu::PresentMode,
     ) -> Result<Self, RenderError> {
-        let mut instances = vec![Instance::default(); dimensions.0 * dimensions.1];
-        let palette_data = vec![[[255, 255, 255]; 16]; dimensions.0 * dimensions.1];
+        let mut instances = vec![Instance::default(); (dimensions.0 * dimensions.1) as usize];
+        let palette_data = vec![[[255, 255, 255]; 16]; (dimensions.0 * dimensions.1) as usize];
 
         for y in 0..dimensions.1 {
             for x in 0..dimensions.0 {
@@ -285,8 +283,8 @@ impl Renderer {
             }
         }
 
-        let screen_width = dimensions.0 * sprite_texture.sprite_width();
-        let screen_height = dimensions.1 * sprite_texture.sprite_height();
+        let screen_width = dimensions.0 * sprite_texture.sprite_width() as u32;
+        let screen_height = dimensions.1 * sprite_texture.sprite_height() as u32;
 
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
 
@@ -751,11 +749,8 @@ impl Renderer {
 
         // Calculate aspect ratio. This is used for letterboxing the screen when the window's
         // aspect ratio doesn't match.
-        let (mut ax, mut ay) = (
-            dimensions.0 * sprite_texture.sprite_width(),
-            dimensions.1 * sprite_texture.sprite_height(),
-        );
-        fn gcd(mut a: usize, mut b: usize) -> usize {
+        let (mut ax, mut ay) = (screen_width, screen_height);
+        fn gcd(mut a: u32, mut b: u32) -> u32 {
             while b != 0 {
                 let t = b;
                 b = a % b;
@@ -813,8 +808,8 @@ impl Renderer {
     pub(crate) fn render_frame(&mut self) -> Result<(), RenderError> {
         let (screen_w, screen_h) = self.render_output.output_size();
         let (ax, ay) = self.aspect_ratio;
-        let target_w = std::cmp::min(screen_w as usize, (screen_h as usize * ax) / ay);
-        let target_h = std::cmp::min(screen_h as usize, (screen_w as usize * ay) / ax);
+        let target_w = std::cmp::min(screen_w, (screen_h * ax) / ay);
+        let target_h = std::cmp::min(screen_h, (screen_w * ay) / ax);
 
         let screen_uniforms = ScreenGlobals {
             screen_size: [screen_w as _, screen_h as _],

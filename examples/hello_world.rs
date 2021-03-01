@@ -1,4 +1,5 @@
 use dashing::*;
+use dashing::input::*;
 use pretty_env_logger;
 use time;
 
@@ -20,7 +21,8 @@ impl Driver for ExampleDriver {
     // method needs to be lightweight, because it blocks the render thread.
     fn handle_input(&mut self, e: Event) -> EngineSignal {
         match e {
-            Event::WindowCloseRequested | Event::WindowDestroyed => EngineSignal::Halt,
+            Event::Window(WindowEvent::CloseRequested)
+            | Event::Window(WindowEvent::Destroyed) => EngineSignal::Halt,
             _ => EngineSignal::Continue,
         }
     }
