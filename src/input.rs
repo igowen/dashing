@@ -321,46 +321,64 @@ mod tests {
         use super::*;
         let kb = KeyBinding::new(VirtualKeyCode::Z);
 
-        assert!(kb.matches(winit::event::KeyboardInput {
-            scancode: 0,
-            state: winit::event::ElementState::Pressed,
-            virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::event::ModifiersState::default()
-        }));
+        assert!(kb.matches(
+            #[allow(deprecated)]
+            winit::event::KeyboardInput {
+                scancode: 0,
+                state: winit::event::ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Z),
+                modifiers: winit::event::ModifiersState::default()
+            }
+        ));
 
-        assert!(!kb.matches(winit::event::KeyboardInput {
-            scancode: 0,
-            state: winit::event::ElementState::Pressed,
-            virtual_keycode: Some(VirtualKeyCode::X),
-            modifiers: winit::event::ModifiersState::default()
-        }));
+        assert!(!kb.matches(
+            #[allow(deprecated)]
+            winit::event::KeyboardInput {
+                scancode: 0,
+                state: winit::event::ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::X),
+                modifiers: winit::event::ModifiersState::default()
+            }
+        ));
 
-        assert!(!kb.matches(winit::event::KeyboardInput {
-            scancode: 0,
-            state: winit::event::ElementState::Pressed,
-            virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::event::ModifiersState::SHIFT
-        }));
+        assert!(!kb.matches(
+            #[allow(deprecated)]
+            winit::event::KeyboardInput {
+                scancode: 0,
+                state: winit::event::ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Z),
+                modifiers: winit::event::ModifiersState::SHIFT
+            }
+        ));
 
-        assert!(!kb.matches(winit::event::KeyboardInput {
-            scancode: 0,
-            state: winit::event::ElementState::Pressed,
-            virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::event::ModifiersState::CTRL
-        }));
+        assert!(!kb.matches(
+            #[allow(deprecated)]
+            winit::event::KeyboardInput {
+                scancode: 0,
+                state: winit::event::ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Z),
+                modifiers: winit::event::ModifiersState::CTRL
+            }
+        ));
 
-        assert!(!kb.matches(winit::event::KeyboardInput {
-            scancode: 0,
-            state: winit::event::ElementState::Pressed,
-            virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::event::ModifiersState::ALT
-        }));
+        assert!(!kb.matches(
+            #[allow(deprecated)]
+            winit::event::KeyboardInput {
+                scancode: 0,
+                state: winit::event::ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Z),
+                modifiers: winit::event::ModifiersState::ALT
+            }
+        ));
 
-        assert!(!kb.matches(winit::event::KeyboardInput {
-            scancode: 0,
-            state: winit::event::ElementState::Pressed,
-            virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::event::ModifiersState::LOGO
-        }));
+        assert!(!kb.matches(
+            #[allow(deprecated)]
+            winit::event::KeyboardInput {
+                scancode: 0,
+                state: winit::event::ElementState::Pressed,
+                virtual_keycode: Some(VirtualKeyCode::Z),
+                modifiers: winit::event::ModifiersState::LOGO
+            }
+        ));
     }
 }
