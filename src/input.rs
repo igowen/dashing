@@ -16,12 +16,167 @@ use std::collections::HashMap;
 
 use winit;
 
-pub use winit::event::VirtualKeyCode;
+pub use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 
-use crate::Event;
+/// State of the modifier keys.
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
+pub struct ModifiersState {
+    /// Control
+    pub ctrl: bool,
+    /// Alt
+    pub alt: bool,
+    /// Shift
+    pub shift: bool,
+    /// Meta/Logo
+    pub meta: bool,
+}
 
+impl From<winit::event::ModifiersState> for ModifiersState {
+    fn from(m: winit::event::ModifiersState) -> Self {
+        ModifiersState {
+            ctrl: m.ctrl(),
+            alt: m.alt(),
+            shift: m.shift(),
+            meta: m.logo(),
+        }
+    }
+}
+
+/// Keyboard event.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum KeyboardEvent {
+    /// Keyboard input interpreted as a character.
+    Character(char),
+    /// Raw key input.
+    KeyPress {
+        /// The raw scancode of the key.
+        scancode: u32,
+        /// Whether the key was pressed or released.
+        state: ElementState,
+        /// If the key can be interpreted as a KeyCode, it will be populated here.
+        virtual_keycode: Option<VirtualKeyCode>,
+        /// The modifiers active for this event.
+        modifiers: ModifiersState,
+    },
+}
+
+impl From<winit::event::KeyboardInput> for KeyboardEvent {
+    fn from(k: winit::event::KeyboardInput) -> Self {
+        #[allow(deprecated)]
+        KeyboardEvent::KeyPress {
+            scancode: k.scancode,
+            state: k.state,
+            virtual_keycode: k.virtual_keycode,
+            modifiers: k.modifiers.into(),
+        }
+    }
+}
+
+/// Mouse event.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MouseEvent {
+    /// The cursor was moved to a new position.
+    CursorMoved {
+        /// Sprite-level position of the cursor.
+        sprite_position: (u32, u32),
+        /* TODO: calculate this.
+        /// Logical pixel location of the cursor (independent of the actual window size).
+        pixel_position: (u32, u32),
+        */
+        /// The unprocessed location straight from the underlying event.
+        absolute_position: (f64, f64),
+    },
+
+    /// The mouse cursor entered the window.
+    CursorEntered,
+    /// The mouse cursor left the window.
+    CursorLeft,
+    /// A mouse button was pressed.
+    Button {
+        /// Pressed/released
+        state: ElementState,
+        /// Which button
+        button: MouseButton,
+        /// Modifier key state
+        modifiers: ModifiersState,
+    },
+    // TODO: mouse wheel, etc.
+}
+
+/// Window-level events.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum WindowEvent {
+    /// The window was destroyed.
+    Destroyed,
+    /// The window has been requested to close.
+    CloseRequested,
+    /// The window gained or lost focus. The `bool` is set to true iff the window gained focus.
+    Focused(bool),
+}
+
+/// Describes a generic event. Events are (generally) directly converted from an underlying window
+/// manager or user input event provided by `winit`, but simplified. For example, most window
+/// events have a `WindowId` to discern where the event originated; `dashing` creates and manages a
+/// single window, so this is unnecessary (and discarded).
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Event {
+    /// Window-level event.
+    Window(WindowEvent),
+
+    /// Keyboard input.
+    Keyboard(KeyboardEvent),
+
+    /// Mouse input.
+    Mouse(MouseEvent),
+}
+
+impl std::convert::TryFrom<winit::event::Event<'_, ()>> for Event {
+    type Error = ();
+    fn try_from(e: winit::event::Event<'_, ()>) -> Result<Self, Self::Error> {
+        match &e {
+            // Assumption: there is a single window, so we can safely discard fields used to
+            // discern which window should receive the event.
+            // Assumption: client code doesn't care what device the event originated from.
+            winit::event::Event::WindowEvent { event: w, .. } => match w {
+                // Easy passthrough cases.
+                winit::event::WindowEvent::CloseRequested => {
+                    Ok(Event::Window(WindowEvent::CloseRequested))
+                }
+                winit::event::WindowEvent::Destroyed => Ok(Event::Window(WindowEvent::Destroyed)),
+                winit::event::WindowEvent::Focused(focused) => {
+                    Ok(Event::Window(WindowEvent::Focused(*focused)))
+                }
+                winit::event::WindowEvent::CursorEntered { .. } => {
+                    Ok(Event::Mouse(MouseEvent::CursorEntered))
+                }
+                winit::event::WindowEvent::CursorLeft { .. } => {
+                    Ok(Event::Mouse(MouseEvent::CursorLeft))
+                }
+                winit::event::WindowEvent::KeyboardInput { input, .. } => {
+                    Ok(Event::Keyboard((*input).into()))
+                }
+                #[allow(deprecated)]
+                winit::event::WindowEvent::MouseInput {
+                    state,
+                    button,
+                    modifiers,
+                    ..
+                } => Ok(Event::Mouse(MouseEvent::Button {
+                    state: *state,
+                    button: *button,
+                    modifiers: (*modifiers).into(),
+                })),
+                // We have to handle this one in Engine::run() directly, since it depends on a lot of
+                // state that is not accessible here.
+                winit::event::WindowEvent::CursorMoved { .. } => Err(()),
+                _ => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
+}
 /// KeyBinding is a specification for a keyboard shortcut.
-#[derive(Hash, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyBinding {
     key: VirtualKeyCode,
     shift: bool,
@@ -68,14 +223,15 @@ impl KeyBinding {
     /// Returns `true` iff the provided raw keyboard event matches this binding.
     pub fn matches(&self, event: winit::event::KeyboardInput) -> bool {
         if event.state == winit::event::ElementState::Pressed {
+            #[allow(deprecated)]
             match event.virtual_keycode {
                 None => false,
                 Some(vk) => {
                     if vk == self.key {
-                        self.shift == event.modifiers.shift
-                            && self.ctrl == event.modifiers.ctrl
-                            && self.alt == event.modifiers.alt
-                            && self.meta == event.modifiers.logo
+                        self.shift == event.modifiers.shift()
+                            && self.ctrl == event.modifiers.ctrl()
+                            && self.alt == event.modifiers.alt()
+                            && self.meta == event.modifiers.logo()
                     } else {
                         false
                     }
@@ -86,16 +242,18 @@ impl KeyBinding {
         }
     }
 
+    // TODO: impl TryFrom instead.
     fn try_from_event(event: winit::event::KeyboardInput) -> Option<KeyBinding> {
         if event.state == winit::event::ElementState::Pressed {
+            #[allow(deprecated)]
             match event.virtual_keycode {
                 None => None,
                 Some(vk) => Some(KeyBinding {
                     key: vk,
-                    shift: event.modifiers.shift,
-                    ctrl: event.modifiers.ctrl,
-                    alt: event.modifiers.alt,
-                    meta: event.modifiers.logo,
+                    shift: event.modifiers.shift(),
+                    ctrl: event.modifiers.ctrl(),
+                    alt: event.modifiers.alt(),
+                    meta: event.modifiers.logo(),
                 }),
             }
         } else {
@@ -156,7 +314,6 @@ impl<C: Clone> EventDispatcher<C> {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     #[test]
@@ -164,67 +321,46 @@ mod tests {
         use super::*;
         let kb = KeyBinding::new(VirtualKeyCode::Z);
 
-        assert!(kb.matches(winit::KeyboardInput {
+        assert!(kb.matches(winit::event::KeyboardInput {
             scancode: 0,
-            state: winit::ElementState::Pressed,
+            state: winit::event::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::ModifiersState::default()
+            modifiers: winit::event::ModifiersState::default()
         }));
 
-        assert!(!kb.matches(winit::KeyboardInput {
+        assert!(!kb.matches(winit::event::KeyboardInput {
             scancode: 0,
-            state: winit::ElementState::Pressed,
+            state: winit::event::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::X),
-            modifiers: winit::ModifiersState::default()
+            modifiers: winit::event::ModifiersState::default()
         }));
 
-        assert!(!kb.matches(winit::KeyboardInput {
+        assert!(!kb.matches(winit::event::KeyboardInput {
             scancode: 0,
-            state: winit::ElementState::Pressed,
+            state: winit::event::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::ModifiersState {
-                shift: true,
-                ctrl: false,
-                alt: false,
-                logo: false
-            }
+            modifiers: winit::event::ModifiersState::SHIFT
         }));
 
-        assert!(!kb.matches(winit::KeyboardInput {
+        assert!(!kb.matches(winit::event::KeyboardInput {
             scancode: 0,
-            state: winit::ElementState::Pressed,
+            state: winit::event::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::ModifiersState {
-                shift: false,
-                ctrl: true,
-                alt: false,
-                logo: false
-            }
+            modifiers: winit::event::ModifiersState::CTRL
         }));
 
-        assert!(!kb.matches(winit::KeyboardInput {
+        assert!(!kb.matches(winit::event::KeyboardInput {
             scancode: 0,
-            state: winit::ElementState::Pressed,
+            state: winit::event::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::ModifiersState {
-                shift: false,
-                ctrl: false,
-                alt: true,
-                logo: false
-            }
+            modifiers: winit::event::ModifiersState::ALT
         }));
 
-        assert!(!kb.matches(winit::KeyboardInput {
+        assert!(!kb.matches(winit::event::KeyboardInput {
             scancode: 0,
-            state: winit::ElementState::Pressed,
+            state: winit::event::ElementState::Pressed,
             virtual_keycode: Some(VirtualKeyCode::Z),
-            modifiers: winit::ModifiersState {
-                shift: false,
-                ctrl: false,
-                alt: false,
-                logo: true
-            }
+            modifiers: winit::event::ModifiersState::LOGO
         }));
     }
 }
-*/

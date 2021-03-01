@@ -160,6 +160,7 @@ impl<'a> WindowBuilder<'a> {
             .with_maximized(self.full_screen)
             .with_decorations(!self.full_screen)
             .with_resizable(self.resizable)
+            .with_visible(false)
             .build(&event_loop)?;
 
         let renderer = crate::graphics::render::Renderer::new(

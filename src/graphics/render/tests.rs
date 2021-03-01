@@ -27,14 +27,14 @@ use crate::resources::color::Palette;
 /// image, so we use a separate support fixture to manage that.
 struct RenderTestFixture {
     renderer: Renderer,
-    sprite_width: usize,
-    sprite_height: usize,
-    width: usize,
-    height: usize,
+    sprite_width: u32,
+    sprite_height: u32,
+    width: u32,
+    height: u32,
 }
 
 impl RenderTestFixture {
-    fn new(width: usize, height: usize) -> RenderTestFixture {
+    fn new(width: u32, height: u32) -> RenderTestFixture {
         // Load the test sprite texture.
         // TODO: get rid of this once the sprite-loading code is done.
         let img = include_bytes!("testdata/12x12.png");
@@ -71,8 +71,8 @@ impl RenderTestFixture {
             renderer: renderer,
             width: width,
             height: height,
-            sprite_width: sprite_width,
-            sprite_height: sprite_height,
+            sprite_width: sprite_width as u32,
+            sprite_height: sprite_height as u32,
         }
     }
 
