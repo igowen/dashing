@@ -10,7 +10,7 @@ into the API before it is ready for prime time.
 
 ## Getting Started
 
-See the rustdoc for an example of the engine in use.
+See the [hello\_world](examples/hello_world.rs) example for a basic demonstration of the engine in use.
 
 ## License
 
