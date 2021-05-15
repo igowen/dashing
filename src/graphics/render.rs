@@ -16,6 +16,7 @@ use itertools;
 #[allow(unused)]
 use itertools::Itertools;
 use log::{info, trace};
+use std::convert::TryInto;
 
 use crate::graphics::drawing::SpriteCell;
 use crate::resources::sprite::SpriteTexture;
@@ -74,12 +75,12 @@ impl Vertex {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Float2,
+                    format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float2,
+                    format: wgpu::VertexFormat::Float32x2,
                 },
             ],
         }
@@ -104,18 +105,18 @@ impl Instance {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 2,
-                    format: wgpu::VertexFormat::Float2,
+                    format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
                     offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
                     shader_location: 3,
-                    format: wgpu::VertexFormat::Uint2,
+                    format: wgpu::VertexFormat::Uint32x2,
                 },
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 2]>() + std::mem::size_of::<[u32; 2]>())
                         as wgpu::BufferAddress,
                     shader_location: 4,
-                    format: wgpu::VertexFormat::Uint,
+                    format: wgpu::VertexFormat::Uint32,
                 },
                 wgpu::VertexAttribute {
                     offset: (std::mem::size_of::<[f32; 2]>()
@@ -123,7 +124,7 @@ impl Instance {
                         + std::mem::size_of::<u32>())
                         as wgpu::BufferAddress,
                     shader_location: 5,
-                    format: wgpu::VertexFormat::Uint,
+                    format: wgpu::VertexFormat::Uint32,
                 },
             ],
         }
@@ -313,7 +314,7 @@ impl Renderer {
         let render_target_size = wgpu::Extent3d {
             width: screen_width as _,
             height: screen_height as _,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let render_output = surface.map_or_else(
@@ -387,7 +388,7 @@ impl Renderer {
         let sprite_texture_size = wgpu::Extent3d {
             width: sprite_texture.width() as _,
             height: sprite_texture.height() as _,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let sprite_texture_gpu = device.create_texture(&wgpu::TextureDescriptor {
@@ -412,16 +413,16 @@ impl Renderer {
         }
 
         queue.write_texture(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: &sprite_texture_gpu,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
             sprite_texture.pixels(),
-            wgpu::TextureDataLayout {
+            wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: sprite_texture.width() as u32,
-                rows_per_image: sprite_texture.height() as u32,
+                bytes_per_row: (sprite_texture.width() as u32).try_into().ok(),
+                rows_per_image: (sprite_texture.height() as u32).try_into().ok(),
             },
             sprite_texture_size,
         );
@@ -441,7 +442,7 @@ impl Renderer {
         let palette_texture_size = wgpu::Extent3d {
             width: dimensions.0 as u32 * 16u32,
             height: dimensions.1 as u32,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let palette_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -843,16 +844,16 @@ impl Renderer {
         );
 
         self.queue.write_texture(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: &self.palette_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
             &flat_palette_data[..],
-            wgpu::TextureDataLayout {
+            wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: (self.dimensions.0 * 4 * 16) as u32,
-                rows_per_image: self.dimensions.1 as u32,
+                bytes_per_row: ((self.dimensions.0 * 4 * 16) as u32).try_into().ok(),
+                rows_per_image: (self.dimensions.1 as u32).try_into().ok(),
             },
             self.palette_texture_size,
         );
@@ -890,8 +891,8 @@ impl Renderer {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Main sprite cell pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &self.render_target_view,
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &self.render_target_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -918,8 +919,8 @@ impl Renderer {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Screen pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &sc_tex.get(),
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &sc_tex.get(),
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
@@ -999,17 +1000,17 @@ impl Renderer {
                             label: Some("Main render encoder"),
                         });
                 encoder.copy_texture_to_buffer(
-                    wgpu::TextureCopyView {
+                    wgpu::ImageCopyTexture {
                         texture: &texture,
                         mip_level: 0,
                         origin: wgpu::Origin3d::ZERO,
                     },
-                    wgpu::BufferCopyView {
+                    wgpu::ImageCopyBuffer {
                         buffer: &download_buffer,
-                        layout: wgpu::TextureDataLayout {
+                        layout: wgpu::ImageDataLayout {
                             offset: 0,
-                            bytes_per_row: padded_bytes_per_row,
-                            rows_per_image: 0,
+                            bytes_per_row: padded_bytes_per_row.try_into().ok(),
+                            rows_per_image: None,
                         },
                     },
                     *output_size,
