@@ -47,6 +47,8 @@ where
 struct CellGlobals {
     screen_size_in_sprites: [u32; 2],
     sprite_map_dimensions: [u32; 2],
+    sprite_texture_dimensions: [u32; 2],
+    sprite_dimensions: [u32; 2],
     palette_texture_dimensions: [u32; 2],
 }
 
@@ -429,16 +431,6 @@ impl Renderer {
 
         let sprite_texture_view = sprite_texture_gpu.create_view(&Default::default());
 
-        let sprite_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
         let palette_texture_size = wgpu::Extent3d {
             width: dimensions.0 as u32 * 16u32,
             height: dimensions.1 as u32,
@@ -457,16 +449,6 @@ impl Renderer {
 
         let palette_texture_view = palette_texture.create_view(&Default::default());
 
-        let palette_texture_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            ..Default::default()
-        });
-
         let cell_texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[
@@ -483,28 +465,10 @@ impl Renderer {
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                            filtering: true,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             view_dimension: wgpu::TextureViewDimension::D2,
                             multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 3,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler {
-                            comparison: false,
-                            filtering: false,
                         },
                         count: None,
                     },
@@ -521,15 +485,7 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sprite_texture_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
                     resource: wgpu::BindingResource::TextureView(&palette_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&palette_texture_sampler),
                 },
             ],
             label: Some("cell_texture_bind_group"),
@@ -583,6 +539,14 @@ impl Renderer {
             sprite_map_dimensions: [
                 (sprite_texture.width() / sprite_texture.sprite_width()) as u32,
                 (sprite_texture.height() / sprite_texture.sprite_height()) as u32,
+            ],
+            sprite_texture_dimensions: [
+                sprite_texture.width() as u32,
+                sprite_texture.height() as u32,
+            ],
+            sprite_dimensions: [
+                sprite_texture.sprite_width() as u32,
+                sprite_texture.sprite_height() as u32,
             ],
             palette_texture_dimensions: [palette_texture_size.width, palette_texture_size.height],
         };

@@ -222,7 +222,7 @@ fn gray() {
 
 #[test]
 fn big() {
-    let mut fixture = RenderTestFixture::new(1000, 10);
+    let mut fixture = RenderTestFixture::new(512, 10);
 
     fixture.renderer.update(
         vec![
@@ -231,7 +231,7 @@ fn big() {
                 sprite: 1,
                 ..Default::default()
             };
-            10000
+            5120
         ]
         .iter(),
     );
@@ -245,6 +245,7 @@ fn big() {
         .unwrap()
         .to_rgba()
         .into_raw();
+
     assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
 }
 
