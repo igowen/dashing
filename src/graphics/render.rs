@@ -423,8 +423,8 @@ impl Renderer {
             sprite_texture.pixels(),
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: (sprite_texture.width() as u32).try_into().ok(),
-                rows_per_image: (sprite_texture.height() as u32).try_into().ok(),
+                bytes_per_row: std::num::NonZeroU32::new(sprite_texture.width() as u32),
+                rows_per_image: std::num::NonZeroU32::new(sprite_texture.height() as u32),
             },
             sprite_texture_size,
         );
@@ -432,16 +432,16 @@ impl Renderer {
         let sprite_texture_view = sprite_texture_gpu.create_view(&Default::default());
 
         let palette_texture_size = wgpu::Extent3d {
-            width: dimensions.0 as u32 * 16u32,
-            height: dimensions.1 as u32,
-            depth_or_array_layers: 1,
+            width: 16,
+            height: dimensions.0 as u32,
+            depth_or_array_layers: dimensions.1 as u32,
         };
 
         let palette_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: palette_texture_size,
             mip_level_count: 1,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension: wgpu::TextureDimension::D3,
             format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
             label: Some("palette texture"),
@@ -467,7 +467,7 @@ impl Renderer {
                         visibility: wgpu::ShaderStage::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: false },
-                            view_dimension: wgpu::TextureViewDimension::D2,
+                            view_dimension: wgpu::TextureViewDimension::D3,
                             multisampled: false,
                         },
                         count: None,
@@ -816,8 +816,8 @@ impl Renderer {
             &flat_palette_data[..],
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: ((self.dimensions.0 * 4 * 16) as u32).try_into().ok(),
-                rows_per_image: (self.dimensions.1 as u32).try_into().ok(),
+                bytes_per_row: std::num::NonZeroU32::new(16 * 4),
+                rows_per_image: std::num::NonZeroU32::new(self.dimensions.0 as u32),
             },
             self.palette_texture_size,
         );
@@ -973,7 +973,7 @@ impl Renderer {
                         buffer: &download_buffer,
                         layout: wgpu::ImageDataLayout {
                             offset: 0,
-                            bytes_per_row: padded_bytes_per_row.try_into().ok(),
+                            bytes_per_row: std::num::NonZeroU32::new(padded_bytes_per_row),
                             rows_per_image: None,
                         },
                     },

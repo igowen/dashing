@@ -61,7 +61,7 @@ struct CellFragmentOutput {
 [[group(0), binding(0)]] var<uniform> cell_globals: CellGlobals;
 
 [[group(1), binding(0)]] var sprite_texture: texture_2d<u32>;
-[[group(1), binding(1)]] var palette_texture: texture_2d<f32>;
+[[group(1), binding(1)]] var palette_texture: texture_3d<f32>;
 
 [[stage(fragment)]]
 fn fs_main(in: CellFragmentInput) -> CellFragmentOutput {
@@ -74,7 +74,8 @@ fn fs_main(in: CellFragmentInput) -> CellFragmentOutput {
         0);
     out.color = textureLoad(
         palette_texture,
-        vec2<i32>(i32(in.cell_coords.x * 16u32 + clamp(t.x, 0u32, 15u32)),
+        vec3<i32>(i32(clamp(t.x, 0u32, 15u32)),
+                  i32(in.cell_coords.x),
                   i32(in.cell_coords.y)),
         0);
 
