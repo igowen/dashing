@@ -84,21 +84,23 @@ impl RenderTestFixture {
 
 #[test]
 fn render_one_cell() {
-    let mut fixture = RenderTestFixture::new(1, 1);
+    let actual_image = {
+        let mut fixture = RenderTestFixture::new(1, 1);
 
-    fixture.renderer.update(
-        [SpriteCell {
-            palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
-            sprite: 1,
-            ..Default::default()
-        }]
-        .iter(),
-    );
+        fixture.renderer.update(
+            [SpriteCell {
+                palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
+                sprite: 1,
+                ..Default::default()
+            }]
+            .iter(),
+        );
 
-    // Render the frame.
-    fixture.renderer.render_frame().unwrap();
+        // Render the frame.
+        fixture.renderer.render_frame().unwrap();
 
-    let actual_image = fixture.extract_render_result();
+        fixture.extract_render_result()
+    };
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/one_cell.png"))
         .unwrap()
@@ -153,38 +155,40 @@ fn render_one_cell_sprite_change() {
 
 #[test]
 fn render_2x2_with_color() {
-    let mut fixture = RenderTestFixture::new(2, 2);
+    let actual_image = {
+        let mut fixture = RenderTestFixture::new(2, 2);
 
-    fixture.renderer.update(
-        [
-            SpriteCell {
-                palette: Palette::mono([255, 0, 255]).set(0, [0, 0, 0]),
-                sprite: 72,
-                ..Default::default()
-            },
-            SpriteCell {
-                palette: Palette::mono([0, 255, 255]).set(0, [0, 0, 0]),
-                sprite: 105,
-                ..Default::default()
-            },
-            SpriteCell {
-                palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
-                sprite: 33,
-                ..Default::default()
-            },
-            SpriteCell {
-                palette: Palette::mono([0, 255, 0]).set(0, [0, 0, 0]),
-                sprite: 19,
-                ..Default::default()
-            },
-        ]
-        .iter(),
-    );
+        fixture.renderer.update(
+            [
+                SpriteCell {
+                    palette: Palette::mono([255, 0, 255]).set(0, [0, 0, 0]),
+                    sprite: 72,
+                    ..Default::default()
+                },
+                SpriteCell {
+                    palette: Palette::mono([0, 255, 255]).set(0, [0, 0, 0]),
+                    sprite: 105,
+                    ..Default::default()
+                },
+                SpriteCell {
+                    palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
+                    sprite: 33,
+                    ..Default::default()
+                },
+                SpriteCell {
+                    palette: Palette::mono([0, 255, 0]).set(0, [0, 0, 0]),
+                    sprite: 19,
+                    ..Default::default()
+                },
+            ]
+            .iter(),
+        );
 
-    // Render the frame.
-    fixture.renderer.render_frame().unwrap();
+        // Render the frame.
+        fixture.renderer.render_frame().unwrap();
 
-    let actual_image = fixture.extract_render_result();
+        fixture.extract_render_result()
+    };
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/hi.png"))
         .unwrap()
@@ -197,21 +201,23 @@ fn render_2x2_with_color() {
 
 #[test]
 fn gray() {
-    let mut fixture = RenderTestFixture::new(1, 1);
+    let actual_image = {
+        let mut fixture = RenderTestFixture::new(1, 1);
 
-    fixture.renderer.update(
-        [SpriteCell {
-            palette: Palette::mono([128, 128, 128]),
-            sprite: 0,
-            ..Default::default()
-        }]
-        .iter(),
-    );
+        fixture.renderer.update(
+            [SpriteCell {
+                palette: Palette::mono([128, 128, 128]),
+                sprite: 0,
+                ..Default::default()
+            }]
+            .iter(),
+        );
 
-    // Render the frame.
-    fixture.renderer.render_frame().unwrap();
+        // Render the frame.
+        fixture.renderer.render_frame().unwrap();
 
-    let actual_image = fixture.extract_render_result();
+        fixture.extract_render_result()
+    };
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/50pct_gray.png"))
         .unwrap()
@@ -222,24 +228,26 @@ fn gray() {
 
 #[test]
 fn big() {
-    let mut fixture = RenderTestFixture::new(512, 10);
+    let actual_image = {
+        let mut fixture = RenderTestFixture::new(680, 10);
 
-    fixture.renderer.update(
-        vec![
-            SpriteCell {
-                palette: Palette::mono([128, 128, 128]).set(1, [255, 0, 0]),
-                sprite: 1,
-                ..Default::default()
-            };
-            5120
-        ]
-        .iter(),
-    );
+        fixture.renderer.update(
+            vec![
+                SpriteCell {
+                    palette: Palette::mono([128, 128, 128]).set(1, [255, 0, 0]),
+                    sprite: 1,
+                    ..Default::default()
+                };
+                6800
+            ]
+            .iter(),
+        );
 
-    // Render the frame.
-    fixture.renderer.render_frame().unwrap();
+        // Render the frame.
+        fixture.renderer.render_frame().unwrap();
 
-    let actual_image = fixture.extract_render_result();
+        fixture.extract_render_result()
+    };
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/big.png"))
         .unwrap()
@@ -268,32 +276,34 @@ fn full_palette() {
     )
     .unwrap();
 
-    let mut renderer = Renderer::new(
-        None,
-        (1, 1),
-        &tex,
-        [0, 255, 0].into(),
-        wgpu::FilterMode::Nearest,
-        wgpu::PresentMode::Fifo,
-    )
-    .unwrap();
+    let actual_image = {
+        let mut renderer = Renderer::new(
+            None,
+            (1, 1),
+            &tex,
+            [0, 255, 0].into(),
+            wgpu::FilterMode::Nearest,
+            wgpu::PresentMode::Fifo,
+        )
+        .unwrap();
 
-    renderer.update(
-        vec![
-            SpriteCell {
-                palette: Default::default(),
-                sprite: 0,
-                ..Default::default()
-            };
-            1
-        ]
-        .iter(),
-    );
+        renderer.update(
+            vec![
+                SpriteCell {
+                    palette: Default::default(),
+                    sprite: 0,
+                    ..Default::default()
+                };
+                1
+            ]
+            .iter(),
+        );
 
-    // Render the frame.
-    renderer.render_frame().unwrap();
+        // Render the frame.
+        renderer.render_frame().unwrap();
 
-    let actual_image = renderer.fetch_render_output().unwrap();
+        renderer.fetch_render_output().unwrap()
+    };
 
     let expected_image =
         image::load_from_memory(include_bytes!("testdata/full_palette_output.png"))
