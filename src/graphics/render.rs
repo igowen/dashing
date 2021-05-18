@@ -16,7 +16,6 @@ use itertools;
 #[allow(unused)]
 use itertools::Itertools;
 use log::{info, trace};
-use std::convert::TryInto;
 
 use crate::graphics::drawing::SpriteCell;
 use crate::resources::sprite::SpriteTexture;
