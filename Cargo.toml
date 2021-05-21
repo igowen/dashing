@@ -1,13 +1,13 @@
 [package]
 name = "dashing"
 version = "0.0.1"
-authors = ["igowen"]
+authors = ["Ian Gowen <ian@gowen.cc>"]
 license = "Apache-2.0"
 publish = false
 edition = "2018"
 description = "ASCII-style roguelike engine"
 repository = "https://github.com/igowen/dashing"
-categories = ["games", "rendering::engine"]
+categories = ["game-development", "game-engines", "rendering::engine"]
 
 [features]
 
