@@ -10,9 +10,6 @@ repository = "https://github.com/igowen/dashing"
 categories = ["games", "rendering::engine"]
 
 [features]
-# The ECS part of the library is optional, since nothing in the library itself depends on it.
-default = ["ecs"]
-ecs = []
 
 [dependencies]
 bytemuck = { version = "1.5.0", features = ["derive"] }

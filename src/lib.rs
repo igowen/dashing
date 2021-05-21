@@ -52,10 +52,6 @@ pub mod input;
 /// Functionality for building in-game UIs.
 pub mod ui;
 
-#[cfg(feature = "ecs")]
-#[macro_use]
-pub mod ecs;
-
 use log::debug;
 
 /// Signals to indicate whether the engine should keep running or halt.
