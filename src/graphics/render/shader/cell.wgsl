@@ -9,11 +9,10 @@ struct CellVertexInput {
 
 struct CellVertexOutput {
   [[builtin(position)]] pos: vec4<f32>;
-  [[location(0), interpolate(flat)]] index: u32;
+  [[location(0)]] index: u32;
   [[location(1)]] uv: vec2<f32>;
-  [[location(2), interpolate(flat)]] cell_coords: vec2<u32>;
+  [[location(2), interpolate(flat)]] cell_coords: vec2<f32>;
 };
-
 
 [[block]]
 struct CellGlobals {
@@ -38,7 +37,7 @@ fn vs_main(in: CellVertexInput) -> CellVertexOutput {
         + sprite_offset / vec2<f32>(cell_globals.sprite_map_dimensions);
 
     out.index = in.index;
-    out.cell_coords = in.cell_coords;
+    out.cell_coords = vec2<f32>(in.cell_coords);
 
     out.pos = vec4<f32>(
         in.pos * 2.0 / vec2<f32>(cell_globals.screen_size_in_sprites) + in.translate,
@@ -48,36 +47,22 @@ fn vs_main(in: CellVertexInput) -> CellVertexOutput {
     return out;
 }
 
-struct CellFragmentInput {
-  [[location(0), interpolate(flat)]] index: u32;
-  [[location(1)]] uv: vec2<f32>;
-  [[location(2), interpolate(flat)]] cell_coords: vec2<u32>;
-};
-
-struct CellFragmentOutput {
-  [[location(0)]] color: vec4<f32>;
-};
-
 [[group(0), binding(0)]] var<uniform> cell_globals: CellGlobals;
 
 [[group(1), binding(0)]] var sprite_texture: texture_2d<u32>;
 [[group(1), binding(1)]] var palette_texture: texture_3d<f32>;
 
 [[stage(fragment)]]
-fn fs_main(in: CellFragmentInput) -> CellFragmentOutput {
-    var out: CellFragmentOutput;
+fn fs_main(in: CellVertexOutput) -> [[location(0)]] vec4<f32> {
     // The "color" here is the index into the palette for this cell (0-15).
     var t: vec4<u32> = textureLoad(
         sprite_texture,
         vec2<i32>(i32(floor(in.uv.x * f32(cell_globals.sprite_texture_dimensions.x))),
                   i32(floor(in.uv.y * f32(cell_globals.sprite_texture_dimensions.y)))),
         0);
-    out.color = textureLoad(
-        palette_texture,
-        vec3<i32>(i32(clamp(t.x, 0u32, 15u32)),
-                  i32(in.cell_coords.x),
-                  i32(in.cell_coords.y)),
-        0);
-
-    return out;
+    return textureLoad(palette_texture,
+                       vec3<i32>(i32(clamp(t.x, 0u32, 15u32)),
+                                 i32(in.cell_coords.x),
+                                 i32(in.cell_coords.y)),
+                       0);
 }

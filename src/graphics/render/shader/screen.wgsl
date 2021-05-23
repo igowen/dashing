@@ -26,22 +26,11 @@ fn vs_main(in: ScreenVertexInput) -> ScreenVertexOutput {
   return out;
 }
 
-struct ScreenFragmentInput {
-  [[location(0)]] uv: vec2<f32>;
-};
-
-struct ScreenFragmentOutput {
-  [[location(0)]] color: vec4<f32>;
-};
-
 [[group(0), binding(0)]] var screen_texture: texture_2d<f32>;
 [[group(0), binding(1)]] var screen_sampler: sampler;
 [[group(1), binding(0)]] var screen_globals: ScreenGlobals;
 
 [[stage(fragment)]]
-fn fs_main(in: ScreenFragmentInput) -> ScreenFragmentOutput {
-  var out: ScreenFragmentOutput;
-  out.color = textureSample(screen_texture, screen_sampler, in.uv);
-
-  return out;
+fn fs_main(in: ScreenVertexOutput) -> [[location(0)]] vec4<f32> {
+  return textureSample(screen_texture, screen_sampler, in.uv);
 }
