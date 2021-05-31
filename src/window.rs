@@ -161,6 +161,7 @@ impl<'a> WindowBuilder<'a> {
             .with_decorations(!self.full_screen)
             .with_resizable(self.resizable)
             .with_visible(false)
+            .with_min_inner_size(winit::dpi::PhysicalSize::new(1, 1))
             .build(&event_loop)?;
 
         let renderer = crate::graphics::render::Renderer::new(
