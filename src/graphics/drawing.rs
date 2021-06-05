@@ -255,8 +255,8 @@ mod tests {
         }
         l2.stamp_onto(&mut l1, 0, 0);
 
+        #[rustfmt::skip]
         let expected_sprites: Vec<u32> = {
-            #[rustfmt::skip]
             vec![2, 2, 0, 0,
                  2, 2, 0, 0,
                  2, 2, 0, 0,
@@ -278,8 +278,9 @@ mod tests {
         }
         l2[(1, 1)].transparent = true;
         l2.stamp_onto(&mut l1, 0, 0);
+
+        #[rustfmt::skip]
         let expected_sprites: Vec<u32> = {
-            #[rustfmt::skip]
             vec![2, 2, 0, 0,
                  2, 0, 0, 0,
                  2, 2, 0, 0,

@@ -204,8 +204,8 @@ mod tests {
 
     #[test]
     fn sprite_texture_basic() {
+        #[rustfmt::skip]
         let sprites = vec![
-            #[rustfmt::skip]
             Sprite{
                 id: 0,
                 pixels: Box::new([0, 1, 1, 0,
@@ -213,7 +213,6 @@ mod tests {
                                   0, 0, 1, 1,
                                   0, 0, 0, 1]),
             },
-            #[rustfmt::skip]
             Sprite{
                 id: 1,
                 pixels: Box::new([1, 1, 1, 1,
@@ -232,8 +231,9 @@ mod tests {
         assert_that!(texture.height, is(equal_to(4)));
         assert_that!(texture.sprite_width, is(equal_to(4)));
         assert_that!(texture.sprite_height, is(equal_to(4)));
+
+        #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
-            #[rustfmt::skip]
             vec![0, 1, 1, 0, 1, 1, 1, 1,
                  1, 0, 0, 1, 1, 1, 1, 0,
                  0, 0, 1, 1, 1, 1, 0, 0,
@@ -248,8 +248,8 @@ mod tests {
 
     #[test]
     fn sprite_texture_uneven() {
+        #[rustfmt::skip]
         let sprites = vec![
-            #[rustfmt::skip]
             Sprite{
                 id: 0,
                 pixels: Box::new([0, 0, 0, 0,
@@ -257,7 +257,6 @@ mod tests {
                                   0, 0, 1, 1,
                                   0, 1, 1, 1]),
             },
-            #[rustfmt::skip]
             Sprite{
                 id: 1,
                 pixels: Box::new([1, 1, 1, 1,
@@ -265,7 +264,6 @@ mod tests {
                                   1, 1, 0, 0,
                                   1, 0, 0, 0]),
             },
-            #[rustfmt::skip]
             Sprite{
                 id: 2,
                 pixels: Box::new([1, 1, 1, 1,
@@ -284,8 +282,8 @@ mod tests {
         assert_that!(texture.height, is(equal_to(8)));
         assert_that!(texture.sprite_width, is(equal_to(4)));
         assert_that!(texture.sprite_height, is(equal_to(4)));
+        #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
-            #[rustfmt::skip]
             vec![0, 0, 0, 0, 1, 1, 1, 1,
                  0, 0, 0, 1, 1, 1, 1, 0,
                  0, 0, 1, 1, 1, 1, 0, 0,
@@ -304,8 +302,8 @@ mod tests {
 
     #[test]
     fn sprite_texture_non_square() {
+        #[rustfmt::skip]
         let sprites = vec![
-            #[rustfmt::skip]
             Sprite{
                 id: 0,
                 pixels: Box::new([1, 0, 1,
@@ -313,7 +311,6 @@ mod tests {
                                   0, 1, 0,
                                   1, 0, 1]),
             },
-            #[rustfmt::skip]
             Sprite{
                 id: 1,
                 pixels: Box::new([1, 1, 1,
@@ -321,7 +318,6 @@ mod tests {
                                   1, 1, 0,
                                   1, 0, 0]),
             },
-            #[rustfmt::skip]
             Sprite{
                 id: 2,
                 pixels: Box::new([1, 1, 1,
@@ -340,8 +336,8 @@ mod tests {
         assert_that!(texture.height, is(equal_to(8)));
         assert_that!(texture.sprite_width, is(equal_to(3)));
         assert_that!(texture.sprite_height, is(equal_to(4)));
+        #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
-            #[rustfmt::skip]
             vec![1, 0, 1, 1, 1, 1,
                  0, 1, 0, 1, 1, 0,
                  0, 1, 0, 1, 1, 0,
