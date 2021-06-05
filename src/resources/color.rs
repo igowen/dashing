@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bytemuck;
-use std;
-
 /// 8-bit RGB color. Wrapped so color space conversion is easy.
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, bytemuck::Pod, bytemuck::Zeroable)]
@@ -22,8 +19,8 @@ pub struct Color([u8; 3]);
 
 impl Color {
     /// New `Color` from R, G, and B components.
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Color([r, g, b])
+    pub fn new(red: u8, green: u8, blue: u8) -> Self {
+        Color([red, green, blue])
     }
 
     /// Convert HSV (hue, saturation, value) representation to RGB. `h` should be in the range [0,
@@ -92,18 +89,18 @@ impl Color {
     /// );
     ///
     /// ```
-    pub fn from_hsv(h: f32, s: f32, v: f32) -> Self {
-        let hh = ((h % 360.0) + if h < 0.0 { 360.0 } else { 0.0 }) / 60.0;
-        let ss = s.min(1.0).max(0.0);
-        let vv = v.min(1.0).max(0.0);
+    pub fn from_hsv(hue: f32, saturation: f32, value: f32) -> Self {
+        let hh = ((hue % 360.0) + if hue < 0.0 { 360.0 } else { 0.0 }) / 60.0;
+        let ss = saturation.min(1.0).max(0.0);
+        let vv = value.min(1.0).max(0.0);
 
         let chroma = vv * ss;
-        let x = chroma * (1.0 - (hh % 2.0 - 1.0).abs());
+        let secondary = chroma * (1.0 - (hh % 2.0 - 1.0).abs());
 
         let m = vv - chroma;
 
         let i = ((chroma + m) * 255.0) as u8;
-        let j = ((x + m) * 255.0) as u8;
+        let j = ((secondary + m) * 255.0) as u8;
         let k = (m * 255.0) as u8;
 
         match hh as i32 {
@@ -188,18 +185,18 @@ impl Color {
     /// );
     ///
     /// ```
-    pub fn from_hsl(h: f32, s: f32, l: f32) -> Self {
-        let hh = ((h % 360.0) + if h < 0.0 { 360.0 } else { 0.0 }) / 60.0;
-        let ss = s.min(1.0).max(0.0);
-        let ll = l.min(1.0).max(0.0);
+    pub fn from_hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
+        let hh = ((hue % 360.0) + if hue < 0.0 { 360.0 } else { 0.0 }) / 60.0;
+        let ss = saturation.min(1.0).max(0.0);
+        let ll = lightness.min(1.0).max(0.0);
 
         let chroma = (1.0 - (2.0 * ll - 1.0).abs()) * ss;
-        let x = chroma * (1.0 - (hh % 2.0 - 1.0).abs());
+        let secondary = chroma * (1.0 - (hh % 2.0 - 1.0).abs());
 
         let m = ll - chroma / 2.0;
 
         let i = ((chroma + m) * 255.0) as u8;
-        let j = ((x + m) * 255.0) as u8;
+        let j = ((secondary + m) * 255.0) as u8;
         let k = (m * 255.0) as u8;
 
         match hh as i32 {
@@ -232,9 +229,9 @@ impl Color {
         let h;
         if max - min == 0.0 {
             h = 0.0;
-        } else if rf == max {
+        } else if (rf - max).abs() < f32::EPSILON {
             h = (gf - bf) / (max - min);
-        } else if gf == max {
+        } else if (gf - max).abs() < f32::EPSILON {
             h = 2.0 + (bf - rf) / (max - min);
         } else {
             // bf == max
@@ -603,28 +600,28 @@ impl ProceduralPalette {
     /// let p = Palette::default();
     /// assert_eq!(p, ProceduralPalette::default().eval(p));
     /// ```
-    pub fn eval(&self, p: Palette) -> Palette {
+    pub fn eval(&self, palette: Palette) -> Palette {
         fn convert((r, g, b): (f32, f32, f32)) -> [u8; 3] {
             [(r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8]
         }
         Palette {
             colors: [
-                convert(self.0[0].eval(p, PaletteIndex::P0)),
-                convert(self.0[1].eval(p, PaletteIndex::P1)),
-                convert(self.0[2].eval(p, PaletteIndex::P2)),
-                convert(self.0[3].eval(p, PaletteIndex::P3)),
-                convert(self.0[4].eval(p, PaletteIndex::P4)),
-                convert(self.0[5].eval(p, PaletteIndex::P5)),
-                convert(self.0[6].eval(p, PaletteIndex::P6)),
-                convert(self.0[7].eval(p, PaletteIndex::P7)),
-                convert(self.0[8].eval(p, PaletteIndex::P8)),
-                convert(self.0[9].eval(p, PaletteIndex::P9)),
-                convert(self.0[10].eval(p, PaletteIndex::P10)),
-                convert(self.0[11].eval(p, PaletteIndex::P11)),
-                convert(self.0[12].eval(p, PaletteIndex::P12)),
-                convert(self.0[13].eval(p, PaletteIndex::P13)),
-                convert(self.0[14].eval(p, PaletteIndex::P14)),
-                convert(self.0[15].eval(p, PaletteIndex::P15)),
+                convert(self.0[0].eval(palette, PaletteIndex::P0)),
+                convert(self.0[1].eval(palette, PaletteIndex::P1)),
+                convert(self.0[2].eval(palette, PaletteIndex::P2)),
+                convert(self.0[3].eval(palette, PaletteIndex::P3)),
+                convert(self.0[4].eval(palette, PaletteIndex::P4)),
+                convert(self.0[5].eval(palette, PaletteIndex::P5)),
+                convert(self.0[6].eval(palette, PaletteIndex::P6)),
+                convert(self.0[7].eval(palette, PaletteIndex::P7)),
+                convert(self.0[8].eval(palette, PaletteIndex::P8)),
+                convert(self.0[9].eval(palette, PaletteIndex::P9)),
+                convert(self.0[10].eval(palette, PaletteIndex::P10)),
+                convert(self.0[11].eval(palette, PaletteIndex::P11)),
+                convert(self.0[12].eval(palette, PaletteIndex::P12)),
+                convert(self.0[13].eval(palette, PaletteIndex::P13)),
+                convert(self.0[14].eval(palette, PaletteIndex::P14)),
+                convert(self.0[15].eval(palette, PaletteIndex::P15)),
             ],
         }
     }
@@ -649,13 +646,17 @@ pub enum ColorExpression {
 
 impl ColorExpression {
     /// Evaluate this expression, producing an `(f32, f32, f32)` tuple.
-    fn eval(&self, p: Palette, i: PaletteIndex) -> (f32, f32, f32) {
+    fn eval(&self, palette: Palette, index: PaletteIndex) -> (f32, f32, f32) {
         match self {
-            ColorExpression::Null => Color::from(p[i]).into(),
-            ColorExpression::PaletteMap(pi) => Color::from(p[*pi]).into(),
-            ColorExpression::Rgb(r, g, b) => (r.eval(p, i), g.eval(p, i), b.eval(p, i)),
-            ColorExpression::Mono(v) => {
-                let vv = v.eval(p, i);
+            ColorExpression::Null => Color::from(palette[index]).into(),
+            ColorExpression::PaletteMap(pi) => Color::from(palette[*pi]).into(),
+            ColorExpression::Rgb(r, g, b) => (
+                r.eval(palette, index),
+                g.eval(palette, index),
+                b.eval(palette, index),
+            ),
+            ColorExpression::Mono(value) => {
+                let vv = value.eval(palette, index);
                 (vv, vv, vv)
             }
         }
