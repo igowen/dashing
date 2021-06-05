@@ -22,23 +22,23 @@ jobs:
             channel: stable
             prepare_command: rustup default stable-msvc
       steps:
-      - uses: actions/checkout@v2
-      - if: matrix.channel == 'nightly'
-        name: Install latest nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-      - if: matrix.channel == 'stable'
-        run: rustup component add clippy
-        # prepare
-      - if: matrix.prepare_command != ''
-        run: ${{ matrix.prepare_command }}
-      - run: cargo check
-      - if: matrix.channel == 'stable'
-        run: cargo clippy
-      - if: matrix.channel == 'nightly'
-        run: cargo test -- --nocapture
+        - uses: actions/checkout@v2
+        - if: matrix.channel == 'nightly'
+          name: Install latest nightly
+          uses: actions-rs/toolchain@v1
+          with:
+            toolchain: nightly
+            override: true
+        - if: matrix.channel == 'stable'
+          run: rustup component add clippy
+          # prepare
+        - if: matrix.prepare_command != ''
+          run: ${{ matrix.prepare_command }}
+        - run: cargo check
+        - if: matrix.channel == 'stable'
+          run: cargo clippy
+        - if: matrix.channel == 'nightly'
+          run: cargo test -- --nocapture
 
   lint:
     name: Clippy
