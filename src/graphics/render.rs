@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use itertools;
 #[allow(unused)]
 use itertools::Itertools;
 use log::{info, trace};
 
 use crate::graphics::drawing::SpriteCell;
 use crate::resources::sprite::SpriteTexture;
-use bytemuck;
 use wgpu::util::DeviceExt;
 
 #[cfg(test)]
@@ -720,7 +718,7 @@ impl Renderer {
                 b = a % b;
                 a = t;
             }
-            return a;
+            a
         }
         let g = gcd(ax, ay);
         ax /= g;
@@ -920,23 +918,21 @@ impl Renderer {
     }
 
     pub(crate) fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        match &mut self.render_output {
-            RenderOutput::SwapChain {
-                ref mut swap_chain,
-                ref mut swap_chain_descriptor,
-                ref mut current_screen_size,
-                surface,
-                ..
-            } => {
-                *current_screen_size = new_size;
-                swap_chain_descriptor.width = new_size.width;
-                swap_chain_descriptor.height = new_size.height;
-                *swap_chain = self
-                    .device
-                    .create_swap_chain(&surface, &swap_chain_descriptor);
-            }
-            _ => {}
-        };
+        if let RenderOutput::SwapChain {
+            ref mut swap_chain,
+            ref mut swap_chain_descriptor,
+            ref mut current_screen_size,
+            surface,
+            ..
+        } = &mut self.render_output
+        {
+            *current_screen_size = new_size;
+            swap_chain_descriptor.width = new_size.width;
+            swap_chain_descriptor.height = new_size.height;
+            *swap_chain = self
+                .device
+                .create_swap_chain(&surface, &swap_chain_descriptor);
+        }
     }
 
     pub(crate) fn fetch_render_output(&self) -> Option<Box<[u8]>> {
@@ -989,7 +985,6 @@ impl Renderer {
                 .flat_map(|row| row.iter().take(unpadded_bytes_per_row as usize))
                 .cloned()
                 .collect::<Vec<_>>();
-            drop(download_slice);
             download_buffer.unmap();
             Some(unpadded_image.into_boxed_slice())
         } else {

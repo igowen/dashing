@@ -14,8 +14,6 @@
 
 use std::collections::HashMap;
 
-use winit;
-
 pub use winit::event::{ElementState, MouseButton, VirtualKeyCode};
 
 /// State of the modifier keys.
@@ -190,7 +188,7 @@ impl KeyBinding {
     /// `ctrl()`/`shift()`/`alt()`/`meta()` to build bindings that use modifiers.
     pub fn new(key: VirtualKeyCode) -> Self {
         KeyBinding {
-            key: key,
+            key,
             shift: false,
             ctrl: false,
             alt: false,
@@ -246,16 +244,13 @@ impl KeyBinding {
     fn try_from_event(event: winit::event::KeyboardInput) -> Option<KeyBinding> {
         if event.state == winit::event::ElementState::Pressed {
             #[allow(deprecated)]
-            match event.virtual_keycode {
-                None => None,
-                Some(vk) => Some(KeyBinding {
-                    key: vk,
-                    shift: event.modifiers.shift(),
-                    ctrl: event.modifiers.ctrl(),
-                    alt: event.modifiers.alt(),
-                    meta: event.modifiers.logo(),
-                }),
-            }
+            event.virtual_keycode.map(|vk| KeyBinding {
+                key: vk,
+                shift: event.modifiers.shift(),
+                ctrl: event.modifiers.ctrl(),
+                alt: event.modifiers.alt(),
+                meta: event.modifiers.logo(),
+            })
         } else {
             None
         }
@@ -287,7 +282,7 @@ impl<C: Clone> EventDispatcher<C> {
         EventDispatcher {
             key_bindings: HashMap::<KeyBinding, C>::new(),
             window_close_command: None,
-            command_queue: command_queue,
+            command_queue,
         }
     }
 

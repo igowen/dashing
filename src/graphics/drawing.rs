@@ -14,7 +14,6 @@
 
 use crate::resources::color::Palette;
 use crate::resources::sprite::SpriteMap;
-use std;
 
 /// Data for one on-screen sprite instance.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
@@ -39,8 +38,8 @@ impl SpriteLayer {
     /// Create a new `SpriteLayer` with the given width and height.
     pub fn new(width: usize, height: usize) -> Self {
         SpriteLayer {
-            width: width,
-            height: height,
+            width,
+            height,
             data: vec![SpriteCell::default(); width * height].into_boxed_slice(),
         }
     }
@@ -113,14 +112,14 @@ impl std::ops::Index<usize> for SpriteLayer {
     type Output = SpriteCell;
     #[inline]
     fn index(&self, i: usize) -> &Self::Output {
-        return &self.data[i];
+        &self.data[i]
     }
 }
 
 impl std::ops::IndexMut<usize> for SpriteLayer {
     #[inline]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
-        return &mut self.data[i];
+        &mut self.data[i]
     }
 }
 
@@ -128,14 +127,14 @@ impl std::ops::Index<(usize, usize)> for SpriteLayer {
     type Output = SpriteCell;
     #[inline]
     fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
-        return &self.data[y * self.width + x];
+        &self.data[y * self.width + x]
     }
 }
 
 impl std::ops::IndexMut<(usize, usize)> for SpriteLayer {
     #[inline]
     fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Self::Output {
-        return &mut self.data[y * self.width + x];
+        &mut self.data[y * self.width + x]
     }
 }
 
@@ -257,7 +256,7 @@ mod tests {
         l2.stamp_onto(&mut l1, 0, 0);
 
         let expected_sprites: Vec<u32> = {
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             vec![2, 2, 0, 0,
                  2, 2, 0, 0,
                  2, 2, 0, 0,
@@ -280,7 +279,7 @@ mod tests {
         l2[(1, 1)].transparent = true;
         l2.stamp_onto(&mut l1, 0, 0);
         let expected_sprites: Vec<u32> = {
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             vec![2, 2, 0, 0,
                  2, 0, 0, 0,
                  2, 2, 0, 0,

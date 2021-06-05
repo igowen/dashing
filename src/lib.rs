@@ -100,7 +100,7 @@ where
     ) -> Result<Self, window::WindowError> {
         Ok(Engine {
             window: window_builder.build()?,
-            driver: driver,
+            driver,
         })
     }
 

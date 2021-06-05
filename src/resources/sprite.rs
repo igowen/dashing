@@ -91,10 +91,10 @@ impl<'a> SpriteTexture {
             ));
         }
         Ok(SpriteTexture {
-            width: width,
-            height: height,
-            sprite_width: sprite_width,
-            sprite_height: sprite_height,
+            width,
+            height,
+            sprite_width,
+            sprite_height,
             pixels: Box::from(pixels),
             id_map: HashMap::new(), // XXX: fix this
         })
@@ -168,7 +168,7 @@ pub trait SpriteCollection {
             sprite_width: self.dimensions().0 as usize,
             sprite_height: self.dimensions().1 as usize,
             pixels: pixels.into_boxed_slice(),
-            id_map: id_map,
+            id_map,
         }
     }
 }
@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn sprite_texture_basic() {
         let sprites = vec![
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 0,
                 pixels: Box::new([0, 1, 1, 0,
@@ -213,7 +213,7 @@ mod tests {
                                   0, 0, 1, 1,
                                   0, 0, 0, 1]),
             },
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 1,
                 pixels: Box::new([1, 1, 1, 1,
@@ -233,7 +233,7 @@ mod tests {
         assert_that!(texture.sprite_width, is(equal_to(4)));
         assert_that!(texture.sprite_height, is(equal_to(4)));
         let expected_texture: Vec<u8> = {
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             vec![0, 1, 1, 0, 1, 1, 1, 1,
                  1, 0, 0, 1, 1, 1, 1, 0,
                  0, 0, 1, 1, 1, 1, 0, 0,
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn sprite_texture_uneven() {
         let sprites = vec![
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 0,
                 pixels: Box::new([0, 0, 0, 0,
@@ -257,7 +257,7 @@ mod tests {
                                   0, 0, 1, 1,
                                   0, 1, 1, 1]),
             },
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 1,
                 pixels: Box::new([1, 1, 1, 1,
@@ -265,7 +265,7 @@ mod tests {
                                   1, 1, 0, 0,
                                   1, 0, 0, 0]),
             },
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 2,
                 pixels: Box::new([1, 1, 1, 1,
@@ -285,7 +285,7 @@ mod tests {
         assert_that!(texture.sprite_width, is(equal_to(4)));
         assert_that!(texture.sprite_height, is(equal_to(4)));
         let expected_texture: Vec<u8> = {
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             vec![0, 0, 0, 0, 1, 1, 1, 1,
                  0, 0, 0, 1, 1, 1, 1, 0,
                  0, 0, 1, 1, 1, 1, 0, 0,
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn sprite_texture_non_square() {
         let sprites = vec![
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 0,
                 pixels: Box::new([1, 0, 1,
@@ -313,7 +313,7 @@ mod tests {
                                   0, 1, 0,
                                   1, 0, 1]),
             },
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 1,
                 pixels: Box::new([1, 1, 1,
@@ -321,7 +321,7 @@ mod tests {
                                   1, 1, 0,
                                   1, 0, 0]),
             },
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             Sprite{
                 id: 2,
                 pixels: Box::new([1, 1, 1,
@@ -341,7 +341,7 @@ mod tests {
         assert_that!(texture.sprite_width, is(equal_to(3)));
         assert_that!(texture.sprite_height, is(equal_to(4)));
         let expected_texture: Vec<u8> = {
-            #[cfg_attr(rustfmt, rustfmt_skip)]
+            #[rustfmt::skip]
             vec![1, 0, 1, 1, 1, 1,
                  0, 1, 0, 1, 1, 0,
                  0, 1, 0, 1, 1, 0,

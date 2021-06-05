@@ -13,8 +13,6 @@
 // limitations under the License.
 
 use log::info;
-use std;
-use wgpu;
 
 use crate::graphics::render;
 use crate::resources::color::Color;
@@ -93,10 +91,10 @@ impl<'a> WindowBuilder<'a> {
         sprite_texture: &'a SpriteTexture,
     ) -> Self {
         WindowBuilder {
-            window_title: window_title,
-            width: width,
-            height: height,
-            sprite_texture: sprite_texture,
+            window_title,
+            width,
+            height,
+            sprite_texture,
             vsync: true,
             resizable: false,
             full_screen: false,
@@ -136,7 +134,7 @@ impl<'a> WindowBuilder<'a> {
 
     /// Set the filter method used when scaling the screen.
     pub fn with_filter_method(mut self, f: FilterMethod) -> Self {
-        self.filter_method = f.into();
+        self.filter_method = f;
 
         self
     }
@@ -168,7 +166,7 @@ impl<'a> WindowBuilder<'a> {
             Some(&window),
             (self.width as _, self.height as _),
             self.sprite_texture,
-            self.clear_color.into(),
+            self.clear_color,
             self.filter_method.into(),
             if self.vsync {
                 wgpu::PresentMode::Fifo
@@ -180,9 +178,9 @@ impl<'a> WindowBuilder<'a> {
         Ok(Window {
             width: self.width,
             height: self.height,
-            window: window,
-            event_loop: event_loop,
-            renderer: renderer,
+            window,
+            event_loop,
+            renderer,
         })
     }
 }
