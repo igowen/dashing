@@ -66,8 +66,8 @@ pub fn main() {
     let mut decoder = png::Decoder::new(&tex_png[..]);
     decoder.set_transformations(png::Transformations::IDENTITY);
 
-    let (info, mut reader) = decoder.read_info().unwrap();
-    assert!(info.color_type == png::ColorType::Indexed);
+    let mut reader = decoder.read_info().unwrap();
+    assert!(reader.info().color_type == png::ColorType::Indexed);
     let mut imgdata = vec![0u8; reader.output_buffer_size()];
     reader.next_frame(&mut imgdata[..]).unwrap();
     let tex = dashing::resources::sprite::SpriteTexture::new_from_pixels(
