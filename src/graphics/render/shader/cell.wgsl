@@ -14,7 +14,6 @@ struct CellVertexOutput {
   [[location(2), interpolate(flat)]] cell_coords: vec2<f32>;
 };
 
-[[block]]
 struct CellGlobals {
   screen_size_in_sprites: vec2<u32>;
   sprite_map_dimensions: vec2<u32>;
@@ -46,8 +45,6 @@ fn vs_main(in: CellVertexInput) -> CellVertexOutput {
 
     return out;
 }
-
-[[group(0), binding(0)]] var<uniform> cell_globals: CellGlobals;
 
 [[group(1), binding(0)]] var sprite_texture: texture_2d<u32>;
 [[group(1), binding(1)]] var palette_texture: texture_3d<f32>;
