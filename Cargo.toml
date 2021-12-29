@@ -13,16 +13,16 @@ resolver = "2"
 [features]
 
 [dependencies]
-bytemuck = { version = "1.5.0", features = ["derive"] }
-futures = "0.3"
+bytemuck = { version = "1.7.3", features = ["derive"] }
+futures = "0.3.19"
 wgpu = "0.12"
-winit = "0.26"
-log = "0.4.8"
-time = "0.2"
-itertools = "0.10.0"
+winit = "0.26.0"
+log = "0.4.14"
+time = "0.3.5"
+itertools = "0.10.3"
 
 [dev-dependencies]
 hamcrest = "0.1.5"
-image = "0.20"
-png = "0.16"
+image = "0.23.14"
+png = "0.17.2"
 pretty_env_logger = "0.4"

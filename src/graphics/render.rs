@@ -52,7 +52,7 @@ struct CellGlobals {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 struct ScreenGlobals {
-    screen_size: [u32; 2],
+    screen_size: [f32; 2],
     scale_factor: [f32; 2],
     frame_counter: u32,
     elapsed_time: f32,
@@ -756,7 +756,7 @@ impl Renderer {
 
             clear_color: clear_color.into(),
             last_render_time: time::OffsetDateTime::now_utc(),
-            elapsed_time: time::Duration::zero(),
+            elapsed_time: time::Duration::ZERO,
             frame_counter: 0,
             fps: 0.0,
         })
