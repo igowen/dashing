@@ -4,18 +4,19 @@ version = "0.0.2"
 authors = ["Ian Gowen <ian@gowen.cc>"]
 license = "Apache-2.0"
 publish = false
-edition = "2018"
+edition = "2021"
 description = "ASCII-style roguelike engine"
 repository = "https://github.com/igowen/dashing"
 categories = ["game-development", "game-engines", "rendering::engine"]
+resolver = "2"
 
 [features]
 
 [dependencies]
 bytemuck = { version = "1.5.0", features = ["derive"] }
 futures = "0.3"
-wgpu = "0.8"
-winit = "0.24"
+wgpu = "0.10"
+winit = "0.26"
 log = "0.4.8"
 time = "0.2"
 itertools = "0.10.0"
