@@ -1,4 +1,3 @@
-[[block]]
 struct ScreenGlobals {
     screen_size: vec2<f32>;
     scale_factor: vec2<f32>;
@@ -28,7 +27,6 @@ fn vs_main(in: ScreenVertexInput) -> ScreenVertexOutput {
 
 [[group(0), binding(0)]] var screen_texture: texture_2d<f32>;
 [[group(0), binding(1)]] var screen_sampler: sampler;
-[[group(1), binding(0)]] var<uniform> screen_globals: ScreenGlobals;
 
 [[stage(fragment)]]
 fn fs_main(in: ScreenVertexOutput) -> [[location(0)]] vec4<f32> {

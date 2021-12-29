@@ -15,7 +15,7 @@ resolver = "2"
 [dependencies]
 bytemuck = { version = "1.5.0", features = ["derive"] }
 futures = "0.3"
-wgpu = "0.11"
+wgpu = "0.12"
 winit = "0.26"
 log = "0.4.8"
 time = "0.2"
