@@ -41,7 +41,7 @@ impl RenderTestFixture {
         let mut decoder = png::Decoder::new(&img[..]);
         // Need to set this so the index values don't get converted to RGBA.
         decoder.set_transformations(png::Transformations::IDENTITY);
-        let (_, mut reader) = decoder.read_info().unwrap();
+        let mut reader = decoder.read_info().unwrap();
         let mut imgdata = vec![0u8; reader.output_buffer_size()];
         reader.next_frame(&mut imgdata[..]).unwrap();
         let tex = SpriteTexture::new_from_pixels(
@@ -104,7 +104,7 @@ fn render_one_cell() {
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/one_cell.png"))
         .unwrap()
-        .to_rgba()
+        .to_rgba8()
         .into_raw();
     assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
 }
@@ -129,7 +129,7 @@ fn render_one_cell_sprite_change() {
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/one_cell.png"))
         .unwrap()
-        .to_rgba()
+        .to_rgba8()
         .into_raw();
 
     // These shouldn't match.
@@ -192,7 +192,7 @@ fn render_2x2_with_color() {
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/hi.png"))
         .unwrap()
-        .to_rgba()
+        .to_rgba8()
         .into_raw();
 
     assert_that!(actual_image.len(), is(equal_to(expected_image.len())));
@@ -221,7 +221,7 @@ fn gray() {
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/50pct_gray.png"))
         .unwrap()
-        .to_rgba()
+        .to_rgba8()
         .into_raw();
     assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
 }
@@ -251,7 +251,7 @@ fn big() {
 
     let expected_image = image::load_from_memory(include_bytes!("testdata/big.png"))
         .unwrap()
-        .to_rgba()
+        .to_rgba8()
         .into_raw();
 
     assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
@@ -263,7 +263,7 @@ fn full_palette() {
     let mut decoder = png::Decoder::new(&img[..]);
     // Need to set this so the index values don't get converted to RGBA.
     decoder.set_transformations(png::Transformations::IDENTITY);
-    let (_, mut reader) = decoder.read_info().unwrap();
+    let mut reader = decoder.read_info().unwrap();
     let mut imgdata = vec![0u8; reader.output_buffer_size()];
     reader.next_frame(&mut imgdata[..]).unwrap();
     let tex = SpriteTexture::new_from_pixels(
@@ -308,7 +308,7 @@ fn full_palette() {
     let expected_image =
         image::load_from_memory(include_bytes!("testdata/full_palette_output.png"))
             .unwrap()
-            .to_rgba()
+            .to_rgba8()
             .into_raw();
     assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
 }
