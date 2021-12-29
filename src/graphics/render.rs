@@ -869,7 +869,7 @@ impl Renderer {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Screen pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &output_texture_view,
+                    view: output_texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
@@ -920,7 +920,7 @@ impl Renderer {
             *current_screen_size = new_size;
             surface_configuration.width = new_size.width;
             surface_configuration.height = new_size.height;
-            surface.configure(&self.device, &surface_configuration);
+            surface.configure(&self.device, surface_configuration);
         }
     }
 
@@ -949,7 +949,7 @@ impl Renderer {
                         });
                 encoder.copy_texture_to_buffer(
                     wgpu::ImageCopyTexture {
-                        texture: &texture,
+                        texture,
                         mip_level: 0,
                         origin: wgpu::Origin3d::ZERO,
                         aspect: wgpu::TextureAspect::All,
