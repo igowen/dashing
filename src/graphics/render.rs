@@ -52,7 +52,7 @@ struct CellGlobals {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 struct ScreenGlobals {
-    screen_size: [f32; 2],
+    screen_size: [u32; 2],
     scale_factor: [f32; 2],
     frame_counter: u32,
     elapsed_time: f32,
@@ -294,6 +294,7 @@ impl Renderer {
             futures::executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: surface.as_ref(),
+                force_fallback_adapter: false,
             }))
             .expect("Failed to find an appropriate adapter");
 
@@ -821,13 +822,13 @@ impl Renderer {
         let mut surface_texture_view = None;
         let output_texture_view = match &self.render_output {
             RenderOutput::Surface { surface, .. } => {
-                let frame = surface_texture.insert(
+                let surface_texture = surface_texture.insert(
                     surface
-                        .get_current_frame()
-                        .expect("Couldn't get output frame")
-                        .output,
+                        .get_current_texture()
+                        .expect("Couldn't get output frame"),
                 );
-                surface_texture_view.insert(frame.texture.create_view(&Default::default()))
+                surface_texture_view
+                    .insert(surface_texture.texture.create_view(&Default::default()))
             }
             RenderOutput::Texture { texture_view, .. } => texture_view,
         };
@@ -887,6 +888,10 @@ impl Renderer {
             render_pass.draw_indexed(0..QUAD_INDICES.len() as _, 0, 0..1);
         }
         self.queue.submit(Some(encoder.finish()));
+
+        if let Some(surface_texture) = surface_texture.take() {
+            surface_texture.present();
+        }
 
         let t = time::OffsetDateTime::now_utc();
         let dt = t - self.last_render_time;
