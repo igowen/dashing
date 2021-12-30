@@ -12,12 +12,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-10.15, ubuntu-18.04, windows-2019]
+        os: [macos-11, ubuntu-20.04, windows-2019]
         channel: [stable, nightly]
         include:
           - os: windows-2019
             channel: stable
             prepare_command: rustup default stable-msvc
+          - os: ubuntu-20.04
+            channel: nightly
+            prepare_command: apt install mesa-vulkan-drivers
     steps:
       - uses: actions/checkout@v2
       - if: matrix.channel == 'nightly'
