@@ -20,7 +20,7 @@ jobs:
             prepare_command: rustup default stable-msvc
           - os: ubuntu-20.04
             channel: nightly
-            prepare_command: apt install mesa-vulkan-drivers
+            prepare_command: sudo apt install mesa-vulkan-drivers
     steps:
       - uses: actions/checkout@v2
       - if: matrix.channel == 'nightly'
