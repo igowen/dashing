@@ -365,6 +365,7 @@ impl Palette {
     ///
     /// assert_eq!(p[1], [0, 255, 0]);
     /// ```
+    #[must_use]
     pub fn set<C: Into<[u8; 3]>>(mut self, i: usize, color: C) -> Self {
         self.colors[i] = color.into();
         self

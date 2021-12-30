@@ -104,6 +104,7 @@ impl<'a> WindowBuilder<'a> {
     }
 
     /// Enable/disable vsync.
+    #[must_use]
     pub fn with_vsync(mut self, enable: bool) -> Self {
         self.vsync = enable;
 
@@ -111,6 +112,7 @@ impl<'a> WindowBuilder<'a> {
     }
 
     /// Enable/disable window resizing.
+    #[must_use]
     pub fn with_resizable(mut self, enable: bool) -> Self {
         self.resizable = enable;
 
@@ -118,6 +120,7 @@ impl<'a> WindowBuilder<'a> {
     }
 
     /// Enable full screen mode.
+    #[must_use]
     pub fn enable_full_screen(mut self) -> Self {
         self.full_screen = true;
 
@@ -126,6 +129,7 @@ impl<'a> WindowBuilder<'a> {
 
     /// Set the color that will be used to clear the screen. This color will be visible when the
     /// viewport's aspect ratio does not match the aspect ratio of the character display.
+    #[must_use]
     pub fn with_clear_color(mut self, c: Color) -> Self {
         self.clear_color = c;
 
@@ -133,6 +137,7 @@ impl<'a> WindowBuilder<'a> {
     }
 
     /// Set the filter method used when scaling the screen.
+    #[must_use]
     pub fn with_filter_method(mut self, f: FilterMethod) -> Self {
         self.filter_method = f;
 

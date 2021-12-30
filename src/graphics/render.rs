@@ -783,8 +783,7 @@ impl Renderer {
             .palette_data
             .iter()
             .flat_map(|c| c.iter())
-            .map(|c| vec![c[0], c[1], c[2], 255])
-            .flatten()
+            .flat_map(|c| vec![c[0], c[1], c[2], 255].into_iter())
             .collect();
 
         self.queue.write_buffer(

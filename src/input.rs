@@ -197,22 +197,28 @@ impl KeyBinding {
     }
 
     /// Set `ctrl` to true.
+    #[must_use]
     pub fn ctrl(mut self) -> Self {
         self.ctrl = true;
         self
     }
 
     /// Set `shift` to true.
+    #[must_use]
     pub fn shift(mut self) -> Self {
         self.shift = true;
         self
     }
+
     /// Set `alt` to true.
+    #[must_use]
     pub fn alt(mut self) -> Self {
         self.alt = true;
         self
     }
+
     /// Set `meta` to true.
+    #[must_use]
     pub fn meta(mut self) -> Self {
         self.meta = true;
         self
