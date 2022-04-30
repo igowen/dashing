@@ -12,13 +12,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-11, ubuntu-20.04, windows-2019]
-        channel: [stable, nightly]
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        channel: [stable]
         include:
-          - os: windows-2019
+          - os: windows-latest
             channel: stable
             prepare_command: rustup default stable-msvc
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             channel: nightly
             prepare_command: sudo apt install mesa-vulkan-drivers
     steps:
