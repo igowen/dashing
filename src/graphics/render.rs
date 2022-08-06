@@ -486,14 +486,14 @@ impl Renderer {
             label: Some("cell_texture_bind_group"),
         });
 
-        let cell_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        let cell_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Cell shader"),
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
                 "render/shader/cell.wgsl"
             ))),
         });
 
-        let screen_shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
+        let screen_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Screen shader"),
             source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
                 "render/shader/screen.wgsl"
@@ -585,7 +585,7 @@ impl Renderer {
             fragment: Some(wgpu::FragmentState {
                 module: &cell_shader,
                 entry_point: "fs_main",
-                targets: &[wgpu::TextureFormat::Rgba8Unorm.into()],
+                targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
@@ -696,7 +696,7 @@ impl Renderer {
                 fragment: Some(wgpu::FragmentState {
                     module: &screen_shader,
                     entry_point: "fs_main",
-                    targets: &[render_output.output_format().into()],
+                    targets: &[Some(render_output.output_format().into())],
                 }),
                 primitive: wgpu::PrimitiveState::default(),
                 depth_stencil: None,
@@ -839,7 +839,7 @@ impl Renderer {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Main sprite cell pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.render_target_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
@@ -851,7 +851,7 @@ impl Renderer {
                         }),
                         store: true,
                     },
-                }],
+                })],
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(&self.cell_render_pipeline);
@@ -867,14 +867,14 @@ impl Renderer {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Screen pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: output_texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
                         store: true,
                     },
-                }],
+                })],
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(&self.screen_render_pipeline);
@@ -966,9 +966,13 @@ impl Renderer {
                 self.queue.submit(Some(encoder.finish()));
             }
             let download_slice = download_buffer.slice(..);
-            let buffer_future = download_slice.map_async(wgpu::MapMode::Read);
+            let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
+            download_slice.map_async(wgpu::MapMode::Read, move |result| {
+                tx.send(result.expect("Couldn't map download buffer"))
+                    .expect("Couldn't send result back");
+            });
             self.device.poll(wgpu::Maintain::Wait);
-            futures::executor::block_on(buffer_future).expect("Couldn't download render output");
+            futures::executor::block_on(rx.receive()).expect("Didn't get any data");
             let unpadded_image = download_slice.get_mapped_range()[..]
                 .chunks(padded_bytes_per_row as usize)
                 .flat_map(|row| row.iter().take(unpadded_bytes_per_row as usize))

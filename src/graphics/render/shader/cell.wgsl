@@ -1,30 +1,30 @@
 struct CellVertexInput {
-  [[location(0)]] pos: vec2<f32>;
-  [[location(1)]] uv: vec2<f32>;
-  [[location(2)]] translate: vec2<f32>;
-  [[location(3)]] cell_coords: vec2<u32>;
-  [[location(4)]] sprite: u32;
-  [[location(5)]] index: u32;
-};
+  @location(0) pos: vec2<f32>,
+  @location(1) uv: vec2<f32>,
+  @location(2) translate: vec2<f32>,
+  @location(3) cell_coords: vec2<u32>,
+  @location(4) sprite: u32,
+  @location(5) index: u32,
+}
 
 struct CellVertexOutput {
-  [[builtin(position)]] pos: vec4<f32>;
-  [[location(0)]] index: u32;
-  [[location(1)]] uv: vec2<f32>;
-  [[location(2), interpolate(flat)]] cell_coords: vec2<f32>;
-};
+  @builtin(position) pos: vec4<f32>,
+  @location(0) index: u32,
+  @location(1) uv: vec2<f32>,
+  @location(2) @interpolate(flat) cell_coords: vec2<f32>,
+}
 
 struct CellGlobals {
-  screen_size_in_sprites: vec2<u32>;
-  sprite_map_dimensions: vec2<u32>;
-  sprite_texture_dimensions: vec2<u32>;
-  sprite_dimensions: vec2<u32>;
-  palette_texture_dimensions: vec2<u32>;
-};
+  screen_size_in_sprites: vec2<u32>,
+  sprite_map_dimensions: vec2<u32>,
+  sprite_texture_dimensions: vec2<u32>,
+  sprite_dimensions: vec2<u32>,
+  palette_texture_dimensions: vec2<u32>,
+}
 
-[[group(0), binding(0)]] var<uniform> cell_globals: CellGlobals;
+@group(0) @binding(0) var<uniform> cell_globals: CellGlobals;
 
-[[stage(vertex)]]
+@vertex
 fn vs_main(in: CellVertexInput) -> CellVertexOutput {
     var out: CellVertexOutput;
     var sprite_offset: vec2<f32> = vec2<f32>(
@@ -46,11 +46,11 @@ fn vs_main(in: CellVertexInput) -> CellVertexOutput {
     return out;
 }
 
-[[group(1), binding(0)]] var sprite_texture: texture_2d<u32>;
-[[group(1), binding(1)]] var palette_texture: texture_3d<f32>;
+@group(1) @binding(0) var sprite_texture: texture_2d<u32>;
+@group(1) @binding(1) var palette_texture: texture_3d<f32>;
 
-[[stage(fragment)]]
-fn fs_main(in: CellVertexOutput) -> [[location(0)]] vec4<f32> {
+@fragment
+fn fs_main(in: CellVertexOutput) -> @location(0) vec4<f32> {
     // The "color" here is the index into the palette for this cell (0-15).
     var t: vec4<u32> = textureLoad(
         sprite_texture,
