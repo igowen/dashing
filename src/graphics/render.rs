@@ -968,11 +968,13 @@ impl Renderer {
             let download_slice = download_buffer.slice(..);
             let (tx, rx) = futures_intrusive::channel::shared::oneshot_channel();
             download_slice.map_async(wgpu::MapMode::Read, move |result| {
-                tx.send(result.expect("Couldn't map download buffer for rendered image"))
-                    .expect("Couldn't send rendered image");
+                result.expect("Couldn't map download buffer for rendered image");
+                tx.send(())
+                    .expect("Couldn't notify that the download buffer was successfully mapped");
             });
             self.device.poll(wgpu::Maintain::Wait);
-            futures::executor::block_on(rx.receive()).expect("Didn't get a rendered image");
+            futures::executor::block_on(rx.receive())
+                .expect("Didn't get a notification that the rendered image was available");
             let unpadded_image = download_slice.get_mapped_range()[..]
                 .chunks(padded_bytes_per_row as usize)
                 .flat_map(|row| row.iter().take(unpadded_bytes_per_row as usize))

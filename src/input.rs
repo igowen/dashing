@@ -293,9 +293,9 @@ impl<C: Clone> EventDispatcher<C> {
     }
 
     /// Handle an event.
-    pub fn dispatch(&self, event: &Event) -> Result<(), std::sync::mpsc::SendError<C>> {
+    pub fn dispatch(&self, _event: &Event) -> Result<(), std::sync::mpsc::SendError<C>> {
+        /*
         match event {
-            /*
             Event::KeyboardInput(ref ke) => {
                 if let Some(binding) = KeyBinding::try_from_event(*ke) {
                     if let Some(command) = self.key_bindings.get(&binding) {
@@ -308,9 +308,9 @@ impl<C: Clone> EventDispatcher<C> {
                     self.command_queue.send(command.clone())?;
                 }
             }
-            */
             _ => {}
         };
+        */
         Ok(())
     }
 }
