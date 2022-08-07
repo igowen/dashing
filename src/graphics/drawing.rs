@@ -245,7 +245,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hamcrest::*;
     #[test]
     fn stamp_sprite_value() {
         let mut l1 = SpriteLayer::new(4, 4);
@@ -264,9 +263,9 @@ mod tests {
             ]
         };
 
-        assert_that!(
+        assert_eq!(
             l1.iter().map(|c| c.sprite).collect::<Vec<u32>>(),
-            is(equal_to(expected_sprites))
+            expected_sprites
         );
     }
     #[test]
@@ -287,9 +286,9 @@ mod tests {
                  0, 0, 0, 0,
             ]
         };
-        assert_that!(
+        assert_eq!(
             l1.iter().map(|c| c.sprite).collect::<Vec<u32>>(),
-            is(equal_to(expected_sprites))
+            expected_sprites
         );
     }
 }

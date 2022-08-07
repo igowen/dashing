@@ -15,8 +15,6 @@
 #[cfg(test)]
 // The output of the renderer is intended to be pixel-perfect, so the tests are written with
 // that in mind.
-use hamcrest::prelude::*;
-use hamcrest::*;
 use image;
 use png;
 
@@ -68,9 +66,9 @@ impl RenderTestFixture {
         .unwrap();
 
         RenderTestFixture {
-            renderer: renderer,
-            width: width,
-            height: height,
+            renderer,
+            width,
+            height,
             sprite_width: sprite_width as u32,
             sprite_height: sprite_height as u32,
         }
@@ -106,7 +104,7 @@ fn render_one_cell() {
         .unwrap()
         .to_rgba8()
         .into_raw();
-    assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
+    assert_eq!(&actual_image[..], &expected_image[..]);
 }
 
 #[test]
@@ -133,7 +131,7 @@ fn render_one_cell_sprite_change() {
         .into_raw();
 
     // These shouldn't match.
-    assert_that!(&actual_image[..], is(not(equal_to(&expected_image[..]))));
+    assert_ne!(&actual_image[..], &expected_image[..]);
 
     fixture.renderer.update(
         [SpriteCell {
@@ -150,7 +148,7 @@ fn render_one_cell_sprite_change() {
     let actual_image_2 = fixture.extract_render_result();
 
     // These should.
-    assert_that!(&actual_image_2[..], is(equal_to(&expected_image[..])));
+    assert_eq!(&actual_image_2[..], &expected_image[..]);
 }
 
 #[test]
@@ -195,8 +193,8 @@ fn render_2x2_with_color() {
         .to_rgba8()
         .into_raw();
 
-    assert_that!(actual_image.len(), is(equal_to(expected_image.len())));
-    assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
+    assert_eq!(actual_image.len(), expected_image.len());
+    assert_eq!(&actual_image[..], &expected_image[..]);
 }
 
 #[test]
@@ -223,7 +221,7 @@ fn gray() {
         .unwrap()
         .to_rgba8()
         .into_raw();
-    assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
+    assert_eq!(&actual_image[..], &expected_image[..]);
 }
 
 #[test]
@@ -254,7 +252,7 @@ fn big() {
         .to_rgba8()
         .into_raw();
 
-    assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
+    assert_eq!(&actual_image[..], &expected_image[..]);
 }
 
 #[test]
@@ -310,5 +308,5 @@ fn full_palette() {
             .unwrap()
             .to_rgba8()
             .into_raw();
-    assert_that!(&actual_image[..], is(equal_to(&expected_image[..])));
+    assert_eq!(&actual_image[..], &expected_image[..]);
 }

@@ -176,7 +176,6 @@ pub trait SpriteCollection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hamcrest::*;
     use std;
 
     struct TestSpriteCollection {
@@ -227,10 +226,10 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_that!(texture.width, is(equal_to(8)));
-        assert_that!(texture.height, is(equal_to(4)));
-        assert_that!(texture.sprite_width, is(equal_to(4)));
-        assert_that!(texture.sprite_height, is(equal_to(4)));
+        assert_eq!(texture.width, 8);
+        assert_eq!(texture.height, 4);
+        assert_eq!(texture.sprite_width, 4);
+        assert_eq!(texture.sprite_height, 4);
 
         #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
@@ -240,10 +239,7 @@ mod tests {
                  0, 0, 0, 1, 1, 0, 0, 0,
             ]
         };
-        assert_that!(
-            texture.pixels,
-            is(equal_to(expected_texture.into_boxed_slice()))
-        );
+        assert_eq!(texture.pixels, expected_texture.into_boxed_slice());
     }
 
     #[test]
@@ -278,10 +274,10 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_that!(texture.width, is(equal_to(8)));
-        assert_that!(texture.height, is(equal_to(8)));
-        assert_that!(texture.sprite_width, is(equal_to(4)));
-        assert_that!(texture.sprite_height, is(equal_to(4)));
+        assert_eq!(texture.width, 8);
+        assert_eq!(texture.height, 8);
+        assert_eq!(texture.sprite_width, 4);
+        assert_eq!(texture.sprite_height, 4);
         #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
             vec![0, 0, 0, 0, 1, 1, 1, 1,
@@ -294,10 +290,7 @@ mod tests {
                  1, 1, 1, 1, 0, 0, 0, 0,
             ]
         };
-        assert_that!(
-            texture.pixels,
-            is(equal_to(expected_texture.into_boxed_slice()))
-        );
+        assert_eq!(texture.pixels, expected_texture.into_boxed_slice());
     }
 
     #[test]
@@ -332,10 +325,10 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_that!(texture.width, is(equal_to(6)));
-        assert_that!(texture.height, is(equal_to(8)));
-        assert_that!(texture.sprite_width, is(equal_to(3)));
-        assert_that!(texture.sprite_height, is(equal_to(4)));
+        assert_eq!(texture.width, 6);
+        assert_eq!(texture.height, 8);
+        assert_eq!(texture.sprite_width, 3);
+        assert_eq!(texture.sprite_height, 4);
         #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
             vec![1, 0, 1, 1, 1, 1,
@@ -348,9 +341,6 @@ mod tests {
                  1, 1, 1, 0, 0, 0,
             ]
         };
-        assert_that!(
-            texture.pixels,
-            is(equal_to(expected_texture.into_boxed_slice()))
-        );
+        assert_eq!(texture.pixels, expected_texture.into_boxed_slice());
     }
 }
