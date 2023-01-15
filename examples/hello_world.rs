@@ -72,11 +72,10 @@ pub fn main() {
     reader.next_frame(&mut imgdata[..]).unwrap();
     let tex = dashing::resources::sprite::SpriteTexture::new_from_pixels(
         &imgdata[..],
-        reader.info().size().0 as usize,
-        reader.info().size().1 as usize,
         reader.info().size().0 as usize / 16,
         reader.info().size().1 as usize / 16,
-        256,
+        16,
+        16,
     )
     .unwrap();
 

@@ -340,6 +340,7 @@ impl Renderer {
                     width: screen_width as _,
                     height: screen_height as _,
                     present_mode,
+                    alpha_mode: wgpu::CompositeAlphaMode::Opaque,
                 };
 
                 surface.configure(&device, &surface_configuration);
@@ -719,8 +720,8 @@ impl Renderer {
         ax /= g;
         ay /= g;
 
-        info!("Aspect ratio: {}:{}", ax, ay);
-        info!("surface format: {:?}", surface_format);
+        info!("Computed aspect ratio: {}:{}", ax, ay);
+        info!("Surface format: {:?}", surface_format);
 
         Ok(Renderer {
             device,
@@ -1000,14 +1001,14 @@ impl RenderInterface for Renderer {
         T: Iterator<Item = U>,
         U: Into<&'a SpriteCell>,
     {
-        for (i, d, p) in itertools::multizip((
+        for (instance, palette, input) in itertools::multizip((
             self.instances.iter_mut(),
-            data,
             self.palette_data.iter_mut(),
+            data,
         )) {
-            let c: &SpriteCell = d.into();
-            i.sprite = c.sprite;
-            *p = c.palette.into();
+            let cell: &SpriteCell = input.into();
+            instance.sprite = cell.sprite;
+            *palette = cell.palette.into();
         }
     }
 
