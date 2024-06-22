@@ -20,6 +20,8 @@ use crate::graphics::drawing::SpriteCell;
 use crate::resources::sprite::SpriteTexture;
 use wgpu::util::DeviceExt;
 
+use std::sync::Arc;
+
 #[cfg(test)]
 mod tests;
 
@@ -176,7 +178,7 @@ const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 /// Encapsulates the destination of the rendered output (Surface or texture).
 enum RenderOutput {
     Surface {
-        surface: wgpu::Surface,
+        surface: wgpu::Surface<'static>,
         surface_configuration: wgpu::SurfaceConfiguration,
         surface_format: wgpu::TextureFormat,
         current_screen_size: winit::dpi::PhysicalSize<u32>,
@@ -256,7 +258,7 @@ pub(crate) struct Renderer {
 
 impl Renderer {
     pub(crate) fn new(
-        window: Option<&winit::window::Window>,
+        window: Option<Arc<winit::window::Window>>,
         dimensions: (u32, u32),
         sprite_texture: &SpriteTexture,
         clear_color: crate::resources::color::Color,
@@ -283,12 +285,15 @@ impl Renderer {
         let screen_width = dimensions.0 * sprite_texture.sprite_width() as u32;
         let screen_height = dimensions.1 * sprite_texture.sprite_height() as u32;
 
-        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            ..Default::default()
+        });
 
         // TODO: Determine whether this is portable. We definitely want Unorm, not Srgb, here.
         let surface_format = wgpu::TextureFormat::Bgra8Unorm;
 
-        let surface = window.map(|w| unsafe { instance.create_surface(w) });
+        let surface = window.and_then(|w| instance.create_surface(w).ok());
 
         let adapter =
             futures::executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -301,8 +306,8 @@ impl Renderer {
         let (device, queue) = futures::executor::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("Primary device"),
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::default(),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
             },
             None,
         ))
@@ -323,6 +328,7 @@ impl Renderer {
                     dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                    view_formats: &[],
                     label: Some("final output texture"),
                 });
 
@@ -340,6 +346,9 @@ impl Renderer {
                     width: screen_width as _,
                     height: screen_height as _,
                     present_mode,
+                    alpha_mode: wgpu::CompositeAlphaMode::Auto,
+                    view_formats: vec![],
+                    desired_maximum_frame_latency: 2,
                 };
 
                 surface.configure(&device, &surface_configuration);
@@ -363,6 +372,7 @@ impl Renderer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[],
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::TEXTURE_BINDING,
@@ -393,6 +403,7 @@ impl Renderer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::R8Uint,
+            view_formats: &[],
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("sprite texture"),
         });
@@ -418,8 +429,8 @@ impl Renderer {
             sprite_texture.pixels(),
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: std::num::NonZeroU32::new(sprite_texture.width() as u32),
-                rows_per_image: std::num::NonZeroU32::new(sprite_texture.height() as u32),
+                bytes_per_row: Some(sprite_texture.width() as u32),
+                rows_per_image: Some(sprite_texture.height() as u32),
             },
             sprite_texture_size,
         );
@@ -438,6 +449,7 @@ impl Renderer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
             format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[],
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("palette texture"),
         });
@@ -581,11 +593,13 @@ impl Renderer {
                 module: &cell_shader,
                 entry_point: "vs_main",
                 buffers: &[Vertex::layout(), Instance::layout()],
+                compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &cell_shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
@@ -692,11 +706,13 @@ impl Renderer {
                     module: &screen_shader,
                     entry_point: "vs_main",
                     buffers: &[Vertex::layout()],
+                    compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &screen_shader,
                     entry_point: "fs_main",
                     targets: &[Some(render_output.output_format().into())],
+                    compilation_options: Default::default(),
                 }),
                 primitive: wgpu::PrimitiveState::default(),
                 depth_stencil: None,
@@ -808,8 +824,8 @@ impl Renderer {
             &flat_palette_data[..],
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: std::num::NonZeroU32::new(16 * 4),
-                rows_per_image: std::num::NonZeroU32::new(self.dimensions.0 as u32),
+                bytes_per_row: Some(16 * 4),
+                rows_per_image: Some(self.dimensions.0 as u32),
             },
             self.palette_texture_size,
         );
@@ -849,10 +865,12 @@ impl Renderer {
                             b: 0.1,
                             a: 1.0,
                         }),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             render_pass.set_pipeline(&self.cell_render_pipeline);
             render_pass.set_bind_group(0, &self.cell_uniform_bind_group, &[]);
@@ -872,10 +890,12 @@ impl Renderer {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             render_pass.set_pipeline(&self.screen_render_pipeline);
             render_pass.set_bind_group(0, &self.screen_texture_bind_group, &[]);
@@ -957,7 +977,7 @@ impl Renderer {
                         buffer: &download_buffer,
                         layout: wgpu::ImageDataLayout {
                             offset: 0,
-                            bytes_per_row: std::num::NonZeroU32::new(padded_bytes_per_row),
+                            bytes_per_row: Some(padded_bytes_per_row),
                             rows_per_image: None,
                         },
                     },
@@ -1018,7 +1038,7 @@ impl RenderInterface for Renderer {
     }
 }
 
-/// Interface for EngineDriver -> Renderer communication.
+/// Interface for Application -> Renderer communication.
 pub trait RenderInterface {
     /// Update the sprite matrix with the provided data.
     fn update<'a, T, U>(&mut self, data: T)

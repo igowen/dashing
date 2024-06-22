@@ -18,6 +18,8 @@ use crate::graphics::render;
 use crate::resources::color::Color;
 use crate::resources::sprite::SpriteTexture;
 
+use std::sync::Arc;
+
 /// `WindowError` represents an error that occurred in the window system.
 #[derive(Debug)]
 pub enum WindowError {
@@ -156,19 +158,21 @@ impl<'a> WindowBuilder<'a> {
             1.0,
         );
         info!("logical size: {:?}", screen_dimensions);
-        let event_loop = winit::event_loop::EventLoop::new();
-        let window = winit::window::WindowBuilder::new()
+        let event_loop = winit::event_loop::EventLoop::new()?;
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+        let window_attributes = winit::window::Window::default_attributes()
             .with_title(self.window_title.to_string())
             .with_inner_size(screen_dimensions)
             .with_maximized(self.full_screen)
             .with_decorations(!self.full_screen)
             .with_resizable(self.resizable)
             .with_visible(false)
-            .with_min_inner_size(winit::dpi::PhysicalSize::new(1, 1))
-            .build(&event_loop)?;
+            .with_min_inner_size(winit::dpi::PhysicalSize::new(1, 1));
+        // TODO: defer window creation until the event loop actually starts.
+        let window = std::sync::Arc::new(event_loop.create_window(window_attributes)?);
 
         let renderer = crate::graphics::render::Renderer::new(
-            Some(&window),
+            Some(window.clone()),
             (self.width as _, self.height as _),
             self.sprite_texture,
             self.clear_color,
@@ -183,9 +187,9 @@ impl<'a> WindowBuilder<'a> {
         Ok(Window {
             width: self.width,
             height: self.height,
-            window,
             event_loop,
             renderer,
+            window,
         })
     }
 }
@@ -194,7 +198,7 @@ impl<'a> WindowBuilder<'a> {
 pub struct Window {
     // Handles to device resources we need to hold onto.
     pub(crate) renderer: render::Renderer,
-    pub(crate) window: winit::window::Window,
+    pub(crate) window: Arc<winit::window::Window>,
     pub(crate) event_loop: winit::event_loop::EventLoop<()>,
 
     // Width & height of the window (in sprites).

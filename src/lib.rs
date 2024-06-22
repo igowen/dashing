@@ -33,7 +33,6 @@
 //! * Audio
 //! * Parallelism
 
-#![recursion_limit = "72"]
 #![deny(missing_docs)]
 #![allow(dead_code)]
 
@@ -51,8 +50,6 @@ pub mod input;
 
 /// Functionality for building in-game UIs.
 pub mod ui;
-
-use log::debug;
 
 /// Signals to indicate whether the engine should keep running or halt.
 #[derive(PartialEq, Eq, Debug)]
@@ -81,33 +78,39 @@ impl EngineSignal {
 /// `Sync`, and `run_forever` *must* therefore be called on the main thread. However, this
 /// restriction does not necessarily apply to user code as long as it does not touch the window or
 /// renderer. TODO: provide abstractions for asynchronous inter-frame computation
-pub struct Engine<D>
+pub struct Engine<A>
 where
-    D: Driver,
+    A: Application,
 {
     window: window::Window,
-    driver: D,
+    application: A,
 }
 
-impl<D> Engine<D>
+impl<A> Engine<A>
 where
-    D: Driver + 'static,
+    A: Application + 'static,
 {
     /// Create a new `Engine`.
     pub fn new(
         window_builder: window::WindowBuilder,
-        driver: D,
+        application: A,
     ) -> Result<Self, window::WindowError> {
         Ok(Engine {
             window: window_builder.build()?,
-            driver,
+            application,
         })
     }
 
     /// Run the main loop until one of the library hooks tells us to quit.
-    pub fn run(self) -> ! {
-        let (window, mut driver) = (self.window, self.driver);
+    pub fn run(self) -> Result<(), winit::error::EventLoopError> {
+        let Engine {
+            window,
+            mut application,
+        } = self;
+
         window.window.set_visible(true);
+
+        let winit_window_id = window.window.id();
 
         let (width, height, mut renderer, winit_window, event_loop) = (
             window.width,
@@ -116,27 +119,17 @@ where
             window.window,
             window.event_loop,
         );
-        let winit_window_id = winit_window.id();
-        event_loop.run(move |event, _, control_flow| {
+        // TODO: migrate to `run_app()`.
+        event_loop.run(move |event, event_loop| {
             match event {
-                winit::event::Event::RedrawRequested(_) => {
-                    renderer.render_frame().unwrap();
-                }
                 winit::event::Event::WindowEvent {
                     ref event,
                     window_id,
                 } => {
                     if window_id == winit_window_id {
-                        //debug!("{:?}", event);
                         match event {
                             winit::event::WindowEvent::Resized(physical_size) => {
                                 renderer.resize(*physical_size);
-                            }
-                            winit::event::WindowEvent::ScaleFactorChanged {
-                                new_inner_size,
-                                ..
-                            } => {
-                                renderer.resize(**new_inner_size);
                             }
                             winit::event::WindowEvent::CursorMoved { position, .. } => {
                                 let (ax, ay) = renderer.aspect_ratio;
@@ -174,50 +167,60 @@ where
                                     let xs = (xp / sx) as u32;
                                     let ys = (yp / sy) as u32;
 
-                                    let e = input::Event::Mouse(input::MouseEvent::CursorMoved {
+                                    let e = input::MouseMoved {
                                         sprite_position: (xs, ys),
                                         absolute_position: (*xf, *yf),
-                                    });
-                                    debug!("{:?}", e);
-                                    if driver.handle_input(e) == EngineSignal::Halt {
-                                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                                    };
+                                    if application.handle_mouse_move(&e) == EngineSignal::Halt {
+                                        event_loop.exit();
                                     }
                                 }
                             }
+                            winit::event::WindowEvent::RedrawRequested => {
+                                renderer.render_frame().unwrap();
+                            }
                             _ => {}
+                        }
+                        if application.handle_window_event(event) == EngineSignal::Halt {
+                            event_loop.exit();
                         }
                     }
                 }
-                winit::event::Event::MainEventsCleared => {
-                    if driver.process_frame(&mut renderer) == EngineSignal::Halt {
-                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                winit::event::Event::AboutToWait => {
+                    if application.process_frame(&mut renderer) == EngineSignal::Halt {
+                        event_loop.exit();
                     }
 
                     winit_window.request_redraw();
                 }
                 _ => {}
             }
-            if let Ok(e) = std::convert::TryInto::<input::Event>::try_into(event) {
-                debug!("{:?}", e);
-                if driver.handle_input(e) == EngineSignal::Halt {
-                    *control_flow = winit::event_loop::ControlFlow::Exit;
-                }
-            }
         })
     }
 }
 
-/// `Driver` is the primary means by which an `Engine` communicates with client code. Clients
+/// `Application` is the primary means by which an `Engine` communicates with client code. Clients
 /// are required to implement this trait themselves, but there are abstractions provided for
 /// dealing with input in the [input] module.
-pub trait Driver {
-    /// Handle an input event. This will be called for every event received by the main window, so
-    /// it needs to be fast.
+pub trait Application {
+    /// Handle a window input event. This will be called for every event received by the main window,
+    /// so it needs to be fast.
+    ///
+    /// The event type is a raw `winit::event::WindowEvent`.
     #[must_use]
-    fn handle_input(&mut self, event: input::Event) -> EngineSignal;
+    fn handle_window_event(&mut self, event: &input::WindowEvent) -> EngineSignal;
+
+    /// Handle a mouse move event, which contains the sprite position as well as the pixel position
+    /// of the cursor. Note that you will also get mouse movement events vis `handle_window_event`,
+    /// so if you choose to implement this you should make sure you ignore the movements received
+    /// by that method.
+    #[must_use]
+    fn handle_mouse_move(&mut self, _event: &input::MouseMoved) -> EngineSignal {
+        EngineSignal::Continue
+    }
 
     /// Client hook for processing in the main loop. This gets called immediately before the
-    /// renderer runs, but after all pending events have been processed via `handle_input()`.
+    /// renderer runs, but after all pending events have been processed via `handle_*()`.
     #[must_use]
     fn process_frame<R>(&mut self, renderer: &mut R) -> EngineSignal
     where

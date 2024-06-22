@@ -7,23 +7,21 @@ use time;
 const WIDTH: u32 = 21;
 const HEIGHT: u32 = 3;
 
-// Client code must implement a "driver", which is a combination of input handler and
+// Client code must implement a "application", which is a combination of input handler and
 // interface to the renderer.
-struct ExampleDriver {
+struct ExampleApplication {
     // SpriteLayer is a convenient abstraction for representing an orthogonal region of the
     // screen.
     root_layer: graphics::drawing::SpriteLayer,
     message: String,
 }
 
-impl Driver for ExampleDriver {
-    // The driver handles all the user input events the window receives. The `handle_input`
+impl Application for ExampleApplication {
+    // The application handles all the user input events the window receives. The `handle_input`
     // method needs to be lightweight, because it blocks the render thread.
-    fn handle_input(&mut self, e: Event) -> EngineSignal {
+    fn handle_window_event(&mut self, e: &WindowEvent) -> EngineSignal {
         match e {
-            Event::Window(WindowEvent::CloseRequested) | Event::Window(WindowEvent::Destroyed) => {
-                EngineSignal::Halt
-            }
+            WindowEvent::CloseRequested | WindowEvent::Destroyed => EngineSignal::Halt,
             _ => EngineSignal::Continue,
         }
     }
@@ -84,12 +82,12 @@ pub fn main() {
         .with_clear_color((0.2, 0.2, 0.2).into())
         .with_vsync(true);
 
-    let driver = ExampleDriver {
+    let application = ExampleApplication {
         root_layer: graphics::drawing::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),
         message: String::from("Swash your buckles!"),
     };
 
-    let engine = dashing::Engine::new(window_builder, driver).unwrap();
+    let engine = dashing::Engine::new(window_builder, application).unwrap();
 
-    engine.run();
+    engine.run().unwrap();
 }

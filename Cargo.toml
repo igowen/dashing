@@ -14,15 +14,15 @@ resolver = "2"
 
 [dependencies]
 bytemuck = { version = "1.9.1", features = ["derive"] }
-futures = "0.3.21"
-futures-intrusive = "0.4"
-wgpu = "0.13"
-winit = "0.26.1"
-log = "0.4.16"
-time = "0.3.9"
-itertools = "0.10.3"
+futures = "0.3.30"
+futures-intrusive = "0.5"
+wgpu = "0.20.1"
+winit = "0.30.3"
+log = "0.4.21"
+time = "0.3.36"
+itertools = "0.13.0"
 
 [dev-dependencies]
-image = "0.24.2"
-png = "0.17.5"
-pretty_env_logger = "0.4"
+image = "0.25.1"
+png = "0.17.13"
+pretty_env_logger = "0.5"
