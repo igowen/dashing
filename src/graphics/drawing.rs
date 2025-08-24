@@ -45,12 +45,12 @@ impl SpriteLayer {
     }
 
     /// Get an iterator over all of the cells in the layer.
-    pub fn iter(&self) -> std::slice::Iter<SpriteCell> {
+    pub fn iter(&self) -> std::slice::Iter<'_, SpriteCell> {
         self.data.iter()
     }
 
     /// Get a mutable iterator over all of the cells in the layer.
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<SpriteCell> {
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, SpriteCell> {
         self.data.iter_mut()
     }
 

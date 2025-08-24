@@ -23,16 +23,16 @@ use crate::resources::color::Palette;
 
 /// There's a lot of boilerplate in setting up the offscreen renderer and extracting the rendered
 /// image, so we use a separate support fixture to manage that.
-struct RenderTestFixture {
-    renderer: Renderer,
+struct RenderTestFixture<'a> {
+    renderer: Renderer<'a>,
     sprite_width: u32,
     sprite_height: u32,
     width: u32,
     height: u32,
 }
 
-impl RenderTestFixture {
-    fn new(width: u32, height: u32) -> RenderTestFixture {
+impl<'a> RenderTestFixture<'a> {
+    fn new(width: u32, height: u32) -> RenderTestFixture<'a> {
         // Load the test sprite texture.
         // TODO: get rid of this once the sprite-loading code is done.
         let img = include_bytes!("testdata/12x12.png");

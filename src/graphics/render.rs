@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 #[allow(unused)]
 use itertools::Itertools;
 use log::{info, trace};
@@ -174,9 +176,9 @@ const SCREEN_QUAD_VERTICES: [Vertex; 4] = [
 const QUAD_INDICES: [u16; 6] = [0, 1, 2, 2, 3, 0];
 
 /// Encapsulates the destination of the rendered output (Surface or texture).
-enum RenderOutput {
+enum RenderOutput<'a> {
     Surface {
-        surface: wgpu::Surface,
+        surface: wgpu::Surface<'a>,
         surface_configuration: wgpu::SurfaceConfiguration,
         surface_format: wgpu::TextureFormat,
         current_screen_size: winit::dpi::PhysicalSize<u32>,
@@ -188,7 +190,7 @@ enum RenderOutput {
     },
 }
 
-impl RenderOutput {
+impl<'a> RenderOutput<'a> {
     fn output_size(&self) -> (u32, u32) {
         match self {
             RenderOutput::Surface {
@@ -209,11 +211,11 @@ impl RenderOutput {
     }
 }
 
-pub(crate) struct Renderer {
+pub(crate) struct Renderer<'a> {
     pub(crate) device: wgpu::Device,
     pub(crate) queue: wgpu::Queue,
 
-    render_output: RenderOutput,
+    render_output: RenderOutput<'a>,
 
     cell_render_pipeline: wgpu::RenderPipeline,
 
@@ -254,9 +256,9 @@ pub(crate) struct Renderer {
     fps: f32,
 }
 
-impl Renderer {
+impl<'a> Renderer<'a> {
     pub(crate) fn new(
-        window: Option<&winit::window::Window>,
+        window: Option<Arc<winit::window::Window>>,
         dimensions: (u32, u32),
         sprite_texture: &SpriteTexture,
         clear_color: crate::resources::color::Color,
@@ -283,12 +285,16 @@ impl Renderer {
         let screen_width = dimensions.0 * sprite_texture.sprite_width() as u32;
         let screen_height = dimensions.1 * sprite_texture.sprite_height() as u32;
 
-        let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::PRIMARY,
+            flags: wgpu::InstanceFlags::empty(),
+            ..Default::default()
+        });
 
         // TODO: Determine whether this is portable. We definitely want Unorm, not Srgb, here.
         let surface_format = wgpu::TextureFormat::Bgra8Unorm;
 
-        let surface = window.map(|w| unsafe { instance.create_surface(w) });
+        let surface = window.and_then(|w| instance.create_surface(w).ok());
 
         let adapter =
             futures::executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -298,15 +304,12 @@ impl Renderer {
             }))
             .expect("Failed to find an appropriate adapter");
 
-        let (device, queue) = futures::executor::block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
+        let (device, queue) =
+            futures::executor::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                 label: Some("Primary device"),
-                features: wgpu::Features::empty(),
-                limits: wgpu::Limits::default(),
-            },
-            None,
-        ))
-        .expect("Failed to create device");
+                ..Default::default()
+            }))
+            .expect("Failed to create device");
 
         let render_target_size = wgpu::Extent3d {
             width: screen_width as _,
@@ -324,6 +327,7 @@ impl Renderer {
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
                     label: Some("final output texture"),
+                    view_formats: &[],
                 });
 
                 let texture_view = output_texture.create_view(&Default::default());
@@ -340,6 +344,9 @@ impl Renderer {
                     width: screen_width as _,
                     height: screen_height as _,
                     present_mode,
+                    desired_maximum_frame_latency: 2,
+                    alpha_mode: wgpu::CompositeAlphaMode::Auto,
+                    view_formats: vec![],
                 };
 
                 surface.configure(&device, &surface_configuration);
@@ -367,6 +374,7 @@ impl Renderer {
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::TEXTURE_BINDING,
             label: Some("render target texture"),
+            view_formats: &[],
         });
 
         let render_target_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
@@ -395,6 +403,7 @@ impl Renderer {
             format: wgpu::TextureFormat::R8Uint,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("sprite texture"),
+            view_formats: &[],
         });
 
         for y in 0..sprite_texture.height() {
@@ -409,17 +418,17 @@ impl Renderer {
         }
 
         queue.write_texture(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 texture: &sprite_texture_gpu,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
             sprite_texture.pixels(),
-            wgpu::ImageDataLayout {
+            wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: std::num::NonZeroU32::new(sprite_texture.width() as u32),
-                rows_per_image: std::num::NonZeroU32::new(sprite_texture.height() as u32),
+                bytes_per_row: Some(sprite_texture.width() as u32),
+                rows_per_image: Some(sprite_texture.height() as u32),
             },
             sprite_texture_size,
         );
@@ -440,6 +449,7 @@ impl Renderer {
             format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             label: Some("palette texture"),
+            view_formats: &[],
         });
 
         let palette_texture_view = palette_texture.create_view(&Default::default());
@@ -579,18 +589,21 @@ impl Renderer {
             layout: Some(&cell_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &cell_shader,
-                entry_point: "vs_main",
                 buffers: &[Vertex::layout(), Instance::layout()],
+                entry_point: None,
+                compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &cell_shader,
-                entry_point: "fs_main",
                 targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
+                entry_point: None,
+                compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState::default(),
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         });
 
         let screen_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -690,18 +703,21 @@ impl Renderer {
                 layout: Some(&screen_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &screen_shader,
-                    entry_point: "vs_main",
                     buffers: &[Vertex::layout()],
+                    entry_point: None,
+                    compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &screen_shader,
-                    entry_point: "fs_main",
                     targets: &[Some(render_output.output_format().into())],
+                    entry_point: None,
+                    compilation_options: Default::default(),
                 }),
-                primitive: wgpu::PrimitiveState::default(),
+                primitive: Default::default(),
+                multisample: Default::default(),
                 depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
                 multiview: None,
+                cache: None,
             });
 
         // Calculate aspect ratio. This is used for letterboxing the screen when the window's
@@ -799,17 +815,17 @@ impl Renderer {
         );
 
         self.queue.write_texture(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 texture: &self.palette_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
             &flat_palette_data[..],
-            wgpu::ImageDataLayout {
+            wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: std::num::NonZeroU32::new(16 * 4),
-                rows_per_image: std::num::NonZeroU32::new(self.dimensions.0 as u32),
+                bytes_per_row: Some(16 * 4),
+                rows_per_image: Some(self.dimensions.0 as u32),
             },
             self.palette_texture_size,
         );
@@ -849,10 +865,13 @@ impl Renderer {
                             b: 0.1,
                             a: 1.0,
                         }),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
             });
             render_pass.set_pipeline(&self.cell_render_pipeline);
             render_pass.set_bind_group(0, &self.cell_uniform_bind_group, &[]);
@@ -872,10 +891,13 @@ impl Renderer {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
             });
             render_pass.set_pipeline(&self.screen_render_pipeline);
             render_pass.set_bind_group(0, &self.screen_texture_bind_group, &[]);
@@ -947,17 +969,17 @@ impl Renderer {
                             label: Some("Main render encoder"),
                         });
                 encoder.copy_texture_to_buffer(
-                    wgpu::ImageCopyTexture {
+                    wgpu::TexelCopyTextureInfo {
                         texture,
                         mip_level: 0,
                         origin: wgpu::Origin3d::ZERO,
                         aspect: wgpu::TextureAspect::All,
                     },
-                    wgpu::ImageCopyBuffer {
+                    wgpu::TexelCopyBufferInfo {
                         buffer: &download_buffer,
-                        layout: wgpu::ImageDataLayout {
+                        layout: wgpu::TexelCopyBufferLayout {
                             offset: 0,
-                            bytes_per_row: std::num::NonZeroU32::new(padded_bytes_per_row),
+                            bytes_per_row: Some(padded_bytes_per_row),
                             rows_per_image: None,
                         },
                     },
@@ -972,7 +994,7 @@ impl Renderer {
                 tx.send(())
                     .expect("Couldn't notify that the download buffer was successfully mapped");
             });
-            self.device.poll(wgpu::Maintain::Wait);
+            self.device.poll(wgpu::PollType::wait()).ok();
             futures::executor::block_on(rx.receive())
                 .expect("Didn't get a notification that the rendered image was available");
             let unpadded_image = download_slice.get_mapped_range()[..]
@@ -993,7 +1015,7 @@ impl Renderer {
     }
 }
 
-impl RenderInterface for Renderer {
+impl RenderInterface for Renderer<'_> {
     /// Update the sprite matrix with the provided data.
     fn update<'a, T, U>(&mut self, data: T)
     where

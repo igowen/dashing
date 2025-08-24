@@ -33,7 +33,6 @@
 //! * Audio
 //! * Parallelism
 
-#![recursion_limit = "72"]
 #![deny(missing_docs)]
 #![allow(dead_code)]
 
@@ -52,7 +51,7 @@ pub mod input;
 /// Functionality for building in-game UIs.
 pub mod ui;
 
-use log::debug;
+use log::{debug, warn};
 
 /// Signals to indicate whether the engine should keep running or halt.
 #[derive(PartialEq, Eq, Debug)]
@@ -81,21 +80,21 @@ impl EngineSignal {
 /// `Sync`, and `run_forever` *must* therefore be called on the main thread. However, this
 /// restriction does not necessarily apply to user code as long as it does not touch the window or
 /// renderer. TODO: provide abstractions for asynchronous inter-frame computation
-pub struct Engine<D>
+pub struct Engine<'a, D>
 where
     D: Driver,
 {
-    window: window::Window,
+    window: window::Window<'a>,
     driver: D,
 }
 
-impl<D> Engine<D>
+impl<'a, D> Engine<'a, D>
 where
     D: Driver + 'static,
 {
     /// Create a new `Engine`.
     pub fn new(
-        window_builder: window::WindowBuilder,
+        window_builder: window::WindowBuilder<'a>,
         driver: D,
     ) -> Result<Self, window::WindowError> {
         Ok(Engine {
@@ -105,7 +104,7 @@ where
     }
 
     /// Run the main loop until one of the library hooks tells us to quit.
-    pub fn run(self) -> ! {
+    pub fn run(self) -> Result<(), winit::error::EventLoopError> {
         let (window, mut driver) = (self.window, self.driver);
         window.window.set_visible(true);
 
@@ -117,11 +116,9 @@ where
             window.event_loop,
         );
         let winit_window_id = winit_window.id();
-        event_loop.run(move |event, _, control_flow| {
+        #[allow(deprecated)]
+        event_loop.run(move |event, event_loop| {
             match event {
-                winit::event::Event::RedrawRequested(_) => {
-                    renderer.render_frame().unwrap();
-                }
                 winit::event::Event::WindowEvent {
                     ref event,
                     window_id,
@@ -129,14 +126,18 @@ where
                     if window_id == winit_window_id {
                         //debug!("{:?}", event);
                         match event {
+                            winit::event::WindowEvent::RedrawRequested => {
+                                renderer.render_frame().unwrap();
+                            }
                             winit::event::WindowEvent::Resized(physical_size) => {
                                 renderer.resize(*physical_size);
                             }
                             winit::event::WindowEvent::ScaleFactorChanged {
-                                new_inner_size,
+                                // scale_factor,
+                                // inner_size_writer,
                                 ..
                             } => {
-                                renderer.resize(**new_inner_size);
+                                warn!("scale factor events not supported");
                             }
                             winit::event::WindowEvent::CursorMoved { position, .. } => {
                                 let (ax, ay) = renderer.aspect_ratio;
@@ -180,7 +181,7 @@ where
                                     });
                                     debug!("{:?}", e);
                                     if driver.handle_input(e) == EngineSignal::Halt {
-                                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                                        event_loop.exit();
                                     }
                                 }
                             }
@@ -188,9 +189,9 @@ where
                         }
                     }
                 }
-                winit::event::Event::MainEventsCleared => {
+                winit::event::Event::AboutToWait => {
                     if driver.process_frame(&mut renderer) == EngineSignal::Halt {
-                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                        event_loop.exit();
                     }
 
                     winit_window.request_redraw();
@@ -200,7 +201,7 @@ where
             if let Ok(e) = std::convert::TryInto::<input::Event>::try_into(event) {
                 debug!("{:?}", e);
                 if driver.handle_input(e) == EngineSignal::Halt {
-                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                    event_loop.exit();
                 }
             }
         })

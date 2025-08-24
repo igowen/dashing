@@ -91,5 +91,5 @@ pub fn main() {
 
     let engine = dashing::Engine::new(window_builder, driver).unwrap();
 
-    engine.run();
+    engine.run().unwrap();
 }

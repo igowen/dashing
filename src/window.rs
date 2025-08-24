@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use log::info;
 
 use crate::graphics::render;
@@ -145,7 +147,7 @@ impl<'a> WindowBuilder<'a> {
     }
 
     /// Build the window.
-    pub fn build(self) -> Result<Window, WindowError> {
+    pub fn build(self) -> Result<Window<'a>, WindowError> {
         // TODO: Don't create a window bigger than the display.
         let screen_width = (self.width * self.sprite_texture.sprite_width() as u32) as f32;
         let screen_height = (self.height * self.sprite_texture.sprite_height() as u32) as f32;
@@ -156,19 +158,23 @@ impl<'a> WindowBuilder<'a> {
             1.0,
         );
         info!("logical size: {:?}", screen_dimensions);
-        let event_loop = winit::event_loop::EventLoop::new();
-        let window = winit::window::WindowBuilder::new()
-            .with_title(self.window_title.to_string())
-            .with_inner_size(screen_dimensions)
-            .with_maximized(self.full_screen)
-            .with_decorations(!self.full_screen)
-            .with_resizable(self.resizable)
-            .with_visible(false)
-            .with_min_inner_size(winit::dpi::PhysicalSize::new(1, 1))
-            .build(&event_loop)?;
+        let event_loop = winit::event_loop::EventLoop::new()?;
+        let window = Arc::new(
+            #[allow(deprecated)]
+            event_loop.create_window(
+                winit::window::Window::default_attributes()
+                    .with_title(self.window_title.to_string())
+                    .with_inner_size(screen_dimensions)
+                    .with_maximized(self.full_screen)
+                    .with_decorations(!self.full_screen)
+                    .with_resizable(self.resizable)
+                    .with_visible(false)
+                    .with_min_inner_size(winit::dpi::PhysicalSize::new(1, 1)),
+            )?,
+        );
 
         let renderer = crate::graphics::render::Renderer::new(
-            Some(&window),
+            Some(Arc::clone(&window)),
             (self.width as _, self.height as _),
             self.sprite_texture,
             self.clear_color,
@@ -190,11 +196,11 @@ impl<'a> WindowBuilder<'a> {
     }
 }
 
-/// `Window` is responsible for creating and managing the game window and underlying GL context.
-pub struct Window {
+/// `Window` is responsible for creating and managing the game window and underlying GPU context.
+pub struct Window<'a> {
     // Handles to device resources we need to hold onto.
-    pub(crate) renderer: render::Renderer,
-    pub(crate) window: winit::window::Window,
+    pub(crate) renderer: render::Renderer<'a>,
+    pub(crate) window: Arc<winit::window::Window>,
     pub(crate) event_loop: winit::event_loop::EventLoop<()>,
 
     // Width & height of the window (in sprites).
@@ -202,19 +208,19 @@ pub struct Window {
     pub(crate) height: u32,
 }
 
-impl Window {
+impl<'a> Window<'a> {
     /// Render one frame.
     pub(crate) fn render(&mut self) -> Result<(), WindowError> {
         unimplemented!();
     }
 
     /// Get a mutable reference to the underlying renderer.
-    pub(crate) fn renderer_mut(&mut self) -> &mut render::Renderer {
+    pub(crate) fn renderer_mut(&mut self) -> &mut render::Renderer<'a> {
         &mut self.renderer
     }
 
     /// Get an immutable reference to the underlying renderer.
-    pub(crate) fn renderer(&self) -> &render::Renderer {
+    pub(crate) fn renderer(&self) -> &render::Renderer<'a> {
         &self.renderer
     }
 }

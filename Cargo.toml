@@ -16,11 +16,11 @@ resolver = "2"
 bytemuck = { version = "1.9.1", features = ["derive"] }
 futures = "0.3.21"
 futures-intrusive = "0.4"
-wgpu = "0.13"
-winit = "0.26.1"
-log = "0.4.16"
-time = "0.3.9"
-itertools = "0.10.3"
+wgpu = "26"
+winit = "0.30"
+log = "0.4.27"
+time = "0.3.41"
+itertools = "0.14"
 
 [dev-dependencies]
 image = "0.24.2"
