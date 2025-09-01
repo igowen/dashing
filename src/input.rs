@@ -13,11 +13,9 @@
 // limitations under the License.
 
 pub use winit::{
-    event::{ElementState, MouseButton},
-    keyboard::Key,
+    event::{ElementState, KeyEvent, MouseButton},
+    keyboard::*,
 };
-
-pub use winit::event::KeyEvent;
 
 /// Mouse event.
 #[derive(Copy, Clone, Debug, PartialEq)]
