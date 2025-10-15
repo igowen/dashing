@@ -55,6 +55,7 @@ struct CellGlobals {
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 struct ScreenGlobals {
     screen_size: [f32; 2],
+    screen_texture_dimensions: [f32; 2],
     scale_factor: [f32; 2],
     frame_counter: u32,
     elapsed_time: f32,
@@ -786,6 +787,7 @@ impl<'a> Renderer<'a> {
 
         let screen_uniforms = ScreenGlobals {
             screen_size: [screen_w as _, screen_h as _],
+            screen_texture_dimensions: [self.pixel_dimensions.0 as _, self.pixel_dimensions.1 as _],
             frame_counter: self.frame_counter,
             elapsed_time: self.elapsed_time.as_seconds_f32(),
             scale_factor: [
