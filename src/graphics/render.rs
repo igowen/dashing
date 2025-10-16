@@ -1019,17 +1019,18 @@ impl<'a> Renderer<'a> {
 
 impl RenderInterface for Renderer<'_> {
     /// Update the sprite matrix with the provided data.
-    fn update<'a, T, U>(&mut self, data: T)
+    fn update<'a, T, U, D>(&mut self, data: T)
     where
         T: Iterator<Item = U>,
-        U: Into<&'a SpriteCell>,
+        U: Into<&'a SpriteCell<D>>,
+        D: Default + 'a,
     {
         for (i, d, p) in itertools::multizip((
             self.instances.iter_mut(),
             data,
             self.palette_data.iter_mut(),
         )) {
-            let c: &SpriteCell = d.into();
+            let c: &SpriteCell<_> = d.into();
             i.sprite = c.sprite;
             *p = c.palette.into();
         }
@@ -1045,10 +1046,11 @@ impl RenderInterface for Renderer<'_> {
 /// Interface for EngineDriver -> Renderer communication.
 pub trait RenderInterface {
     /// Update the sprite matrix with the provided data.
-    fn update<'a, T, U>(&mut self, data: T)
+    fn update<'a, T, U, D>(&mut self, data: T)
     where
         T: Iterator<Item = U>,
-        U: Into<&'a SpriteCell>;
+        U: Into<&'a SpriteCell<D>>,
+        D: Default + 'a;
 
     /// Get the current FPS
     fn get_fps(&self) -> f32;

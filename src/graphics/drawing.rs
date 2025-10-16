@@ -17,24 +17,62 @@ use crate::resources::sprite::SpriteMap;
 
 /// Data for one on-screen sprite instance.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
-pub struct SpriteCell {
+pub struct SpriteCell<T: Default = ()> {
     /// Color for the cell.
     pub palette: Palette,
     /// Sprite index.
     pub sprite: u32,
     /// Transparency.
     pub transparent: bool,
+    /// User-specified data.
+    pub data: T,
 }
 
 /// A 2D array of sprite cells.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SpriteLayer {
+pub struct SpriteLayer<T: Default = ()> {
     width: usize,
     height: usize,
-    data: Box<[SpriteCell]>,
+    data: Box<[SpriteCell<T>]>,
 }
 
-impl SpriteLayer {
+impl<T> SpriteLayer<T>
+where
+    T: Default,
+{
+    /// Clear sprites and colors.
+    pub fn clear(&mut self) {
+        for c in self.iter_mut() {
+            c.clear();
+        }
+    }
+}
+
+impl<T> SpriteLayer<T> {
+    /// Get width of the layer.
+    pub fn width(&self) -> usize {
+        self.width
+    }
+    /// Get height of the layer.
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    /// Get an iterator over all of the cells in the layer.
+    pub fn iter(&self) -> std::slice::Iter<'_, SpriteCell<T>> {
+        self.data.iter()
+    }
+
+    /// Get a mutable iterator over all of the cells in the layer.
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, SpriteCell<T>> {
+        self.data.iter_mut()
+    }
+}
+
+impl<T> SpriteLayer<T>
+where
+    T: Default + Copy,
+{
     /// Create a new `SpriteLayer` with the given width and height.
     pub fn new(width: usize, height: usize) -> Self {
         SpriteLayer {
@@ -45,17 +83,17 @@ impl SpriteLayer {
     }
 
     /// Get an iterator over all of the cells in the layer.
-    pub fn iter(&self) -> std::slice::Iter<'_, SpriteCell> {
+    pub fn iter(&self) -> std::slice::Iter<'_, SpriteCell<T>> {
         self.data.iter()
     }
 
     /// Get a mutable iterator over all of the cells in the layer.
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, SpriteCell> {
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, SpriteCell<T>> {
         self.data.iter_mut()
     }
 
     /// Copy the entirety of this layer onto the specified layer.
-    pub fn stamp_onto(&self, other: &mut SpriteLayer, offset_x: usize, offset_y: usize) {
+    pub fn stamp_onto(&self, other: &mut SpriteLayer<T>, offset_x: usize, offset_y: usize) {
         // +------------------+
         // |                  |
         // |  (o_x, o_y)      |
@@ -94,7 +132,7 @@ impl SpriteLayer {
     /// Clear sprites and colors.
     pub fn clear(&mut self) {
         for c in self.iter_mut() {
-            *c = SpriteCell::default();
+            *c = SpriteCell::<T>::default();
         }
     }
 
@@ -108,138 +146,46 @@ impl SpriteLayer {
     }
 }
 
-impl std::ops::Index<usize> for SpriteLayer {
-    type Output = SpriteCell;
+impl<T> std::ops::Index<usize> for SpriteLayer<T>
+where
+    T: Default,
+{
+    type Output = SpriteCell<T>;
     #[inline]
     fn index(&self, i: usize) -> &Self::Output {
         &self.data[i]
     }
 }
 
-impl std::ops::IndexMut<usize> for SpriteLayer {
+impl<T> std::ops::IndexMut<usize> for SpriteLayer<T>
+where
+    T: Default,
+{
     #[inline]
     fn index_mut(&mut self, i: usize) -> &mut Self::Output {
         &mut self.data[i]
     }
 }
 
-impl std::ops::Index<(usize, usize)> for SpriteLayer {
-    type Output = SpriteCell;
+impl<T> std::ops::Index<(usize, usize)> for SpriteLayer<T>
+where
+    T: Default,
+{
+    type Output = SpriteCell<T>;
     #[inline]
     fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
         &self.data[y * self.width + x]
     }
 }
 
-impl std::ops::IndexMut<(usize, usize)> for SpriteLayer {
+impl<T> std::ops::IndexMut<(usize, usize)> for SpriteLayer<T>
+where
+    T: Default,
+{
     #[inline]
     fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Self::Output {
         &mut self.data[y * self.width + x]
     }
-}
-
-/// Sprites necessary for box drawing routines.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum BoxDrawingSprite {
-    /// Bottom left corner.
-    BottomLeftCorner,
-    /// Bottom right corner.
-    BottomRightCorner,
-    /// Top left corner.
-    TopLeftCorner,
-    /// Top right corner.
-    TopRightCorner,
-    /// Horizontal top.
-    HorizontalTop,
-    /// Horizontal bottom.
-    HorizontalBottom,
-    /// Vertical left.
-    VerticalLeft,
-    /// Vertical right.
-    VerticalRight,
-    /// |-
-    TeeRight,
-    /// -|
-    TeeLeft,
-    /// T
-    TeeDown,
-    /// ⊥
-    TeeUp,
-    /// Solid fill.
-    SolidFill,
-}
-
-/// Draw a rectangle with the given sprite set and palette.
-/// The same palette is used for each sprite in the output. This isn't a technical requirement, but
-/// is more convenient for practical uses.
-#[allow(unused)]
-pub fn rect<S>(sprite_map: S, width: usize, height: usize, p: Palette) -> SpriteLayer
-where
-    S: SpriteMap<BoxDrawingSprite>,
-{
-    let mut out = SpriteLayer::new(width, height);
-    out[(0, 0)].sprite = sprite_map.map(BoxDrawingSprite::TopLeftCorner);
-    out[(width - 1, 0)].sprite = sprite_map.map(BoxDrawingSprite::TopRightCorner);
-    out[(0, height - 1)].sprite = sprite_map.map(BoxDrawingSprite::BottomLeftCorner);
-    out[(width - 1, height - 1)].sprite = sprite_map.map(BoxDrawingSprite::BottomRightCorner);
-
-    for i in 1..width - 1 {
-        out[(i, 0)].sprite = sprite_map.map(BoxDrawingSprite::HorizontalTop);
-        out[(i, height - 1)].sprite = sprite_map.map(BoxDrawingSprite::HorizontalBottom);
-    }
-    for i in 1..height - 1 {
-        out[(0, i)].sprite = sprite_map.map(BoxDrawingSprite::VerticalLeft);
-        out[(width - 1, i)].sprite = sprite_map.map(BoxDrawingSprite::VerticalRight);
-    }
-    for x in 1..width - 1 {
-        for y in 1..height - 1 {
-            out[(x, y)].sprite = sprite_map.map(BoxDrawingSprite::SolidFill);
-        }
-    }
-
-    for cell in out.iter_mut() {
-        cell.palette = p;
-    }
-
-    out
-}
-
-/// Draw a message box
-pub fn msg_box<S>(
-    sprite_map: S,
-    width: usize,
-    height: usize,
-    p: Palette,
-    title: &str,
-    _message: &str,
-) -> SpriteLayer
-where
-    S: SpriteMap<BoxDrawingSprite> + Copy,
-{
-    let mut base = rect(sprite_map, width, height, p);
-    if height < 4 {
-        return base;
-    }
-    base[(0, 2)].sprite = sprite_map.map(BoxDrawingSprite::TeeRight);
-    base[(width - 1, 2)].sprite = sprite_map.map(BoxDrawingSprite::TeeLeft);
-    for i in 1..width - 1 {
-        base[(i, 2)].sprite = sprite_map.map(BoxDrawingSprite::HorizontalBottom);
-    }
-
-    for (i, c) in title.char_indices() {
-        if i >= width - 2 {
-            break;
-        }
-        base[(i + 1, 1)].sprite = c as u32;
-    }
-
-    if title.len() > width - 2 {
-        for i in 0..3 {
-            base[(width - 2 - i, 1)].sprite = '.' as u32;
-        }
-    }
-
-    base
 }
 
 #[cfg(test)]
