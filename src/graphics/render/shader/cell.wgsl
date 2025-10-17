@@ -57,9 +57,11 @@ fn fs_main(in: CellVertexOutput) -> @location(0) vec4<f32> {
         vec2<i32>(i32(floor(in.uv.x * f32(cell_globals.sprite_texture_dimensions.x))),
                   i32(floor(in.uv.y * f32(cell_globals.sprite_texture_dimensions.y)))),
         0);
+    let i: u32 = clamp(t.x, 0u, 15u);
+    //let mapped_color: u32 = in.map[i];
     return textureLoad(palette_texture,
-                       vec3<i32>(i32(clamp(t.x, 0u, 15u)),
-                                 i32(in.cell_coords.x),
-                                 i32(in.cell_coords.y)),
+                       vec3<i32>(i32(in.cell_coords.x),
+                                 i32(in.cell_coords.y),
+                                 i32(i)),
                        0);
 }

@@ -356,6 +356,16 @@ pub struct Palette {
 }
 
 impl Palette {
+    /// Create a new palette with explicitly specified colors.
+    pub fn new<T>(colors: [T; 16]) -> Self
+    where
+        T: Into<[u8; 3]>,
+    {
+        Self {
+            colors: colors.map(|c| c.into()),
+        }
+    }
+
     /// This lets you set a palette via a builder-style pattern. E.g.,
     ///
     /// ```

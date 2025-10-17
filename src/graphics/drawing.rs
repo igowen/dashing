@@ -13,11 +13,40 @@
 // limitations under the License.
 
 use crate::resources::color::Palette;
-use crate::resources::sprite::SpriteMap;
+
+/// Encapsulation of a 16-element array mapping palette indices.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PaletteMap([u8; 16]);
+
+impl Default for PaletteMap {
+    fn default() -> Self {
+        PaletteMap(std::array::from_fn(|i| i as u8))
+    }
+}
+
+impl PaletteMap {
+    /// Get the mapped index for `i`.
+    pub fn map(&self, i: u8) -> u8 {
+        self.0[i as usize]
+    }
+
+    /// Map index `i` to `n`, consuming `self` and returning `self` for builder-style construction.
+    pub fn set(mut self, i: u8, n: u8) -> Self {
+        self.0[i as usize] = n;
+        self
+    }
+
+    /// Map index `i` to `n` in-place.
+    pub fn update(&mut self, i: u8, n: u8) {
+        self.0[i as usize] = n;
+    }
+}
 
 /// Data for one on-screen sprite instance.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct SpriteCell<T: Default = ()> {
+    /// Remaps the color indices from this sprite into the palette.
+    pub palette_map: PaletteMap,
     /// Color for the cell.
     pub palette: Palette,
     /// Sprite index.

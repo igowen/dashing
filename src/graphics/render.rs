@@ -18,12 +18,14 @@ use std::sync::Arc;
 use itertools::Itertools;
 use log::{info, trace};
 
-use crate::graphics::drawing::SpriteCell;
+use crate::graphics::drawing::{PaletteMap, SpriteCell};
 use crate::resources::sprite::SpriteTexture;
 use wgpu::util::DeviceExt;
 
 #[cfg(test)]
 mod tests;
+
+const PALETTE_SIZE: usize = 16;
 
 /// Error type for the renderer.
 #[derive(Debug)]
@@ -241,7 +243,9 @@ pub(crate) struct Renderer<'a> {
     screen_uniform_bind_group: wgpu::BindGroup,
 
     instances: Box<[Instance]>,
-    palette_data: Box<[[[u8; 3]; 16]]>,
+    palette_data: Box<[[[u8; 3]; PALETTE_SIZE]]>,
+    palette_map_data: Box<[PaletteMap]>,
+    palette_texture_data: Box<[u8]>,
     palette_texture: wgpu::Texture,
     palette_texture_size: wgpu::Extent3d,
 
@@ -267,7 +271,13 @@ impl<'a> Renderer<'a> {
         present_mode: wgpu::PresentMode,
     ) -> Result<Self, RenderError> {
         let mut instances = vec![Instance::default(); (dimensions.0 * dimensions.1) as usize];
-        let palette_data = vec![[[255, 255, 255]; 16]; (dimensions.0 * dimensions.1) as usize];
+        let palette_data =
+            vec![[[255, 255, 255]; PALETTE_SIZE]; (dimensions.0 * dimensions.1) as usize]
+                .into_boxed_slice();
+        let palette_texture_data =
+            vec![255; (dimensions.0 * dimensions.1) as usize * PALETTE_SIZE * 4].into_boxed_slice();
+        let palette_map_data =
+            vec![Default::default(); (dimensions.0 * dimensions.1) as usize].into_boxed_slice();
 
         for y in 0..dimensions.1 {
             for x in 0..dimensions.0 {
@@ -437,9 +447,9 @@ impl<'a> Renderer<'a> {
         let sprite_texture_view = sprite_texture_gpu.create_view(&Default::default());
 
         let palette_texture_size = wgpu::Extent3d {
-            width: 16,
-            height: dimensions.0 as u32,
-            depth_or_array_layers: dimensions.1 as u32,
+            width: dimensions.0 as u32,
+            height: dimensions.1 as u32,
+            depth_or_array_layers: PALETTE_SIZE as u32,
         };
 
         let palette_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -762,7 +772,9 @@ impl<'a> Renderer<'a> {
             instances: instances.into_boxed_slice(),
             instance_buffer,
 
-            palette_data: palette_data.into_boxed_slice(),
+            palette_data,
+            palette_map_data,
+            palette_texture_data,
             palette_texture,
             palette_texture_size,
 
@@ -796,13 +808,16 @@ impl<'a> Renderer<'a> {
             ],
         };
 
-        // TODO: update palette data in-place in update() instead of making a copy here.
-        let flat_palette_data: Vec<u8> = self
-            .palette_data
-            .iter()
-            .flat_map(|c| c.iter())
-            .flat_map(|c| vec![c[0], c[1], c[2], 255].into_iter())
-            .collect();
+        let texture_slice_size = (self.dimensions.0 * self.dimensions.1) as usize;
+        for z in 0..PALETTE_SIZE {
+            for i in 0..texture_slice_size {
+                let mapped_z = self.palette_map_data[i].map(z as u8) as usize;
+                let p = &self.palette_data[i][mapped_z];
+                for (j, v) in [p[0], p[1], p[2], 255].into_iter().enumerate() {
+                    self.palette_texture_data[(z * texture_slice_size + i) * 4 + j] = v;
+                }
+            }
+        }
 
         self.queue.write_buffer(
             &self.screen_uniform_buffer,
@@ -823,11 +838,11 @@ impl<'a> Renderer<'a> {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &flat_palette_data[..],
+            &self.palette_texture_data[..],
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(16 * 4),
-                rows_per_image: Some(self.dimensions.0 as u32),
+                bytes_per_row: Some(self.dimensions.0 as u32 * 4),
+                rows_per_image: Some(self.dimensions.1 as u32),
             },
             self.palette_texture_size,
         );
@@ -1025,14 +1040,16 @@ impl RenderInterface for Renderer<'_> {
         U: Into<&'a SpriteCell<D>>,
         D: Default + 'a,
     {
-        for (i, d, p) in itertools::multizip((
+        for (i, d, p, m) in itertools::multizip((
             self.instances.iter_mut(),
             data,
             self.palette_data.iter_mut(),
+            self.palette_map_data.iter_mut(),
         )) {
             let c: &SpriteCell<_> = d.into();
             i.sprite = c.sprite;
             *p = c.palette.into();
+            *m = c.palette_map;
         }
     }
 
