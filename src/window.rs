@@ -17,7 +17,7 @@ use std::sync::Arc;
 use log::info;
 
 use crate::graphics::render;
-use crate::resources::color::Color;
+use crate::resources::color::{Color, Palette};
 use crate::resources::sprite::SpriteTexture;
 
 /// `WindowError` represents an error that occurred in the window system.
@@ -73,6 +73,7 @@ pub struct WindowBuilder<'a> {
     resizable: bool,
     full_screen: bool,
     clear_color: Color,
+    palette: Palette,
     filter_method: FilterMethod,
 }
 
@@ -101,6 +102,7 @@ impl<'a> WindowBuilder<'a> {
             resizable: false,
             full_screen: false,
             clear_color: [0, 255, 0].into(),
+            palette: Default::default(),
             filter_method: FilterMethod::NearestNeighbor,
         }
     }
@@ -134,6 +136,14 @@ impl<'a> WindowBuilder<'a> {
     #[must_use]
     pub fn with_clear_color(mut self, c: Color) -> Self {
         self.clear_color = c;
+
+        self
+    }
+
+    /// Set the global palette.
+    #[must_use]
+    pub fn with_palette(mut self, p: Palette) -> Self {
+        self.palette = p;
 
         self
     }
@@ -178,6 +188,7 @@ impl<'a> WindowBuilder<'a> {
             (self.width as _, self.height as _),
             self.sprite_texture,
             self.clear_color,
+            self.palette,
             self.filter_method.into(),
             if self.vsync {
                 wgpu::PresentMode::Fifo

@@ -397,6 +397,17 @@ impl Palette {
             colors: [color.into(); 16],
         }
     }
+
+    pub(crate) fn as_texture_data(&self) -> [u8; 64] {
+        let mut result = [0; 64];
+        for (i, o) in self.colors.iter().zip(result.chunks_mut(4)) {
+            o[0] = i[0];
+            o[1] = i[1];
+            o[2] = i[2];
+            o[3] = 255;
+        }
+        result
+    }
 }
 
 impl Default for Palette {

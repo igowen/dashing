@@ -45,10 +45,8 @@ impl PaletteMap {
 /// Data for one on-screen sprite instance.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub struct SpriteCell<T: Default = ()> {
-    /// Remaps the color indices from this sprite into the palette.
+    /// Maps the color indices from the sprite texture to colors in the global palette.
     pub palette_map: PaletteMap,
-    /// Color for the cell.
-    pub palette: Palette,
     /// Sprite index.
     pub sprite: u32,
     /// Transparency.
