@@ -19,7 +19,7 @@ struct CellGlobals {
   sprite_map_dimensions: vec2<u32>,
   sprite_texture_dimensions: vec2<u32>,
   sprite_dimensions: vec2<u32>,
-  palette_texture_dimensions: vec2<u32>,
+  palette_size: u32,
 }
 
 @group(0) @binding(0) var<uniform> cell_globals: CellGlobals;
@@ -52,16 +52,18 @@ fn vs_main(in: CellVertexInput) -> CellVertexOutput {
 
 @fragment
 fn fs_main(in: CellVertexOutput) -> @location(0) vec4<f32> {
-    // The "color" here is the index into the palette for this cell (0-15).
+    // The "color" here is the index into the palette for this cell.
     var t: vec4<u32> = textureLoad(
         sprite_texture,
         vec2<i32>(i32(floor(in.uv.x * f32(cell_globals.sprite_texture_dimensions.x))),
                   i32(floor(in.uv.y * f32(cell_globals.sprite_texture_dimensions.y)))),
         0);
-    let i: u32 = clamp(t.r, 0u, 15u);
-    let mapped_i: u32 = textureLoad(palette_map_texture, vec3<i32>(
-        i32(in.cell_coords.x),
-        i32(in.cell_coords.y),
-        i32(i)), 0).r;
+    let i: u32 = clamp(t.r, 0u, cell_globals.palette_size - 1);
+    let mapped_i: u32 = clamp(
+        textureLoad(palette_map_texture, vec3<i32>(
+            i32(in.cell_coords.x),
+            i32(in.cell_coords.y),
+            i32(i)), 0).r,
+        0, cell_globals.palette_size - 1);
     return textureLoad(palette_texture, i32(mapped_i), 0);
 }

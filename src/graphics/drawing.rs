@@ -15,16 +15,14 @@
 use crate::resources::color::Palette;
 
 /// Encapsulation of a 16-element array mapping palette indices.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct PaletteMap([u8; 16]);
-
-impl Default for PaletteMap {
-    fn default() -> Self {
-        PaletteMap(std::array::from_fn(|i| i as u8))
-    }
-}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PaletteMap(Box<[u8]>);
 
 impl PaletteMap {
+    /// Create a new map for a palette of size N.
+    pub fn new<const N: u8>() -> Self {
+        PaletteMap((0..N).collect())
+    }
     /// Get the mapped index for `i`.
     pub fn map(&self, i: u8) -> u8 {
         self.0[i as usize]
@@ -40,10 +38,17 @@ impl PaletteMap {
     pub fn update(&mut self, i: u8, n: u8) {
         self.0[i as usize] = n;
     }
+
+    /// Reset the map so that all indices map to themselves.
+    pub fn clear(&mut self) {
+        for (i, o) in self.0.iter_mut().enumerate() {
+            *o = i as u8;
+        }
+    }
 }
 
 /// Data for one on-screen sprite instance.
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SpriteCell<T: Default = ()> {
     /// Maps the color indices from the sprite texture to colors in the global palette.
     pub palette_map: PaletteMap,
@@ -53,6 +58,26 @@ pub struct SpriteCell<T: Default = ()> {
     pub transparent: bool,
     /// User-specified data.
     pub data: T,
+}
+
+impl<T: Default> SpriteCell<T> {
+    /// Create a new SpriteCell for a palette of size N.
+    fn new<const N: u8>() -> Self {
+        Self {
+            palette_map: PaletteMap::new::<N>(),
+            sprite: 0,
+            transparent: false,
+            data: Default::default(),
+        }
+    }
+
+    /// Clear this cell.
+    fn clear(&mut self) {
+        self.palette_map.clear();
+        self.sprite = 0;
+        self.transparent = false;
+        self.data = Default::default();
+    }
 }
 
 /// A 2D array of sprite cells.
@@ -101,11 +126,11 @@ where
     T: Default + Copy,
 {
     /// Create a new `SpriteLayer` with the given width and height.
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new<const N: u8>(width: usize, height: usize) -> Self {
         SpriteLayer {
             width,
             height,
-            data: vec![SpriteCell::default(); width * height].into_boxed_slice(),
+            data: vec![SpriteCell::new::<N>(); width * height].into_boxed_slice(),
         }
     }
 
@@ -143,7 +168,7 @@ where
         for x in 0..truncated_width {
             for y in 0..truncated_height {
                 if !self[(x, y)].transparent {
-                    other[(offset_x + x, offset_y + y)] = self[(x, y)];
+                    other[(offset_x + x, offset_y + y)].clone_from(&self[(x, y)]);
                 }
             }
         }
@@ -159,7 +184,7 @@ where
     /// Clear sprites and colors.
     pub fn clear(&mut self) {
         for c in self.iter_mut() {
-            *c = SpriteCell::<T>::default();
+            c.clear();
         }
     }
 

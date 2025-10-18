@@ -26,8 +26,6 @@ use wgpu::util::DeviceExt;
 #[cfg(test)]
 mod tests;
 
-const PALETTE_SIZE: usize = 16;
-
 /// Error type for the renderer.
 #[derive(Debug)]
 pub enum RenderError {
@@ -51,7 +49,9 @@ struct CellGlobals {
     sprite_map_dimensions: [u32; 2],
     sprite_texture_dimensions: [u32; 2],
     sprite_dimensions: [u32; 2],
-    palette_texture_dimensions: [u32; 2],
+    palette_size: u32,
+    // TODO: Figure out how to handle this more gracefully
+    _padding: u32,
 }
 
 #[repr(C)]
@@ -245,6 +245,7 @@ pub(crate) struct Renderer<'a> {
 
     instances: Box<[Instance]>,
 
+    palette: Palette,
     palette_texture: wgpu::Texture,
     palette_texture_data: Box<[u8]>,
     palette_texture_size: wgpu::Extent3d,
@@ -278,9 +279,9 @@ impl<'a> Renderer<'a> {
     ) -> Result<Self, RenderError> {
         let mut instances = vec![Instance::default(); (dimensions.0 * dimensions.1) as usize];
 
-        let palette_texture_data = Box::new(palette.as_texture_data());
+        let palette_texture_data = palette.as_texture_data();
         let palette_map_texture_data =
-            vec![0; (dimensions.0 * dimensions.1) as usize * PALETTE_SIZE].into_boxed_slice();
+            vec![0; (dimensions.0 * dimensions.1) as usize * palette.size()].into_boxed_slice();
 
         for y in 0..dimensions.1 {
             for x in 0..dimensions.0 {
@@ -450,7 +451,7 @@ impl<'a> Renderer<'a> {
         let sprite_texture_view = sprite_texture_gpu.create_view(&Default::default());
 
         let palette_texture_size = wgpu::Extent3d {
-            width: PALETTE_SIZE as u32,
+            width: palette.size() as u32,
             height: 1,
             depth_or_array_layers: 1,
         };
@@ -471,7 +472,7 @@ impl<'a> Renderer<'a> {
         let palette_map_texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth_or_array_layers: PALETTE_SIZE as u32,
+            depth_or_array_layers: palette.size() as u32,
         };
 
         let palette_map_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -598,7 +599,8 @@ impl<'a> Renderer<'a> {
                 sprite_texture.sprite_width() as u32,
                 sprite_texture.sprite_height() as u32,
             ],
-            palette_texture_dimensions: [palette_texture_size.width, palette_texture_size.height],
+            palette_size: palette.size() as u32,
+            _padding: 0,
         };
 
         let cell_uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -808,6 +810,7 @@ impl<'a> Renderer<'a> {
             instances: instances.into_boxed_slice(),
             instance_buffer,
 
+            palette,
             palette_map_texture,
             palette_map_texture_data,
             palette_map_texture_size,
@@ -868,7 +871,7 @@ impl<'a> Renderer<'a> {
             &self.palette_texture_data[..],
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(PALETTE_SIZE as u32 * 4),
+                bytes_per_row: Some(self.palette.size() as u32 * 4),
                 rows_per_image: None,
             },
             self.palette_texture_size,
@@ -1091,7 +1094,7 @@ impl RenderInterface for Renderer<'_> {
             let y = i / self.dimensions.0 as usize;
             let width = self.dimensions.0 as usize;
             let area = (self.dimensions.0 * self.dimensions.1) as usize;
-            for z in 0..PALETTE_SIZE {
+            for z in 0..self.palette.size() {
                 self.palette_map_texture_data[area * z + y * width + x] =
                     c.palette_map.map(z as u8);
             }

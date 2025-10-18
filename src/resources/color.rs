@@ -350,19 +350,19 @@ impl Default for Color {
 
 /// A 16-color palette.
 /// Probably should go in a different module.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Palette {
-    colors: [[u8; 3]; 16],
+    colors: Box<[[u8; 3]]>,
 }
 
 impl Palette {
     /// Create a new palette with explicitly specified colors.
-    pub fn new<T>(colors: [T; 16]) -> Self
+    pub fn new<T>(colors: impl IntoIterator<Item = T>) -> Self
     where
         T: Into<[u8; 3]>,
     {
         Self {
-            colors: colors.map(|c| c.into()),
+            colors: colors.into_iter().map(|c| c.into()).collect(),
         }
     }
 
@@ -392,68 +392,49 @@ impl Palette {
     ///     assert_eq!(p[i], [128, 128, 128]);
     /// }
     /// ```
-    pub fn mono<C: Into<[u8; 3]>>(color: C) -> Self {
+    pub fn mono<C: Into<[u8; 3]>, const N: usize>(color: C) -> Self {
         Palette {
-            colors: [color.into(); 16],
+            colors: vec![color.into(); N].into_boxed_slice(),
         }
     }
 
-    pub(crate) fn as_texture_data(&self) -> [u8; 64] {
-        let mut result = [0; 64];
+    /// Get the size of this Palette.
+    pub fn size(&self) -> usize {
+        self.colors.len()
+    }
+
+    pub(crate) fn as_texture_data(&self) -> Box<[u8]> {
+        let mut result = vec![0; self.size() * 4];
         for (i, o) in self.colors.iter().zip(result.chunks_mut(4)) {
             o[0] = i[0];
             o[1] = i[1];
             o[2] = i[2];
             o[3] = 255;
         }
-        result
+        result.into_boxed_slice()
     }
 }
 
 impl Default for Palette {
     /// Create a palette based on the CGA palette.
     fn default() -> Self {
-        Palette {
-            colors: [
-                [0x00, 0x00, 0x00],
-                [0x00, 0x00, 0xaa],
-                [0x00, 0xaa, 0x00],
-                [0x00, 0xaa, 0xaa],
-                [0xaa, 0x00, 0x00],
-                [0xaa, 0x00, 0xaa],
-                [0xaa, 0x55, 0x00],
-                [0xaa, 0xaa, 0xaa],
-                [0x55, 0x55, 0x55],
-                [0x55, 0x55, 0xff],
-                [0x55, 0xff, 0x55],
-                [0x55, 0xff, 0xff],
-                [0xff, 0x55, 0x55],
-                [0xff, 0x55, 0xff],
-                [0xff, 0xff, 0x55],
-                [0xff, 0xff, 0xff],
-            ],
-        }
-    }
-}
-
-impl From<Palette> for [[u8; 3]; 16] {
-    fn from(p: Palette) -> Self {
-        p.colors
-    }
-}
-
-impl From<Palette> for [[u8; 4]; 16] {
-    fn from(p: Palette) -> Self {
-        let mut result = [[0; 4]; 16];
-        for (i, o) in p.colors.iter().zip(result.iter_mut()) {
-            *o = [i[0], i[1], i[2], 255]
-        }
-        result
-    }
-}
-
-impl From<[[u8; 3]; 16]> for Palette {
-    fn from(c: [[u8; 3]; 16]) -> Self {
-        Palette { colors: c }
+        Palette::new([
+            [0x00, 0x00, 0x00],
+            [0x00, 0x00, 0xaa],
+            [0x00, 0xaa, 0x00],
+            [0x00, 0xaa, 0xaa],
+            [0xaa, 0x00, 0x00],
+            [0xaa, 0x00, 0xaa],
+            [0xaa, 0x55, 0x00],
+            [0xaa, 0xaa, 0xaa],
+            [0x55, 0x55, 0x55],
+            [0x55, 0x55, 0xff],
+            [0x55, 0xff, 0x55],
+            [0x55, 0xff, 0xff],
+            [0xff, 0x55, 0x55],
+            [0xff, 0x55, 0xff],
+            [0xff, 0xff, 0x55],
+            [0xff, 0xff, 0xff],
+        ])
     }
 }
