@@ -12,17 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::resources::color::Palette;
-
-/// Encapsulation of a 16-element array mapping palette indices.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PaletteMap(Box<[u8]>);
+/// Encapsulation of an 8-element array mapping palette indices.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PaletteMap([u8; 8]);
 
 impl PaletteMap {
-    /// Create a new map for a palette of size N.
-    pub fn new<const N: u8>() -> Self {
-        PaletteMap((0..N).collect())
-    }
+    /// Maximum number of entries in a PaletteMap.
+    pub const MAX_SIZE: usize = 8;
+
     /// Get the mapped index for `i`.
     pub fn map(&self, i: u8) -> u8 {
         self.0[i as usize]
@@ -47,8 +44,14 @@ impl PaletteMap {
     }
 }
 
+impl Default for PaletteMap {
+    fn default() -> Self {
+        Self(std::array::from_fn(|i| i as u8))
+    }
+}
+
 /// Data for one on-screen sprite instance.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SpriteCell<T: Default = ()> {
     /// Maps the color indices from the sprite texture to colors in the global palette.
     pub palette_map: PaletteMap,
@@ -61,16 +64,6 @@ pub struct SpriteCell<T: Default = ()> {
 }
 
 impl<T: Default> SpriteCell<T> {
-    /// Create a new SpriteCell for a palette of size N.
-    fn new<const N: u8>() -> Self {
-        Self {
-            palette_map: PaletteMap::new::<N>(),
-            sprite: 0,
-            transparent: false,
-            data: Default::default(),
-        }
-    }
-
     /// Clear this cell.
     fn clear(&mut self) {
         self.palette_map.clear();
@@ -126,11 +119,11 @@ where
     T: Default + Copy,
 {
     /// Create a new `SpriteLayer` with the given width and height.
-    pub fn new<const N: u8>(width: usize, height: usize) -> Self {
+    pub fn new(width: usize, height: usize) -> Self {
         SpriteLayer {
             width,
             height,
-            data: vec![SpriteCell::new::<N>(); width * height].into_boxed_slice(),
+            data: vec![Default::default(); width * height].into_boxed_slice(),
         }
     }
 

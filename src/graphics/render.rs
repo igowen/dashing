@@ -280,8 +280,12 @@ impl<'a> Renderer<'a> {
         let mut instances = vec![Instance::default(); (dimensions.0 * dimensions.1) as usize];
 
         let palette_texture_data = palette.as_texture_data();
-        let palette_map_texture_data =
-            vec![0; (dimensions.0 * dimensions.1) as usize * palette.size()].into_boxed_slice();
+        let palette_map_texture_data = vec![
+            palette.size() as u8;
+            (dimensions.0 * dimensions.1) as usize
+                * (PaletteMap::MAX_SIZE + 1)
+        ]
+        .into_boxed_slice();
 
         for y in 0..dimensions.1 {
             for x in 0..dimensions.0 {
@@ -472,7 +476,7 @@ impl<'a> Renderer<'a> {
         let palette_map_texture_size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth_or_array_layers: palette.size() as u32,
+            depth_or_array_layers: PaletteMap::MAX_SIZE as u32 + 1,
         };
 
         let palette_map_texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -1094,7 +1098,7 @@ impl RenderInterface for Renderer<'_> {
             let y = i / self.dimensions.0 as usize;
             let width = self.dimensions.0 as usize;
             let area = (self.dimensions.0 * self.dimensions.1) as usize;
-            for z in 0..self.palette.size() {
+            for z in 0..PaletteMap::MAX_SIZE {
                 self.palette_map_texture_data[area * z + y * width + x] =
                     c.palette_map.map(z as u8);
             }
