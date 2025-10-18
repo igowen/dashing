@@ -75,6 +75,7 @@ pub struct WindowBuilder<'a> {
     clear_color: Color,
     palette: Palette,
     filter_method: FilterMethod,
+    debug: bool,
 }
 
 impl<'a> WindowBuilder<'a> {
@@ -104,6 +105,7 @@ impl<'a> WindowBuilder<'a> {
             clear_color: [0, 255, 0].into(),
             palette: Default::default(),
             filter_method: FilterMethod::NearestNeighbor,
+            debug: false,
         }
     }
 
@@ -156,6 +158,14 @@ impl<'a> WindowBuilder<'a> {
         self
     }
 
+    /// Enable rendering debugging functionality.
+    #[must_use]
+    pub fn enable_debug(mut self) -> Self {
+        self.debug = true;
+
+        self
+    }
+
     /// Build the window.
     pub fn build(self) -> Result<Window<'a>, WindowError> {
         // TODO: Don't create a window bigger than the display.
@@ -194,6 +204,11 @@ impl<'a> WindowBuilder<'a> {
                 wgpu::PresentMode::Fifo
             } else {
                 wgpu::PresentMode::Mailbox
+            },
+            if self.debug {
+                wgpu::InstanceFlags::debugging()
+            } else {
+                wgpu::InstanceFlags::empty()
             },
         )?;
 

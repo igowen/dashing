@@ -274,6 +274,7 @@ impl<'a> Renderer<'a> {
         palette: Palette,
         screen_filter_method: wgpu::FilterMode,
         present_mode: wgpu::PresentMode,
+        instance_flags: wgpu::InstanceFlags,
     ) -> Result<Self, RenderError> {
         let mut instances = vec![Instance::default(); (dimensions.0 * dimensions.1) as usize];
 
@@ -300,7 +301,7 @@ impl<'a> Renderer<'a> {
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
-            flags: wgpu::InstanceFlags::empty(),
+            flags: instance_flags,
             ..Default::default()
         });
 
