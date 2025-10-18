@@ -340,7 +340,7 @@ impl<'a> Renderer<'a> {
                     dimension: wgpu::TextureDimension::D2,
                     format: wgpu::TextureFormat::Rgba8Unorm,
                     usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-                    label: Some("final output texture"),
+                    label: Some("Final output texture"),
                     view_formats: &[],
                 });
 
@@ -387,7 +387,7 @@ impl<'a> Renderer<'a> {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::TEXTURE_BINDING,
-            label: Some("render target texture"),
+            label: Some("Render target texture"),
             view_formats: &[],
         });
 
@@ -416,7 +416,7 @@ impl<'a> Renderer<'a> {
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::R8Uint,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: Some("sprite texture"),
+            label: Some("Sprite texture"),
             view_formats: &[],
         });
 
@@ -462,7 +462,7 @@ impl<'a> Renderer<'a> {
             dimension: wgpu::TextureDimension::D1,
             format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: Some("palette texture"),
+            label: Some("Palette texture"),
             view_formats: &[],
         });
 
@@ -481,7 +481,7 @@ impl<'a> Renderer<'a> {
             dimension: wgpu::TextureDimension::D3,
             format: wgpu::TextureFormat::R8Uint,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            label: Some("palette map texture"),
+            label: Some("Palette map texture"),
             view_formats: &[],
         });
 
@@ -521,7 +521,7 @@ impl<'a> Renderer<'a> {
                         count: None,
                     },
                 ],
-                label: Some("cell_texture_bind_group_layout"),
+                label: Some("Cell texture bind group layout"),
             });
 
         let cell_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -540,7 +540,7 @@ impl<'a> Renderer<'a> {
                     resource: wgpu::BindingResource::TextureView(&palette_map_texture_view),
                 },
             ],
-            label: Some("cell_texture_bind_group"),
+            label: Some("Cell texture bind group"),
         });
 
         let cell_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -685,7 +685,7 @@ impl<'a> Renderer<'a> {
                         count: None,
                     },
                 ],
-                label: Some("screen_texture_bind_group_layout"),
+                label: Some("Screen texture bind group layout"),
             });
 
         let screen_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -700,7 +700,7 @@ impl<'a> Renderer<'a> {
                     resource: wgpu::BindingResource::Sampler(&render_target_sampler),
                 },
             ],
-            label: Some("screen_texture_bind_group"),
+            label: Some("Screen texture bind group"),
         });
 
         let screen_uniform_bind_group_layout =
