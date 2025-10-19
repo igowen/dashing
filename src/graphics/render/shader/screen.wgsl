@@ -2,8 +2,6 @@ struct ScreenGlobals {
     screen_size: vec2<f32>,
     screen_texture_dimensions: vec2<f32>,
     scale_factor: vec2<f32>,
-    frame_counter: u32,
-    elapsed_time: f32,
 }
 
 struct ScreenVertexOutput {

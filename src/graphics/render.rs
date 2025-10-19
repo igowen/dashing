@@ -60,8 +60,6 @@ struct ScreenGlobals {
     screen_size: [f32; 2],
     screen_texture_dimensions: [f32; 2],
     scale_factor: [f32; 2],
-    frame_counter: u32,
-    elapsed_time: f32,
 }
 
 #[repr(C)]
@@ -821,12 +819,6 @@ impl<'a> Renderer<'a> {
         info!("Aspect ratio: {}:{}", ax, ay);
         info!("surface format: {:?}", surface_format);
 
-        queue.write_buffer(
-            &dynamic_instance_buffer,
-            0,
-            bytemuck::cast_slice(&dynamic_instances[..]),
-        );
-
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &palette_texture,
@@ -843,7 +835,7 @@ impl<'a> Renderer<'a> {
             palette_texture_size,
         );
 
-        Ok(Renderer {
+        let mut result = Renderer {
             device,
             queue,
 
@@ -888,10 +880,14 @@ impl<'a> Renderer<'a> {
             frame_counter: 0,
             fps: 0.0,
             dirty: true,
-        })
+        };
+
+        result.update_screen_uniforms();
+
+        Ok(result)
     }
 
-    pub(crate) fn render_frame(&mut self) -> Result<(), RenderError> {
+    fn update_screen_uniforms(&mut self) {
         let (screen_w, screen_h) = self.render_output.output_size();
         let (ax, ay) = self.aspect_ratio;
         let target_w = std::cmp::min(screen_w, (screen_h * ax) / ay);
@@ -900,8 +896,6 @@ impl<'a> Renderer<'a> {
         let screen_uniforms = ScreenGlobals {
             screen_size: [screen_w as _, screen_h as _],
             screen_texture_dimensions: [self.pixel_dimensions.0 as _, self.pixel_dimensions.1 as _],
-            frame_counter: self.frame_counter,
-            elapsed_time: self.elapsed_time.as_seconds_f32(),
             scale_factor: [
                 target_w as f32 / screen_w as f32,
                 target_h as f32 / screen_h as f32,
@@ -913,7 +907,8 @@ impl<'a> Renderer<'a> {
             0,
             bytemuck::cast_slice(&[screen_uniforms]),
         );
-
+    }
+    pub(crate) fn render_frame(&mut self) -> Result<(), RenderError> {
         if self.dirty {
             self.dirty = false;
             self.queue.write_buffer(
@@ -1056,6 +1051,7 @@ impl<'a> Renderer<'a> {
             surface_configuration.width = new_size.width;
             surface_configuration.height = new_size.height;
             surface.configure(&self.device, surface_configuration);
+            self.update_screen_uniforms();
         }
     }
 
