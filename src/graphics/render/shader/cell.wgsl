@@ -3,8 +3,8 @@ struct CellVertexInput {
   @location(1) uv: vec2<f32>,
   @location(2) translate: vec2<f32>,
   @location(3) cell_coords: vec2<u32>,
-  @location(4) sprite: u32,
-  @location(5) index: u32,
+  @location(4) index: u32,
+  @location(5) sprite: u32,
 }
 
 struct CellVertexOutput {

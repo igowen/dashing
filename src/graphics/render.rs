@@ -94,17 +94,24 @@ impl Vertex {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
-struct Instance {
+struct InstanceStatic {
     translate: [f32; 2],
     cell_coords: [u32; 2],
-    sprite: u32,
     index: u32,
+    _padding: u32,
 }
 
-impl Instance {
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+struct InstanceDynamic {
+    sprite: u32,
+    _padding: u32,
+}
+
+impl InstanceStatic {
     fn layout<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<InstanceStatic>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -123,15 +130,21 @@ impl Instance {
                     shader_location: 4,
                     format: wgpu::VertexFormat::Uint32,
                 },
-                wgpu::VertexAttribute {
-                    offset: (std::mem::size_of::<[f32; 2]>()
-                        + std::mem::size_of::<[u32; 2]>()
-                        + std::mem::size_of::<u32>())
-                        as wgpu::BufferAddress,
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Uint32,
-                },
             ],
+        }
+    }
+}
+
+impl InstanceDynamic {
+    fn layout<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<InstanceDynamic>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[wgpu::VertexAttribute {
+                offset: 0,
+                shader_location: 5,
+                format: wgpu::VertexFormat::Uint32,
+            }],
         }
     }
 }
@@ -233,7 +246,8 @@ pub(crate) struct Renderer<'a> {
 
     render_target_view: wgpu::TextureView,
 
-    instance_buffer: wgpu::Buffer,
+    static_instance_buffer: wgpu::Buffer,
+    dynamic_instance_buffer: wgpu::Buffer,
 
     screen_render_pipeline: wgpu::RenderPipeline,
 
@@ -243,7 +257,8 @@ pub(crate) struct Renderer<'a> {
     screen_uniform_buffer: wgpu::Buffer,
     screen_uniform_bind_group: wgpu::BindGroup,
 
-    instances: Box<[Instance]>,
+    static_instances: Box<[InstanceStatic]>,
+    dynamic_instances: Box<[InstanceDynamic]>,
 
     palette: Palette,
     palette_texture: wgpu::Texture,
@@ -277,7 +292,10 @@ impl<'a> Renderer<'a> {
         present_mode: wgpu::PresentMode,
         instance_flags: wgpu::InstanceFlags,
     ) -> Result<Self, RenderError> {
-        let mut instances = vec![Instance::default(); (dimensions.0 * dimensions.1) as usize];
+        let mut static_instances =
+            vec![InstanceStatic::default(); (dimensions.0 * dimensions.1) as usize];
+        let dynamic_instances =
+            vec![InstanceDynamic::default(); (dimensions.0 * dimensions.1) as usize];
 
         let palette_texture_data = palette.as_texture_data();
         let palette_map_texture_data = vec![
@@ -289,14 +307,14 @@ impl<'a> Renderer<'a> {
 
         for y in 0..dimensions.1 {
             for x in 0..dimensions.0 {
-                instances[(y * dimensions.0 + x) as usize] = Instance {
+                static_instances[(y * dimensions.0 + x) as usize] = InstanceStatic {
                     translate: [
                         -1.0 + (x as f32 * 2.0 / dimensions.0 as f32),
                         1.0 - ((y as f32 + 1.0) * 2.0 / dimensions.1 as f32),
                     ],
                     cell_coords: [x as _, y as _],
-                    sprite: 0,
                     index: (y * dimensions.0 + x) as u32,
+                    _padding: 0,
                 };
             }
         }
@@ -622,11 +640,18 @@ impl<'a> Renderer<'a> {
             }],
         });
 
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance buffer"),
-            contents: bytemuck::cast_slice(&instances),
+        let static_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance buffer (static)"),
+            contents: bytemuck::cast_slice(&static_instances),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
+
+        let dynamic_instance_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance buffer (dynamic)"),
+                contents: bytemuck::cast_slice(&dynamic_instances),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
 
         let cell_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Cell pipeline layout"),
@@ -642,7 +667,11 @@ impl<'a> Renderer<'a> {
             layout: Some(&cell_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &cell_shader,
-                buffers: &[Vertex::layout(), Instance::layout()],
+                buffers: &[
+                    Vertex::layout(),
+                    InstanceStatic::layout(),
+                    InstanceDynamic::layout(),
+                ],
                 entry_point: None,
                 compilation_options: Default::default(),
             },
@@ -791,6 +820,28 @@ impl<'a> Renderer<'a> {
         info!("Aspect ratio: {}:{}", ax, ay);
         info!("surface format: {:?}", surface_format);
 
+        queue.write_buffer(
+            &dynamic_instance_buffer,
+            0,
+            bytemuck::cast_slice(&dynamic_instances[..]),
+        );
+
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &palette_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &palette_texture_data[..],
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(palette.size() as u32 * 4),
+                rows_per_image: None,
+            },
+            palette_texture_size,
+        );
+
         Ok(Renderer {
             device,
             queue,
@@ -811,8 +862,10 @@ impl<'a> Renderer<'a> {
             screen_uniform_buffer,
             screen_uniform_bind_group,
 
-            instances: instances.into_boxed_slice(),
-            instance_buffer,
+            static_instances: static_instances.into_boxed_slice(),
+            dynamic_instances: dynamic_instances.into_boxed_slice(),
+            static_instance_buffer,
+            dynamic_instance_buffer,
 
             palette,
             palette_map_texture,
@@ -860,25 +913,9 @@ impl<'a> Renderer<'a> {
         );
 
         self.queue.write_buffer(
-            &self.instance_buffer,
+            &self.dynamic_instance_buffer,
             0,
-            bytemuck::cast_slice(&self.instances[..]),
-        );
-
-        self.queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.palette_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &self.palette_texture_data[..],
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(self.palette.size() as u32 * 4),
-                rows_per_image: None,
-            },
-            self.palette_texture_size,
+            bytemuck::cast_slice(&self.dynamic_instances[..]),
         );
 
         self.queue.write_texture(
@@ -944,10 +981,15 @@ impl<'a> Renderer<'a> {
             render_pass.set_bind_group(0, &self.cell_uniform_bind_group, &[]);
             render_pass.set_bind_group(1, &self.cell_texture_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.cell_vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.static_instance_buffer.slice(..));
+            render_pass.set_vertex_buffer(2, self.dynamic_instance_buffer.slice(..));
             render_pass
                 .set_index_buffer(self.cell_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..QUAD_INDICES.len() as _, 0, 0..self.instances.len() as _);
+            render_pass.draw_indexed(
+                0..QUAD_INDICES.len() as _,
+                0,
+                0..self.static_instances.len() as _,
+            );
         }
 
         {
@@ -1090,7 +1132,8 @@ impl RenderInterface for Renderer<'_> {
         U: Into<&'a SpriteCell<D>>,
         D: Default + 'a,
     {
-        for (i, (instance, d)) in itertools::multizip((self.instances.iter_mut(), data)).enumerate()
+        for (i, (instance, d)) in
+            itertools::multizip((self.dynamic_instances.iter_mut(), data)).enumerate()
         {
             let c: &SpriteCell<_> = d.into();
             instance.sprite = c.sprite;
