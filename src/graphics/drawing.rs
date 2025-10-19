@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Encapsulation of an 8-element array mapping palette indices.
+/// Encapsulation of a 16-element array mapping palette indices.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct PaletteMap([u8; 8]);
+pub struct PaletteMap([u8; 16]);
 
 impl PaletteMap {
     /// Maximum number of entries in a PaletteMap.
-    pub const MAX_SIZE: usize = 8;
+    pub const MAX_SIZE: usize = 16;
 
     /// Get the mapped index for `i`.
     pub fn map(&self, i: u8) -> u8 {
