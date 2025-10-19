@@ -60,8 +60,20 @@ impl<'a> RenderTestFixture<'a> {
             (width, height),
             &tex,
             [0, 255, 0].into(),
+            Palette::new([
+                [0, 0, 0],
+                [255, 255, 255],
+                [255, 255, 0],
+                [255, 0, 255],
+                [0, 255, 255],
+                [255, 0, 0],
+                [0, 255, 0],
+                [0, 0, 255],
+                [128, 128, 128],
+            ]),
             wgpu::FilterMode::Nearest,
             wgpu::PresentMode::Fifo,
+            wgpu::InstanceFlags::empty(),
         )
         .unwrap();
 
@@ -87,9 +99,10 @@ fn render_one_cell() {
 
         fixture.renderer.update(
             [SpriteCell {
-                palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
+                palette_map: PaletteMap::default().set(1, 1),
                 sprite: 1,
-                ..Default::default()
+                transparent: false,
+                data: (),
             }]
             .iter(),
         );
@@ -113,9 +126,10 @@ fn render_one_cell_sprite_change() {
 
     fixture.renderer.update(
         [SpriteCell {
-            palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
+            palette_map: PaletteMap::default().set(1, 2),
             sprite: 2,
-            ..Default::default()
+            transparent: false,
+            data: (),
         }]
         .iter(),
     );
@@ -135,9 +149,10 @@ fn render_one_cell_sprite_change() {
 
     fixture.renderer.update(
         [SpriteCell {
-            palette: Palette::mono([255, 255, 255]).set(0, [0, 0, 0]),
+            palette_map: PaletteMap::default().set(1, 1),
             sprite: 1,
-            ..Default::default()
+            transparent: false,
+            data: (),
         }]
         .iter(),
     );
@@ -158,23 +173,23 @@ fn render_2x2_with_color() {
 
         fixture.renderer.update(
             [
-                SpriteCell {
-                    palette: Palette::mono([255, 0, 255]).set(0, [0, 0, 0]),
+                SpriteCell::<()> {
+                    palette_map: PaletteMap::default().set(1, 3),
                     sprite: 72,
                     ..Default::default()
                 },
                 SpriteCell {
-                    palette: Palette::mono([0, 255, 255]).set(0, [0, 0, 0]),
+                    palette_map: PaletteMap::default().set(1, 4),
                     sprite: 105,
                     ..Default::default()
                 },
                 SpriteCell {
-                    palette: Palette::mono([255, 255, 0]).set(0, [0, 0, 0]),
+                    palette_map: PaletteMap::default().set(1, 2),
                     sprite: 33,
                     ..Default::default()
                 },
                 SpriteCell {
-                    palette: Palette::mono([0, 255, 0]).set(0, [0, 0, 0]),
+                    palette_map: PaletteMap::default().set(1, 6),
                     sprite: 19,
                     ..Default::default()
                 },
@@ -203,8 +218,8 @@ fn gray() {
         let mut fixture = RenderTestFixture::new(1, 1);
 
         fixture.renderer.update(
-            [SpriteCell {
-                palette: Palette::mono([128, 128, 128]),
+            [SpriteCell::<()> {
+                palette_map: PaletteMap::default().set(0, 8).set(1, 8),
                 sprite: 0,
                 ..Default::default()
             }]
@@ -231,8 +246,8 @@ fn big() {
 
         fixture.renderer.update(
             vec![
-                SpriteCell {
-                    palette: Palette::mono([128, 128, 128]).set(1, [255, 0, 0]),
+                SpriteCell::<()> {
+                    palette_map: PaletteMap::default().set(0, 8).set(1, 5),
                     sprite: 1,
                     ..Default::default()
                 };
@@ -280,15 +295,16 @@ fn full_palette() {
             (1, 1),
             &tex,
             [0, 255, 0].into(),
+            Palette::default(),
             wgpu::FilterMode::Nearest,
             wgpu::PresentMode::Fifo,
+            wgpu::InstanceFlags::empty(),
         )
         .unwrap();
 
         renderer.update(
             vec![
-                SpriteCell {
-                    palette: Default::default(),
+                SpriteCell::<()> {
                     sprite: 0,
                     ..Default::default()
                 };

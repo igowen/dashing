@@ -1,7 +1,7 @@
+use dashing::graphics::drawing::PaletteMap;
 use dashing::input::*;
 use dashing::*;
 use pretty_env_logger;
-use time;
 
 // Screen dimensions in characters.
 const WIDTH: u32 = 21;
@@ -40,16 +40,10 @@ impl Driver for ExampleDriver {
         // Print the message to the screen.
         for (i, c) in self.message.chars().enumerate() {
             self.root_layer[WIDTH as usize + 1 + i] = graphics::drawing::SpriteCell {
-                palette: resources::color::Palette::mono([0, 0, 0]).set(
-                    1,
-                    resources::color::Color::from_hsv(
-                        time::OffsetDateTime::now_utc().millisecond() as f32 * 360.0 / 1000.0,
-                        1.0 - (i as f32 / self.message.len() as f32) * 0.5,
-                        1.0,
-                    ),
-                ),
+                palette_map: PaletteMap::default().set(1, i as u8 % 14 + 1),
                 sprite: c as u32,
                 transparent: false,
+                ..Default::default()
             };
         }
         // Update the renderer.

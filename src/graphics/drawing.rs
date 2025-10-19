@@ -81,6 +81,13 @@ pub struct SpriteLayer<T: Default = ()> {
     data: Box<[SpriteCell<T>]>,
 }
 
+impl SpriteLayer<()> {
+    /// Create a new `SpriteLayer` with the given width and height.
+    pub fn new(width: usize, height: usize) -> Self {
+        SpriteLayer::<()>::new_with_data(width, height)
+    }
+}
+
 impl<T> SpriteLayer<T>
 where
     T: Default,
@@ -119,7 +126,7 @@ where
     T: Default + Copy,
 {
     /// Create a new `SpriteLayer` with the given width and height.
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new_with_data(width: usize, height: usize) -> Self {
         SpriteLayer {
             width,
             height,

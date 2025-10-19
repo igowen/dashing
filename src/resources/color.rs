@@ -386,13 +386,13 @@ impl Palette {
     ///
     /// ```
     /// use dashing::resources::color::Palette;
-    /// let p = Palette::mono([128, 128, 128]);
+    /// let p = Palette::mono::<16, _>([128, 128, 128]);
     ///
     /// for i in 0..16 {
     ///     assert_eq!(p[i], [128, 128, 128]);
     /// }
     /// ```
-    pub fn mono<C: Into<[u8; 3]>, const N: usize>(color: C) -> Self {
+    pub fn mono<const N: usize, C: Into<[u8; 3]>>(color: C) -> Self {
         Palette {
             colors: vec![color.into(); N].into_boxed_slice(),
         }
@@ -436,5 +436,18 @@ impl Default for Palette {
             [0xff, 0xff, 0x55],
             [0xff, 0xff, 0xff],
         ])
+    }
+}
+
+impl std::ops::Index<usize> for Palette {
+    type Output = [u8; 3];
+    fn index(&self, i: usize) -> &[u8; 3] {
+        self.colors.index(i)
+    }
+}
+
+impl std::ops::IndexMut<usize> for Palette {
+    fn index_mut(&mut self, i: usize) -> &mut [u8; 3] {
+        self.colors.index_mut(i)
     }
 }
