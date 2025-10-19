@@ -275,6 +275,7 @@ pub(crate) struct Renderer<'a> {
 
     clear_color: wgpu::Color,
 
+    dirty: bool,
     last_render_time: time::OffsetDateTime,
     elapsed_time: time::Duration,
     frame_counter: u32,
@@ -886,6 +887,7 @@ impl<'a> Renderer<'a> {
             elapsed_time: time::Duration::ZERO,
             frame_counter: 0,
             fps: 0.0,
+            dirty: true,
         })
     }
 
@@ -912,27 +914,30 @@ impl<'a> Renderer<'a> {
             bytemuck::cast_slice(&[screen_uniforms]),
         );
 
-        self.queue.write_buffer(
-            &self.dynamic_instance_buffer,
-            0,
-            bytemuck::cast_slice(&self.dynamic_instances[..]),
-        );
+        if self.dirty {
+            self.dirty = false;
+            self.queue.write_buffer(
+                &self.dynamic_instance_buffer,
+                0,
+                bytemuck::cast_slice(&self.dynamic_instances[..]),
+            );
 
-        self.queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &self.palette_map_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &self.palette_map_texture_data[..],
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(self.dimensions.0),
-                rows_per_image: Some(self.dimensions.1),
-            },
-            self.palette_map_texture_size,
-        );
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &self.palette_map_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &self.palette_map_texture_data[..],
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(self.dimensions.0),
+                    rows_per_image: Some(self.dimensions.1),
+                },
+                self.palette_map_texture_size,
+            );
+        }
 
         // If we are rendering to a surface, the SurfaceTexture must live until we finish rendering
         // the frame.
@@ -1132,6 +1137,7 @@ impl RenderInterface for Renderer<'_> {
         U: Into<&'a SpriteCell<D>>,
         D: Default + 'a,
     {
+        self.dirty = true;
         for (i, (instance, d)) in
             itertools::multizip((self.dynamic_instances.iter_mut(), data)).enumerate()
         {
