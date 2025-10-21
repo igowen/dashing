@@ -51,6 +51,9 @@ pub mod input;
 /// Functionality for building in-game UIs.
 pub mod ui;
 
+/// Stack-allocated, growable (but fixed-capacity) vector.
+mod inline_vec;
+
 use log::{debug, warn};
 
 /// Signals to indicate whether the engine should keep running or halt.
