@@ -52,7 +52,7 @@ impl Default for PaletteMap {
 
 /// Data for one on-screen sprite instance.
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
-pub struct SpriteCell<T: Default = ()> {
+pub struct SpriteCell<T = ()> {
     /// Maps the color indices from the sprite texture to colors in the global palette.
     pub palette_map: PaletteMap,
     /// Sprite index.
@@ -75,7 +75,7 @@ impl<T: Default> SpriteCell<T> {
 
 /// A 2D array of sprite cells.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SpriteLayer<T: Default = ()> {
+pub struct SpriteLayer<T = ()> {
     width: usize,
     height: usize,
     data: Box<[SpriteCell<T>]>,
