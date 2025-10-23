@@ -12,6 +12,15 @@ pub struct InlineVec<T, const N: usize> {
     len: usize,
 }
 
+impl<T, const N: usize> std::fmt::Debug for InlineVec<T, N>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self[..].fmt(f)
+    }
+}
+
 impl<T, const N: usize> Default for InlineVec<T, N> {
     fn default() -> Self {
         Self::new()
@@ -105,6 +114,57 @@ impl<T, const N: usize> std::ops::DerefMut for InlineVec<T, N> {
         unsafe {
             let slice = &mut self.storage[..self.len];
             &mut *(slice as *mut [MaybeUninit<T>] as *mut [T])
+        }
+    }
+}
+impl<T, const N: usize> AsRef<[T]> for InlineVec<T, N> {
+    fn as_ref(&self) -> &[T] {
+        self
+    }
+}
+
+impl<T, const N: usize> AsMut<[T]> for InlineVec<T, N> {
+    fn as_mut(&mut self) -> &mut [T] {
+        self
+    }
+}
+
+impl<T, const N: usize> std::borrow::Borrow<[T]> for InlineVec<T, N> {
+    fn borrow(&self) -> &[T] {
+        self
+    }
+}
+
+impl<T, const N: usize> std::borrow::BorrowMut<[T]> for InlineVec<T, N> {
+    fn borrow_mut(&mut self) -> &mut [T] {
+        self
+    }
+}
+impl<T, const N: usize> From<&[T]> for InlineVec<T, N>
+where
+    T: Clone,
+{
+    /// Constructs an `InlineVec` by cloning the elements of `slice`.
+    ///
+    /// **Panics** if `slice.len()` > `N`.
+    fn from(slice: &[T]) -> Self {
+        slice.iter().cloned().collect()
+    }
+}
+
+impl<T, const N: usize> From<[T; N]> for InlineVec<T, N> {
+    /// Constructs an `InlineVec` by taking ownership of an array.
+    fn from(array: [T; N]) -> Self {
+        Self {
+            storage: {
+                let ptr = &array as *const [T; N] as *const [MaybeUninit<T>; N];
+                // SAFETY: We have exclusive ownership of `array`, so this is fine as long as we
+                // `forget` the original value so it doesn't get double-freed.
+                let owned_arr = unsafe { ptr.read() };
+                std::mem::forget(array);
+                owned_arr
+            },
+            len: N,
         }
     }
 }
@@ -289,6 +349,27 @@ mod tests {
         fn eq(&self, other: &Self) -> bool {
             self.id == other.id
         }
+    }
+
+    #[test]
+    fn test_from_array() {
+        let drop_counter = Arc::new(AtomicUsize::new(0));
+        let array = [
+            DropSpy::new(1, &drop_counter),
+            DropSpy::new(2, &drop_counter),
+            DropSpy::new(3, &drop_counter),
+            DropSpy::new(4, &drop_counter),
+        ];
+
+        let vec: InlineVec<DropSpy, _> = array.into();
+
+        // Ensure nothing was dropped in the conversion.
+        assert_eq!(drop_counter.load(Ordering::SeqCst), 0);
+        assert_eq!(vec.len(), 4);
+
+        // Now, drop the collected items and check the counter.
+        drop(vec);
+        assert_eq!(drop_counter.load(Ordering::SeqCst), 4);
     }
 
     #[test]
