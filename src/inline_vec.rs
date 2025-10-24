@@ -12,21 +12,6 @@ pub struct InlineVec<T, const N: usize> {
     len: usize,
 }
 
-impl<T, const N: usize> std::fmt::Debug for InlineVec<T, N>
-where
-    T: std::fmt::Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self[..].fmt(f)
-    }
-}
-
-impl<T, const N: usize> Default for InlineVec<T, N> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<T, const N: usize> InlineVec<T, N> {
     /// Construct a new, empty vector.
     pub fn new() -> Self {
@@ -36,15 +21,23 @@ impl<T, const N: usize> InlineVec<T, N> {
         }
     }
 
+    pub fn try_push(&mut self, item: T) -> Result<(), CapacityExceededError> {
+        if self.len >= N {
+            Err(CapacityExceededError)
+        } else {
+            self.storage[self.len].write(item);
+            self.len += 1;
+            Ok(())
+        }
+    }
+
     /// Pushes a value onto the end of the vector.
     ///
     /// **Panics** if this would exceed the vector's capacity (`N`).
     pub fn push(&mut self, item: T) {
-        if self.len >= N {
+        if self.try_push(item).is_err() {
             panic!("InlineVec exceeded capacity ({})", N);
         }
-        self.storage[self.len].write(item);
-        self.len += 1;
     }
 
     /// Removes the last element from the vector and returns it, or `None` if the vector is empty.
@@ -95,6 +88,72 @@ impl<T, const N: usize> Drop for InlineVec<T, N> {
     }
 }
 
+impl<T, const N: usize> std::fmt::Debug for InlineVec<T, N>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self[..].fmt(f)
+    }
+}
+
+impl<T, const N: usize> Default for InlineVec<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T, const N: usize> Clone for InlineVec<T, N>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        let mut new = Self::new();
+        for item in &self[..] {
+            new.push(item.clone());
+        }
+        new
+    }
+}
+
+impl<T, const N: usize> PartialEq for InlineVec<T, N>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self[..] == other[..]
+    }
+}
+
+impl<T, const N: usize> Eq for InlineVec<T, N> where T: Eq {}
+
+impl<T, const N: usize> PartialOrd for InlineVec<T, N>
+where
+    T: PartialOrd,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self[..].partial_cmp(&other[..])
+    }
+}
+
+impl<T, const N: usize> Ord for InlineVec<T, N>
+where
+    T: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self[..].cmp(&other[..])
+    }
+}
+
+impl<T, const N: usize> std::hash::Hash for InlineVec<T, N>
+where
+    T: std::hash::Hash,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self[..].hash(state);
+    }
+}
+
 impl<T, const N: usize> std::ops::Deref for InlineVec<T, N> {
     type Target = [T];
     fn deref(&self) -> &Self::Target {
@@ -140,15 +199,28 @@ impl<T, const N: usize> std::borrow::BorrowMut<[T]> for InlineVec<T, N> {
         self
     }
 }
-impl<T, const N: usize> From<&[T]> for InlineVec<T, N>
+
+/// Error type for `InlineVec::try_push()` and the `TryFrom` impl.
+#[derive(Debug, PartialEq, Eq)]
+pub struct CapacityExceededError;
+
+impl<T, const N: usize> TryFrom<&[T]> for InlineVec<T, N>
 where
     T: Clone,
 {
-    /// Constructs an `InlineVec` by cloning the elements of `slice`.
-    ///
-    /// **Panics** if `slice.len()` > `N`.
-    fn from(slice: &[T]) -> Self {
-        slice.iter().cloned().collect()
+    type Error = CapacityExceededError;
+    /// Constructs an `InlineVec` by cloning the elements of `slice`. Returns
+    /// `Err(CapacityExceededError)` if the length of the slice exceeds the capacity of the vector.
+    fn try_from(slice: &[T]) -> Result<Self, Self::Error> {
+        if slice.len() > N {
+            Err(CapacityExceededError)
+        } else {
+            let mut vec = Self::new();
+            for item in slice {
+                vec.push(item.clone());
+            }
+            Ok(vec)
+        }
     }
 }
 
@@ -176,6 +248,14 @@ impl<T, const N: usize> FromIterator<T> for InlineVec<T, N> {
             result.push(item)
         }
         result
+    }
+}
+
+impl<T, const N: usize> Extend<T> for InlineVec<T, N> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for item in iter {
+            self.push(item);
+        }
     }
 }
 
@@ -233,7 +313,7 @@ impl<T, const N: usize> IntoIterator for InlineVec<T, N> {
 
 #[cfg(test)]
 mod tests {
-    use super::InlineVec;
+    use super::{CapacityExceededError, InlineVec};
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -247,6 +327,17 @@ mod tests {
         assert_eq!(v.len(), 0);
         assert!(v.is_empty());
         assert_eq!(v.capacity(), CAP);
+    }
+
+    #[test]
+    fn test_try_push() {
+        let mut v: InlineVec<u32, CAP> = InlineVec::new();
+        assert_eq!(v.try_push(1), Ok(()));
+        assert_eq!(v.try_push(2), Ok(()));
+        assert_eq!(v.try_push(3), Ok(()));
+        assert_eq!(v.try_push(4), Ok(()));
+        assert_eq!(v.try_push(5), Err(CapacityExceededError));
+        assert_eq!(*v, [1, 2, 3, 4]);
     }
 
     #[test]
@@ -307,10 +398,18 @@ mod tests {
 
         v.sort();
 
-        assert_eq!(v[0], 1);
-        assert_eq!(v[1], 2);
-        assert_eq!(v[2], 3);
-        assert_eq!(v[3], 4);
+        assert_eq!(*v, [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_try_from_slice() {
+        let _: InlineVec<u32, CAP> = InlineVec::try_from(&[1, 2, 3, 4][..])
+            .expect("4 elements should fit in a vector with capacity 4");
+        // ...but 5 elements will not.
+        assert_eq!(
+            InlineVec::<u32, CAP>::try_from(&[1, 2, 3, 4, 5][..]),
+            Err(CapacityExceededError)
+        );
     }
 
     #[test]
