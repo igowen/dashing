@@ -51,6 +51,9 @@ pub mod input;
 /// Functionality for building in-game UIs.
 pub mod ui;
 
+/// Types and utilities for doing grid-based geometry.
+pub mod geometry;
+
 use log::{debug, warn};
 
 /// Signals to indicate whether the engine should keep running or halt.
