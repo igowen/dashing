@@ -51,6 +51,17 @@ macro_rules! rect {
     };
 }
 
+/// Creates a `Segment` from two points.
+///
+/// # Example
+/// `let s = segment![point![0,0], point![10,10]];`
+#[macro_export]
+macro_rules! segment {
+    ($start:expr, $end:expr) => {
+        $crate::Segment::new($start, $end)
+    };
+}
+
 /// A 2D point in a discrete grid.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
 pub struct Point {
@@ -76,13 +87,17 @@ impl Point {
     }
 
     /// const impl of add since the Add trait isn't const
-    const fn add(self, rhs: Vector) -> Point {
+    const fn const_add_vector(self, rhs: Vector) -> Point {
         point![self.x + rhs.dx, self.y + rhs.dy]
     }
 
     /// const impl of sub since the Sub trait isn't const
-    const fn sub(self, rhs: Vector) -> Point {
+    const fn const_sub_vector(self, rhs: Vector) -> Point {
         point![self.x - rhs.dx, self.y - rhs.dy]
+    }
+
+    const fn const_sub_point(self, rhs: Point) -> Vector {
+        vector![self.x - rhs.x, self.y - rhs.y]
     }
 
     /// Returns two Points `px` and `py` that split the x and y components of `self`.
@@ -318,6 +333,10 @@ impl Rect {
             && self.bottom() >= other.bottom()
     }
 
+    pub const fn contains_segment(self, segment: Segment) -> bool {
+        self.contains(segment.start) && self.contains(segment.end)
+    }
+
     /// Checks if this rectangle overlaps with another (inclusive of edges).
     pub const fn intersects(self, other: Rect) -> bool {
         self.left() <= other.right()
@@ -340,6 +359,30 @@ impl Rect {
         } else {
             None
         }
+    }
+}
+
+/// A line segment between two points.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+pub struct Segment {
+    pub start: Point,
+    pub end: Point,
+}
+
+impl Segment {
+    /// Creates a new segment from two points.
+    pub const fn new(start: Point, end: Point) -> Self {
+        Self { start, end }
+    }
+
+    /// The vector displacement from `start` to `end`.
+    pub const fn as_displacement(&self) -> Vector {
+        self.end.const_sub_point(self.start)
+    }
+
+    /// The bounding box of the segment.
+    pub const fn bounding_box(&self) -> Rect {
+        Rect::from_points(self.start, self.end)
     }
 }
 
@@ -387,7 +430,7 @@ impl From<Vector> for (i32, i32) {
 impl Add<Vector> for Point {
     type Output = Point;
     fn add(self, rhs: Vector) -> Self::Output {
-        self.add(rhs)
+        self.const_add_vector(rhs)
     }
 }
 
@@ -402,7 +445,7 @@ impl AddAssign<Vector> for Point {
 impl Sub<Vector> for Point {
     type Output = Point;
     fn sub(self, rhs: Vector) -> Self::Output {
-        self.sub(rhs)
+        self.const_sub_vector(rhs)
     }
 }
 
@@ -414,10 +457,10 @@ impl SubAssign<Vector> for Point {
 }
 
 // Point - Point = Vector
-impl Sub<Point> for Point {
+impl Sub for Point {
     type Output = Vector;
     fn sub(self, rhs: Point) -> Self::Output {
-        vector![self.x - rhs.x, self.y - rhs.y]
+        self.const_sub_point(rhs)
     }
 }
 
@@ -499,14 +542,14 @@ impl Sub<Vector> for Rect {
 }
 
 // Size +/- Size
-impl Add<Size> for Size {
+impl Add for Size {
     type Output = Size;
     fn add(self, rhs: Size) -> Self::Output {
         size![self.w + rhs.w, self.h + rhs.h]
     }
 }
 
-impl Sub<Size> for Size {
+impl Sub for Size {
     type Output = Size;
     fn sub(self, rhs: Size) -> Self::Output {
         size![self.w - rhs.w, self.h - rhs.h]
@@ -553,6 +596,35 @@ impl DivAssign<i32> for Size {
     fn div_assign(&mut self, rhs: i32) {
         self.w /= rhs;
         self.h /= rhs;
+    }
+}
+
+// --- Translation for Segment ---
+impl Add<Vector> for Segment {
+    type Output = Segment;
+    fn add(self, v: Vector) -> Self::Output {
+        segment![self.start + v, self.end + v]
+    }
+}
+
+impl AddAssign<Vector> for Segment {
+    fn add_assign(&mut self, v: Vector) {
+        self.start += v;
+        self.end += v;
+    }
+}
+
+impl Sub<Vector> for Segment {
+    type Output = Segment;
+    fn sub(self, v: Vector) -> Self::Output {
+        segment![self.start - v, self.end - v]
+    }
+}
+
+impl SubAssign<Vector> for Segment {
+    fn sub_assign(&mut self, v: Vector) {
+        self.start -= v;
+        self.end -= v;
     }
 }
 
@@ -667,10 +739,25 @@ mod tests {
     }
 
     #[test]
+    fn segment_basics() {
+        let p1 = point![10, 20];
+        let p2 = point![0, 5];
+        let s = segment![p1, p2];
+
+        assert_eq!(s.start, p1);
+        assert_eq!(s.end, p2);
+        assert_eq!(s.as_displacement(), p2 - p1);
+    }
+
+    #[test]
     fn macros_work() {
         assert_eq!(point![1, 2], point![1, 2]);
         assert_eq!(vector![3, 4], vector![3, 4]);
         assert_eq!(size![5, 6], size![5, 6]);
+        assert_eq!(
+            segment![point![1, 2], point![3, 4]],
+            segment![point![1, 2], point![3, 4]]
+        );
 
         let r1 = rect![10, 20, 30, 40];
         let r2 = rect![point![10, 20], size![30, 40]];
@@ -739,6 +826,12 @@ mod tests {
     prop_compose! {
         fn arb_empty_rect()(origin in arb_point(), size in arb_empty_size()) -> Rect {
             Rect { origin, size }
+        }
+    }
+
+    prop_compose! {
+        fn arb_segment()(start in arb_point(), end in arb_point()) -> Segment {
+            Segment { start, end }
         }
     }
 
@@ -945,6 +1038,26 @@ mod tests {
         #[test]
         fn test_normalize_preserves_area(r in arb_rect()) {
             prop_assert_eq!(r.normalize().size.area(), r.size.area());
+        }
+
+        #[test]
+        fn test_segment_displacement(s in arb_segment()) {
+            prop_assert_eq!(s.start + s.as_displacement(), s.end);
+        }
+
+        #[test]
+        fn test_segment_translation(s in arb_segment(), v in arb_vector()) {
+            let s_moved = s + v;
+            prop_assert_eq!(s_moved.start, s.start + v);
+            prop_assert_eq!(s_moved.end, s.end + v);
+            prop_assert_eq!(s_moved.as_displacement(), s.as_displacement());
+        }
+
+        #[test]
+        fn test_segment_bounding_box(s in arb_segment()) {
+            let bbox = s.bounding_box();
+            prop_assert!(bbox.contains(s.start));
+            prop_assert!(bbox.contains(s.end));
         }
     }
 }
