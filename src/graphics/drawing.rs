@@ -20,12 +20,19 @@ impl PaletteMap {
     /// Maximum number of entries in a PaletteMap.
     pub const MAX_SIZE: usize = 16;
 
+    /// Returns a PaletteMap with all indices mapped to the same value (as opposed to the default
+    /// palette, which maps `i` to `i`).
+    pub const fn mono(n: u8) -> Self {
+        Self([n; Self::MAX_SIZE])
+    }
+
     /// Get the mapped index for `i`.
     pub fn map(&self, i: u8) -> u8 {
         self.0[i as usize]
     }
 
     /// Map index `i` to `n`, consuming `self` and returning `self` for builder-style construction.
+    #[must_use]
     pub fn set(mut self, i: u8, n: u8) -> Self {
         self.0[i as usize] = n;
         self
@@ -40,6 +47,13 @@ impl PaletteMap {
     pub fn clear(&mut self) {
         for (i, o) in self.0.iter_mut().enumerate() {
             *o = i as u8;
+        }
+    }
+
+    /// Invert all the color mappings.
+    pub fn invert(&mut self) {
+        for i in 0..Self::MAX_SIZE {
+            self.0[i] = self.0[Self::MAX_SIZE - (i + 1)];
         }
     }
 }
@@ -74,7 +88,7 @@ impl<T: Default> SpriteCell<T> {
 }
 
 /// A 2D array of sprite cells.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SpriteLayer<T = ()> {
     width: usize,
     height: usize,
@@ -134,16 +148,6 @@ where
         }
     }
 
-    /// Get an iterator over all of the cells in the layer.
-    pub fn iter(&self) -> std::slice::Iter<'_, SpriteCell<T>> {
-        self.data.iter()
-    }
-
-    /// Get a mutable iterator over all of the cells in the layer.
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, SpriteCell<T>> {
-        self.data.iter_mut()
-    }
-
     /// Copy the entirety of this layer onto the specified layer.
     pub fn stamp_onto(&self, other: &mut SpriteLayer<T>, offset_x: usize, offset_y: usize) {
         // +------------------+
@@ -180,21 +184,17 @@ where
             c.sprite = 0;
         }
     }
+}
 
-    /// Clear sprites and colors.
-    pub fn clear(&mut self) {
-        for c in self.iter_mut() {
-            c.clear();
-        }
-    }
-
-    /// Get width of the layer.
-    pub fn width(&self) -> usize {
-        self.width
-    }
-    /// Get height of the layer.
-    pub fn height(&self) -> usize {
-        self.height
+impl<T> std::fmt::Debug for SpriteLayer<T>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpriteLayer")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .finish_non_exhaustive()
     }
 }
 
