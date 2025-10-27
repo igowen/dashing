@@ -7,7 +7,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 #[macro_export]
 macro_rules! point {
     ($x:expr, $y:expr) => {
-        $crate::Point { x: $x, y: $y }
+        $crate::geometry::Point { x: $x, y: $y }
     };
 }
 
@@ -18,7 +18,7 @@ macro_rules! point {
 #[macro_export]
 macro_rules! vector {
     ($dx:expr, $dy:expr) => {
-        $crate::Vector { dx: $dx, dy: $dy }
+        $crate::geometry::Vector { dx: $dx, dy: $dy }
     };
 }
 
@@ -29,7 +29,7 @@ macro_rules! vector {
 #[macro_export]
 macro_rules! size {
     ($w:expr, $h:expr) => {
-        $crate::Size { w: $w, h: $h }
+        $crate::geometry::Size { w: $w, h: $h }
     };
 }
 
@@ -41,10 +41,10 @@ macro_rules! size {
 #[macro_export]
 macro_rules! rect {
     ($x:expr, $y:expr, $w:expr, $h:expr) => {
-        $crate::Rect::new($x, $y, $w, $h)
+        $crate::geometry::Rect::new($x, $y, $w, $h)
     };
     ($origin:expr, $size:expr) => {
-        $crate::Rect {
+        $crate::geometry::Rect {
             origin: $origin,
             size: $size,
         }
@@ -58,7 +58,7 @@ macro_rules! rect {
 #[macro_export]
 macro_rules! segment {
     ($start:expr, $end:expr) => {
-        $crate::Segment::new($start, $end)
+        $crate::geometry::Segment::new($start, $end)
     };
 }
 
