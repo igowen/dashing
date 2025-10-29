@@ -360,6 +360,13 @@ impl Rect {
             None
         }
     }
+
+    pub fn inset(mut self, n: usize) -> Self {
+        self.size -= size![2, 2] * n as i32;
+        self.origin += vector![1, 1] * n as i32;
+
+        self
+    }
 }
 
 /// A line segment between two points.
