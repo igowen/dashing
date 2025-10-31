@@ -188,11 +188,19 @@ pub struct Rect {
 
 // TODO: remove min/max after std::cmp::Ord is const.
 const fn min(a: i32, b: i32) -> i32 {
-    if a < b { a } else { b }
+    if a < b {
+        a
+    } else {
+        b
+    }
 }
 
 const fn max(a: i32, b: i32) -> i32 {
-    if a > b { a } else { b }
+    if a > b {
+        a
+    } else {
+        b
+    }
 }
 
 impl Rect {
@@ -231,6 +239,10 @@ impl Rect {
                 y: self.bottom(),
             },
         )
+    }
+
+    pub const fn from_segment(s: Segment) -> Self {
+        Self::from_points(s.start, s.end)
     }
 
     /// Returns a normalized version of the rectangle, with a non-negative size.
