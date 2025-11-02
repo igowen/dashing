@@ -1,5 +1,8 @@
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+mod direction;
+pub use direction::*;
+
 /// Creates a `Point` from x, y coordinates.
 ///
 /// # Example

@@ -54,6 +54,9 @@ pub mod ui;
 /// Types and utilities for doing grid-based geometry.
 pub mod geometry;
 
+/// Stack-allocated, growable (but fixed-capacity) vector.
+mod inline_vec;
+
 use log::{debug, warn};
 
 /// Signals to indicate whether the engine should keep running or halt.
