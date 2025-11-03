@@ -20,10 +20,10 @@ pub const SW: Diagonal = Diagonal::Southwest;
 /// Shorthand for `Diagonal::Southeast`.
 pub const SE: Diagonal = Diagonal::Southeast;
 
-/// Shorthand for `Turn::Left`.
-pub const L: Turn = Turn::Left;
-/// Shorthand for `Turn::Right`.
-pub const R: Turn = Turn::Right;
+/// Shorthand for `Rotation::Ccw`.
+pub const L: Rotation = Rotation::Ccw;
+/// Shorthand for `Rotation::Cw`.
+pub const R: Rotation = Rotation::Cw;
 
 /// Represents the four cardinal directions.
 #[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -45,31 +45,29 @@ pub enum Diagonal {
     Southwest,
 }
 
-/// Represents a 90 or 180 degree turn relative to the current orientation.
+/// Represents a relative turn from the current orientation.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
-pub enum Turn {
-    Left,
-    Right,
-    Reverse,
+pub enum Rotation {
+    Ccw,
+    Cw,
 }
 
 impl Cardinal {
     /// Returns the new direction after turning.
-    pub const fn turn(self, t: Turn) -> Self {
+    pub const fn turn(self, t: Rotation) -> Self {
         match t {
-            Turn::Right => match self {
+            Rotation::Cw => match self {
                 Cardinal::North => Cardinal::East,
                 Cardinal::East => Cardinal::South,
                 Cardinal::South => Cardinal::West,
                 Cardinal::West => Cardinal::North,
             },
-            Turn::Left => match self {
+            Rotation::Ccw => match self {
                 Cardinal::North => Cardinal::West,
                 Cardinal::West => Cardinal::South,
                 Cardinal::South => Cardinal::East,
                 Cardinal::East => Cardinal::North,
             },
-            Turn::Reverse => self.flip(),
         }
     }
 
@@ -93,55 +91,52 @@ impl Cardinal {
         }
     }
 
-    /// Calculates the `Turn` needed to get from `self` to `other`. Returns `None` if no turn is
-    /// needed (i.e., `self` == `other`).
-    pub const fn turn_for(self, other: Cardinal) -> Option<Turn> {
+    /// Calculates the `Rotation` needed to get from `self` to `other`. Returns `None` if no turn is
+    /// needed (i.e., `self` == `other`) or it is not possible to reach `other` in a single turn
+    /// (i.e., `self` == `other.flip()`).
+    pub const fn turn_for(self, other: Cardinal) -> Option<Rotation> {
         match self {
             Cardinal::North => match other {
-                Cardinal::North => None,
-                Cardinal::South => Some(Turn::Reverse),
-                Cardinal::East => Some(Turn::Right),
-                Cardinal::West => Some(Turn::Left),
+                Cardinal::North | Cardinal::South => None,
+                Cardinal::East => Some(Rotation::Cw),
+                Cardinal::West => Some(Rotation::Ccw),
             },
             Cardinal::South => match other {
-                Cardinal::North => Some(Turn::Reverse),
-                Cardinal::South => None,
-                Cardinal::East => Some(Turn::Left),
-                Cardinal::West => Some(Turn::Right),
+                Cardinal::North | Cardinal::South => None,
+                Cardinal::East => Some(Rotation::Ccw),
+                Cardinal::West => Some(Rotation::Cw),
             },
             Cardinal::East => match other {
-                Cardinal::North => Some(Turn::Left),
-                Cardinal::South => Some(Turn::Right),
-                Cardinal::East => None,
-                Cardinal::West => Some(Turn::Reverse),
+                Cardinal::North => Some(Rotation::Ccw),
+                Cardinal::South => Some(Rotation::Cw),
+                Cardinal::East | Cardinal::West => None,
             },
             Cardinal::West => match other {
-                Cardinal::North => Some(Turn::Right),
-                Cardinal::South => Some(Turn::Left),
-                Cardinal::East => Some(Turn::Reverse),
-                Cardinal::West => None,
+                Cardinal::North => Some(Rotation::Cw),
+                Cardinal::South => Some(Rotation::Ccw),
+                Cardinal::East | Cardinal::West => None,
             },
         }
     }
 
     /// Returns the two directions perpendicular to `self`.
-    pub const fn perp(self) -> TurnData<Self> {
+    pub const fn perp(self) -> RotationData<Self> {
         match self {
-            Cardinal::North => TurnData {
-                left: Cardinal::West,
-                right: Cardinal::East,
+            Cardinal::North => RotationData {
+                ccw: Cardinal::West,
+                cw: Cardinal::East,
             },
-            Cardinal::South => TurnData {
-                left: Cardinal::East,
-                right: Cardinal::West,
+            Cardinal::South => RotationData {
+                ccw: Cardinal::East,
+                cw: Cardinal::West,
             },
-            Cardinal::East => TurnData {
-                left: Cardinal::North,
-                right: Cardinal::South,
+            Cardinal::East => RotationData {
+                ccw: Cardinal::North,
+                cw: Cardinal::South,
             },
-            Cardinal::West => TurnData {
-                left: Cardinal::South,
-                right: Cardinal::North,
+            Cardinal::West => RotationData {
+                ccw: Cardinal::South,
+                cw: Cardinal::North,
             },
         }
     }
@@ -159,21 +154,20 @@ impl Cardinal {
 
 impl Diagonal {
     /// Returns the new direction after turning.
-    pub const fn turn(self, t: Turn) -> Self {
+    pub const fn turn(self, t: Rotation) -> Self {
         match t {
-            Turn::Right => match self {
+            Rotation::Cw => match self {
                 Diagonal::Northeast => Diagonal::Southeast,
                 Diagonal::Southeast => Diagonal::Southwest,
                 Diagonal::Southwest => Diagonal::Northwest,
                 Diagonal::Northwest => Diagonal::Northeast,
             },
-            Turn::Left => match self {
+            Rotation::Ccw => match self {
                 Diagonal::Northeast => Diagonal::Northwest,
                 Diagonal::Northwest => Diagonal::Southwest,
                 Diagonal::Southwest => Diagonal::Southeast,
                 Diagonal::Southeast => Diagonal::Northeast,
             },
-            Turn::Reverse => self.flip(),
         }
     }
 
@@ -197,57 +191,24 @@ impl Diagonal {
         }
     }
 
-    /*
-        /// Calculates the `Turn` needed to get from `self` to `other`. Returns `None` if no turn is
-        /// needed (i.e., `self` == `other`).
-        pub const fn turn_for(self, other: Diagonal) -> Option<Turn> {
-            match self {
-                Diagonal::North => match other {
-                    Diagonal::North => None,
-                    Diagonal::South => Some(Turn::Reverse),
-                    Diagonal::East => Some(Turn::Right),
-                    Diagonal::West => Some(Turn::Left),
-                },
-                Diagonal::South => match other {
-                    Diagonal::North => Some(Turn::Reverse),
-                    Diagonal::South => None,
-                    Diagonal::East => Some(Turn::Left),
-                    Diagonal::West => Some(Turn::Right),
-                },
-                Diagonal::East => match other {
-                    Diagonal::North => Some(Turn::Left),
-                    Diagonal::South => Some(Turn::Right),
-                    Diagonal::East => None,
-                    Diagonal::West => Some(Turn::Reverse),
-                },
-                Diagonal::West => match other {
-                    Diagonal::North => Some(Turn::Right),
-                    Diagonal::South => Some(Turn::Left),
-                    Diagonal::East => Some(Turn::Reverse),
-                    Diagonal::West => None,
-                },
-            }
-        }
-
-    */
     /// Returns the two directions perpendicular to `self`.
-    pub const fn perp(self) -> TurnData<Self> {
+    pub const fn perp(self) -> RotationData<Self> {
         match self {
-            Diagonal::Northwest => TurnData {
-                left: Diagonal::Southwest,
-                right: Diagonal::Northeast,
+            Diagonal::Northwest => RotationData {
+                ccw: Diagonal::Southwest,
+                cw: Diagonal::Northeast,
             },
-            Diagonal::Northeast => TurnData {
-                left: Diagonal::Northwest,
-                right: Diagonal::Southeast,
+            Diagonal::Northeast => RotationData {
+                ccw: Diagonal::Northwest,
+                cw: Diagonal::Southeast,
             },
-            Diagonal::Southeast => TurnData {
-                left: Diagonal::Northeast,
-                right: Diagonal::Southwest,
+            Diagonal::Southeast => RotationData {
+                ccw: Diagonal::Northeast,
+                cw: Diagonal::Southwest,
             },
-            Diagonal::Southwest => TurnData {
-                left: Diagonal::Southeast,
-                right: Diagonal::Northwest,
+            Diagonal::Southwest => RotationData {
+                ccw: Diagonal::Southeast,
+                cw: Diagonal::Northwest,
             },
         }
     }
@@ -310,11 +271,13 @@ impl<T> CardinalData<T> {
             Cardinal::West => &mut self.w,
         }
     }
-    /// Get N/S/E/W data as a tuple
+
+    /// Get N/S/E/W data as a tuple.
     pub fn as_tuple(&self) -> (&T, &T, &T, &T) {
         (&self.n, &self.s, &self.e, &self.w)
     }
 
+    /// Unpack N/S/E/W data into a tuple (by value).
     pub fn to_tuple(self) -> (T, T, T, T) {
         (self.n, self.s, self.e, self.w)
     }
@@ -324,6 +287,7 @@ impl<T> CardinalData<T>
 where
     T: Default + Copy + PartialEq,
 {
+    /// Count the number of directions that have non-default values.
     pub fn count(self) -> u8 {
         (self.n != T::default()) as u8
             + (self.s != T::default()) as u8
@@ -353,6 +317,7 @@ impl<T> CardinalData<T>
 where
     T: Copy,
 {
+    /// Set all directions to the same value.
     pub fn set_all(&mut self, value: T) {
         self.n = value;
         self.s = value;
@@ -361,7 +326,7 @@ where
     }
 }
 
-/// Holds data for the 4 intercardinal directions.
+/// Holds data for the 4 intercardinal/diagonal directions.
 #[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DiagonalData<T> {
     /// Northeast
@@ -375,44 +340,48 @@ pub struct DiagonalData<T> {
 }
 
 impl<T> DiagonalData<T> {
-    pub fn side(&self, dir: Cardinal) -> TurnData<&T> {
+    /// Returns the data for the two diagonal directions that are adjacent to the given cardinal
+    /// direction (e.g., `side(Cardinal::North)` will return the data for Northeast and
+    /// Northwest).
+    pub fn side(&self, dir: Cardinal) -> RotationData<&T> {
         match dir {
-            Cardinal::North => TurnData {
-                left: &self.nw,
-                right: &self.ne,
+            Cardinal::North => RotationData {
+                ccw: &self.nw,
+                cw: &self.ne,
             },
-            Cardinal::South => TurnData {
-                left: &self.se,
-                right: &self.sw,
+            Cardinal::South => RotationData {
+                ccw: &self.se,
+                cw: &self.sw,
             },
-            Cardinal::East => TurnData {
-                left: &self.ne,
-                right: &self.se,
+            Cardinal::East => RotationData {
+                ccw: &self.ne,
+                cw: &self.se,
             },
-            Cardinal::West => TurnData {
-                left: &self.sw,
-                right: &self.nw,
+            Cardinal::West => RotationData {
+                ccw: &self.sw,
+                cw: &self.nw,
             },
         }
     }
 
-    pub fn side_mut(&mut self, dir: Cardinal) -> TurnData<&mut T> {
+    /// Same as `side()`, but returns mutable references.
+    pub fn side_mut(&mut self, dir: Cardinal) -> RotationData<&mut T> {
         match dir {
-            Cardinal::North => TurnData {
-                left: &mut self.nw,
-                right: &mut self.ne,
+            Cardinal::North => RotationData {
+                ccw: &mut self.nw,
+                cw: &mut self.ne,
             },
-            Cardinal::South => TurnData {
-                left: &mut self.se,
-                right: &mut self.sw,
+            Cardinal::South => RotationData {
+                ccw: &mut self.se,
+                cw: &mut self.sw,
             },
-            Cardinal::East => TurnData {
-                left: &mut self.ne,
-                right: &mut self.se,
+            Cardinal::East => RotationData {
+                ccw: &mut self.ne,
+                cw: &mut self.se,
             },
-            Cardinal::West => TurnData {
-                left: &mut self.sw,
-                right: &mut self.nw,
+            Cardinal::West => RotationData {
+                ccw: &mut self.sw,
+                cw: &mut self.nw,
             },
         }
     }
@@ -422,6 +391,7 @@ impl<T> DiagonalData<T>
 where
     T: Copy,
 {
+    /// Set all directions to the same data.
     pub fn set_all(&mut self, data: T) {
         self.ne = data;
         self.nw = data;
@@ -430,22 +400,11 @@ where
     }
 }
 
-pub struct OctantData<T> {
-    cardinal: CardinalData<T>,
-    ordinal: OrthogonalData<T>,
-}
-
-/// Holds data for the 2 orthogonal directions (N/S and E/W).
+/// Holds data for the two handed turn directions
 #[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct OrthogonalData<T> {
-    pub ns: T,
-    pub ew: T,
-}
-
-#[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq)]
-pub struct TurnData<T> {
-    pub left: T,
-    pub right: T,
+pub struct RotationData<T> {
+    pub cw: T,
+    pub ccw: T,
 }
 
 #[cfg(test)]
@@ -456,39 +415,36 @@ mod tests {
     fn test_cardinal_direction_rules() {
         for dir in [N, S, E, W] {
             assert_ne!(dir, dir.flip());
-            assert_ne!(dir, dir.turn(Turn::Left));
-            assert_ne!(dir, dir.turn(Turn::Right));
-            assert_ne!(dir, dir.turn(Turn::Reverse));
+            assert_ne!(dir, dir.turn(Rotation::Ccw));
+            assert_ne!(dir, dir.turn(Rotation::Cw));
 
             assert_eq!(dir, dir.flip().flip());
 
-            assert_eq!(dir, dir.turn(Turn::Reverse).turn(Turn::Reverse));
-
-            assert_eq!(dir, dir.turn(Turn::Left).turn(Turn::Right));
-            assert_eq!(dir, dir.turn(Turn::Right).turn(Turn::Left));
+            assert_eq!(dir, dir.turn(Rotation::Ccw).turn(Rotation::Cw));
+            assert_eq!(dir, dir.turn(Rotation::Cw).turn(Rotation::Ccw));
             assert_eq!(
                 dir,
-                dir.turn(Turn::Right)
-                    .turn(Turn::Right)
-                    .turn(Turn::Right)
-                    .turn(Turn::Right)
+                dir.turn(Rotation::Cw)
+                    .turn(Rotation::Cw)
+                    .turn(Rotation::Cw)
+                    .turn(Rotation::Cw)
             );
             assert_eq!(
                 dir,
-                dir.turn(Turn::Left)
-                    .turn(Turn::Left)
-                    .turn(Turn::Left)
-                    .turn(Turn::Left)
+                dir.turn(Rotation::Ccw)
+                    .turn(Rotation::Ccw)
+                    .turn(Rotation::Ccw)
+                    .turn(Rotation::Ccw)
             );
 
-            assert_eq!(dir.turn(Turn::Right).flip(), dir.turn(Turn::Left));
-            assert_eq!(dir.turn(Turn::Left).flip(), dir.turn(Turn::Right));
+            assert_eq!(dir.turn(Rotation::Cw).flip(), dir.turn(Rotation::Ccw));
+            assert_eq!(dir.turn(Rotation::Ccw).flip(), dir.turn(Rotation::Cw));
 
-            assert_eq!(dir.turn(Turn::Right).turn(Turn::Right), dir.flip());
-            assert_eq!(dir.turn(Turn::Left).turn(Turn::Left), dir.flip());
+            assert_eq!(dir.turn(Rotation::Cw).turn(Rotation::Cw), dir.flip());
+            assert_eq!(dir.turn(Rotation::Ccw).turn(Rotation::Ccw), dir.flip());
 
-            assert_eq!(dir.perp().right, dir.turn(Turn::Right));
-            assert_eq!(dir.perp().left, dir.turn(Turn::Left));
+            assert_eq!(dir.perp().cw, dir.turn(Rotation::Cw));
+            assert_eq!(dir.perp().ccw, dir.turn(Rotation::Ccw));
         }
     }
 
@@ -496,39 +452,36 @@ mod tests {
     fn test_diagonal_direction_rules() {
         for dir in [NW, NE, SW, SE] {
             assert_ne!(dir, dir.flip());
-            assert_ne!(dir, dir.turn(Turn::Left));
-            assert_ne!(dir, dir.turn(Turn::Right));
-            assert_ne!(dir, dir.turn(Turn::Reverse));
+            assert_ne!(dir, dir.turn(Rotation::Ccw));
+            assert_ne!(dir, dir.turn(Rotation::Cw));
 
             assert_eq!(dir, dir.flip().flip());
 
-            assert_eq!(dir, dir.turn(Turn::Reverse).turn(Turn::Reverse));
-
-            assert_eq!(dir, dir.turn(Turn::Left).turn(Turn::Right));
-            assert_eq!(dir, dir.turn(Turn::Right).turn(Turn::Left));
+            assert_eq!(dir, dir.turn(Rotation::Ccw).turn(Rotation::Cw));
+            assert_eq!(dir, dir.turn(Rotation::Cw).turn(Rotation::Ccw));
             assert_eq!(
                 dir,
-                dir.turn(Turn::Right)
-                    .turn(Turn::Right)
-                    .turn(Turn::Right)
-                    .turn(Turn::Right)
+                dir.turn(Rotation::Cw)
+                    .turn(Rotation::Cw)
+                    .turn(Rotation::Cw)
+                    .turn(Rotation::Cw)
             );
             assert_eq!(
                 dir,
-                dir.turn(Turn::Left)
-                    .turn(Turn::Left)
-                    .turn(Turn::Left)
-                    .turn(Turn::Left)
+                dir.turn(Rotation::Ccw)
+                    .turn(Rotation::Ccw)
+                    .turn(Rotation::Ccw)
+                    .turn(Rotation::Ccw)
             );
 
-            assert_eq!(dir.turn(Turn::Right).flip(), dir.turn(Turn::Left));
-            assert_eq!(dir.turn(Turn::Left).flip(), dir.turn(Turn::Right));
+            assert_eq!(dir.turn(Rotation::Cw).flip(), dir.turn(Rotation::Ccw));
+            assert_eq!(dir.turn(Rotation::Ccw).flip(), dir.turn(Rotation::Cw));
 
-            assert_eq!(dir.turn(Turn::Right).turn(Turn::Right), dir.flip());
-            assert_eq!(dir.turn(Turn::Left).turn(Turn::Left), dir.flip());
+            assert_eq!(dir.turn(Rotation::Cw).turn(Rotation::Cw), dir.flip());
+            assert_eq!(dir.turn(Rotation::Ccw).turn(Rotation::Ccw), dir.flip());
 
-            assert_eq!(dir.perp().right, dir.turn(Turn::Right));
-            assert_eq!(dir.perp().left, dir.turn(Turn::Left));
+            assert_eq!(dir.perp().cw, dir.turn(Rotation::Cw));
+            assert_eq!(dir.perp().ccw, dir.turn(Rotation::Ccw));
         }
     }
 }

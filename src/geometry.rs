@@ -1,3 +1,5 @@
+//! Types for doing geometry on a discrete grid with i32 coordinates.
+//!
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 mod direction;
@@ -74,12 +76,42 @@ pub struct Point {
     pub y: i32,
 }
 
+/// A 2D vector representing displacement or direction in a discrete grid.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+pub struct Vector {
+    /// The displacement along the x-axis.
+    pub dx: i32,
+    /// The displacement along the y-axis.
+    pub dy: i32,
+}
+
+/// A 2D size with a width and height. Can be negative.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+pub struct Size {
+    /// The width component.
+    pub w: i32,
+    /// The height component.
+    pub h: i32,
+}
+
+/// A rectangle defined by an origin point and a size.
+///
+/// Geometric calculations are inclusive and robust to negative sizes.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+pub struct Rect {
+    /// The origin point of the rectangle (usually top-left).
+    pub origin: Point,
+    /// The size of the rectangle.
+    pub size: Size,
+}
+
 impl Point {
     /// Creates a new point.
     pub const fn new(x: i32, y: i32) -> Self {
         Self { x, y }
     }
 
+    /// Creates a new point at the origin.
     pub const fn zero() -> Self {
         Self { x: 0, y: 0 }
     }
@@ -89,16 +121,17 @@ impl Point {
         vector![self.x, self.y]
     }
 
-    /// const impl of add since the Add trait isn't const
+    /// const impl of Add<Vector> since the Add trait isn't const
     const fn const_add_vector(self, rhs: Vector) -> Point {
         point![self.x + rhs.dx, self.y + rhs.dy]
     }
 
-    /// const impl of sub since the Sub trait isn't const
+    /// const impl of Sub<Vector> since the Sub trait isn't const
     const fn const_sub_vector(self, rhs: Vector) -> Point {
         point![self.x - rhs.dx, self.y - rhs.dy]
     }
 
+    /// const impl of Sub<Point> since the Sub trait isn't const
     const fn const_sub_point(self, rhs: Point) -> Vector {
         vector![self.x - rhs.x, self.y - rhs.y]
     }
@@ -107,15 +140,6 @@ impl Point {
     pub const fn decompose(self) -> (Self, Self) {
         (Self { x: self.x, y: 0 }, Self { x: 0, y: self.y })
     }
-}
-
-/// A 2D vector representing displacement or direction in a discrete grid.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
-pub struct Vector {
-    /// The displacement along the x-axis.
-    pub dx: i32,
-    /// The displacement along the y-axis.
-    pub dy: i32,
 }
 
 impl Vector {
@@ -133,15 +157,23 @@ impl Vector {
     pub const fn decompose(self) -> (Self, Self) {
         (Self { dx: self.dx, dy: 0 }, Self { dx: 0, dy: self.dy })
     }
-}
 
-/// A 2D size with a width and height. Can be negative.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
-pub struct Size {
-    /// The width component.
-    pub w: i32,
-    /// The height component.
-    pub h: i32,
+    pub const fn abs(self) -> Self {
+        Self {
+            dx: self.dx.abs(),
+            dy: self.dy.abs(),
+        }
+    }
+
+    pub const fn len_squared(self) -> i64 {
+        let dx = self.dx as i64;
+        let dy = self.dy as i64;
+        dx * dx + dy * dy
+    }
+
+    pub const fn is_zero(self) -> bool {
+        self.dx == 0 && self.dy == 0
+    }
 }
 
 impl Size {
@@ -176,17 +208,6 @@ impl Size {
     pub const fn is_empty(self) -> bool {
         self.w == 0 || self.h == 0
     }
-}
-
-/// A rectangle defined by an origin point and a size.
-///
-/// Geometric calculations are inclusive and robust to negative sizes.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
-pub struct Rect {
-    /// The origin point of the rectangle (usually top-left).
-    pub origin: Point,
-    /// The size of the rectangle.
-    pub size: Size,
 }
 
 // TODO: remove min/max after std::cmp::Ord is const.
@@ -384,7 +405,7 @@ impl Rect {
     }
 }
 
-/// A line segment between two points.
+/// A line segment between two points (inclusive).
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
 pub struct Segment {
     pub start: Point,
@@ -446,6 +467,14 @@ impl From<Vector> for (i32, i32) {
     }
 }
 
+impl From<Point> for (usize, usize) {
+    fn from(value: Point) -> Self {
+        assert!(value.x >= 0);
+        assert!(value.y >= 0);
+        (value.x as usize, value.y as usize)
+    }
+}
+
 // --- Operator Overloads ---
 
 // Point + Vector = Point
@@ -483,6 +512,36 @@ impl Sub for Point {
     type Output = Vector;
     fn sub(self, rhs: Point) -> Self::Output {
         self.const_sub_point(rhs)
+    }
+}
+
+// Point * scalar
+impl Mul<i32> for Point {
+    type Output = Point;
+    fn mul(self, rhs: i32) -> Self::Output {
+        point![self.x * rhs, self.y * rhs]
+    }
+}
+
+impl MulAssign<i32> for Point {
+    fn mul_assign(&mut self, rhs: i32) {
+        self.x *= rhs;
+        self.y *= rhs;
+    }
+}
+
+// Point / scalar
+impl Div<i32> for Point {
+    type Output = Point;
+    fn div(self, rhs: i32) -> Self::Output {
+        point![self.x / rhs, self.y / rhs]
+    }
+}
+
+impl DivAssign<i32> for Point {
+    fn div_assign(&mut self, rhs: i32) {
+        self.x /= rhs;
+        self.y /= rhs;
     }
 }
 
@@ -621,7 +680,7 @@ impl DivAssign<i32> for Size {
     }
 }
 
-// --- Translation for Segment ---
+// Segment +/- Vector
 impl Add<Vector> for Segment {
     type Output = Segment;
     fn add(self, v: Vector) -> Self::Output {
