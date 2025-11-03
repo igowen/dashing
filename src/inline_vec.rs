@@ -79,6 +79,43 @@ impl<T, const N: usize> InlineVec<T, N> {
     pub const fn capacity(&self) -> usize {
         N
     }
+
+    /// Removes an element freom the vector and returns it.
+    ///
+    /// The removed element is replaced with the last element, so this does not preserve ordering
+    /// of the remaining elements.
+    ///
+    /// **Panics** if `i` is out of bounds.
+    pub fn swap_remove(&mut self, i: usize) -> T {
+        let len = self.len();
+        if i >= len {
+            panic!(
+                "swap_remove index out of bounds: the len is {} but the index is {}",
+                self.len(),
+                i
+            );
+        }
+        self.swap(i, len - 1);
+        self.pop().unwrap()
+    }
+
+    /// Retains only the elements specified by the given predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&T) -> bool,
+    {
+        let n = self.len();
+        let mut j = 0;
+        for i in 0..n {
+            if f(&self[i]) {
+                if i != j {
+                    self.swap(i, j);
+                }
+                j += 1;
+            }
+        }
+        self.truncate(j);
+    }
 }
 
 impl<T, const N: usize> Drop for InlineVec<T, N> {
@@ -241,6 +278,7 @@ impl<T, const N: usize> From<[T; N]> for InlineVec<T, N> {
     }
 }
 
+/// **Panics** if the iterator yields more than `N` elements.
 impl<T, const N: usize> FromIterator<T> for InlineVec<T, N> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut result = Self::new();
@@ -251,6 +289,7 @@ impl<T, const N: usize> FromIterator<T> for InlineVec<T, N> {
     }
 }
 
+/// **Panics** if the iterator yields more elements than the available capacity.
 impl<T, const N: usize> Extend<T> for InlineVec<T, N> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for item in iter {
@@ -308,6 +347,22 @@ impl<T, const N: usize> IntoIterator for InlineVec<T, N> {
             vec: std::mem::ManuallyDrop::new(self),
             pos: 0,
         }
+    }
+}
+
+impl<'a, T, const N: usize> IntoIterator for &'a InlineVec<T, N> {
+    type IntoIter = std::slice::Iter<'a, T>;
+    type Item = &'a T;
+    fn into_iter(self) -> Self::IntoIter {
+        (*self).iter()
+    }
+}
+
+impl<'a, T, const N: usize> IntoIterator for &'a mut InlineVec<T, N> {
+    type IntoIter = std::slice::IterMut<'a, T>;
+    type Item = &'a mut T;
+    fn into_iter(self) -> Self::IntoIter {
+        (*self).iter_mut()
     }
 }
 
@@ -549,5 +604,62 @@ mod tests {
         // Now, drop the collected items and check the counter.
         drop(items);
         assert_eq!(drop_counter.load(Ordering::SeqCst), 4);
+    }
+
+    #[test]
+    fn test_retain() {
+        let mut v = InlineVec::<_, CAP>::new();
+        v.push(1);
+        v.push(2);
+        v.push(3);
+        v.push(4);
+
+        v.retain(|i| i % 2 == 0);
+
+        assert_eq!(&v[..], &[2, 4]);
+    }
+
+    #[test]
+    fn test_swap_remove() {
+        // Edge case: one element
+        {
+            let mut v = InlineVec::<i32, CAP>::new();
+            v.push(1);
+
+            assert_eq!(v.swap_remove(0), 1);
+            assert!(v.is_empty());
+        }
+
+        // Edge case: two elements, swap-removing the first element.
+        {
+            let mut v = InlineVec::<i32, CAP>::new();
+            v.push(1);
+            v.push(2);
+
+            assert_eq!(v.swap_remove(0), 1);
+            assert_eq!(&v[..], &[2]);
+        }
+
+        // Edge case: two elements, swap-removing the second.
+        {
+            let mut v = InlineVec::<i32, CAP>::new();
+            v.push(1);
+            v.push(2);
+
+            assert_eq!(v.swap_remove(1), 2);
+            assert_eq!(&v[..], &[1]);
+        }
+
+        // General case.
+        {
+            let mut v = InlineVec::<i32, CAP>::new();
+            v.push(1);
+            v.push(2);
+            v.push(3);
+            v.push(4);
+
+            assert_eq!(v.swap_remove(1), 2);
+            assert_eq!(&v[..], &[1, 4, 3]);
+        }
     }
 }
