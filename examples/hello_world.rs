@@ -4,8 +4,8 @@ use dashing::*;
 use pretty_env_logger;
 
 // Screen dimensions in characters.
-const WIDTH: u32 = 21;
-const HEIGHT: u32 = 3;
+const WIDTH: i32 = 21;
+const HEIGHT: i32 = 3;
 
 // Client code must implement a "driver", which is a combination of input handler and
 // interface to the renderer.
@@ -64,22 +64,21 @@ pub fn main() {
     assert!(reader.info().color_type == png::ColorType::Indexed);
     let mut imgdata = vec![0u8; reader.output_buffer_size()];
     reader.next_frame(&mut imgdata[..]).unwrap();
+    let image_size = reader.info().size();
     let tex = dashing::resources::sprite::SpriteTexture::new_from_pixels(
         &imgdata[..],
-        reader.info().size().0 as usize,
-        reader.info().size().1 as usize,
-        reader.info().size().0 as usize / 16,
-        reader.info().size().1 as usize / 16,
+        size![image_size.0 as i32, image_size.1 as i32],
+        size![image_size.0 as i32 / 16, image_size.1 as i32 / 16],
         256,
     )
     .unwrap();
 
-    let window_builder = window::WindowBuilder::new("hello world", WIDTH, HEIGHT, &tex)
+    let window_builder = window::WindowBuilder::new("hello world", size![WIDTH, HEIGHT], &tex)
         .with_clear_color((0.2, 0.2, 0.2).into())
         .with_vsync(true);
 
     let driver = ExampleDriver {
-        root_layer: graphics::drawing::SpriteLayer::new(WIDTH as usize, HEIGHT as usize),
+        root_layer: graphics::drawing::SpriteLayer::new(size![WIDTH, HEIGHT]),
         message: String::from("Swash your buckles!"),
     };
 

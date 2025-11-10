@@ -16,6 +16,9 @@ use itertools::Itertools;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
+use crate::geometry::Size;
+use crate::size;
+
 /// Trait for mapping symbolic sprites to their position in the sprite texture.
 pub trait SpriteMap<E> {
     /// Map the sprite.
@@ -41,31 +44,25 @@ pub struct Sprite {
 /// Output of `SpriteTextureProvider::generate_sprite_texture()`.
 pub struct SpriteTexture {
     // Width/height of the texture.
-    width: usize,
-    height: usize,
+    texture_size: Size,
     // Width/height of a single sprite.
-    sprite_width: usize,
-    sprite_height: usize,
+    sprite_size: Size,
     pixels: Box<[u8]>,
     id_map: HashMap<usize, usize>,
 }
 
 impl SpriteTexture {
     /// Width
-    pub fn width(&self) -> usize {
-        self.width
+    pub fn width(&self) -> i32 {
+        self.texture_size.w
     }
     /// Height
-    pub fn height(&self) -> usize {
-        self.height
+    pub fn height(&self) -> i32 {
+        self.texture_size.h
     }
-    /// Sprite width
-    pub fn sprite_width(&self) -> usize {
-        self.sprite_width
-    }
-    /// Sprite height
-    pub fn sprite_height(&self) -> usize {
-        self.sprite_height
+    /// Sprite size
+    pub fn sprite_size(&self) -> Size {
+        self.sprite_size
     }
 }
 
@@ -73,28 +70,26 @@ impl<'a> SpriteTexture {
     /// Create a new sprite texture from pixels.
     pub fn new_from_pixels(
         pixels: &[u8],
-        width: usize,
-        height: usize,
-        sprite_width: usize,
-        sprite_height: usize,
+        texture_size: Size,
+        sprite_size: Size,
         sprite_count: usize,
     ) -> Result<SpriteTexture, String> {
-        if width % sprite_width != 0 {
+        if texture_size.w % sprite_size.w != 0 {
             return Err(String::from("Sprite width must divide image width"));
         }
-        if height % sprite_height != 0 {
+        if texture_size.h % sprite_size.h != 0 {
             return Err(String::from("Sprite height must divide image height"));
         }
-        if sprite_count > (width / sprite_width) * (height / sprite_height) {
+        if sprite_count
+            > ((texture_size.w / sprite_size.w) * (texture_size.h / sprite_size.h)) as usize
+        {
             return Err(String::from(
                 "Too many sprites for specified image dimensions",
             ));
         }
         Ok(SpriteTexture {
-            width,
-            height,
-            sprite_width,
-            sprite_height,
+            texture_size,
+            sprite_size,
             pixels: Box::from(pixels),
             id_map: HashMap::new(), // XXX: fix this
         })
@@ -118,7 +113,7 @@ pub trait SpriteCollection {
     /// Iterator over all of the sprites in this collection.
     type Iter: Iterator<Item = Sprite>;
     /// Sprite size, in pixels. Must be uniform across the collection.
-    fn dimensions(&self) -> (u32, u32);
+    fn dimensions(&self) -> Size;
     /// Number of sprites in the collection.
     fn size(&self) -> usize;
     /// Iterator over every sprite in the collection.
@@ -128,20 +123,20 @@ pub trait SpriteCollection {
 
     /// Convert a `SpriteCollection` to a `SpriteTexture`.
     fn generate_sprite_texture(&self) -> SpriteTexture {
-        let sprites_wide = (self.size() as f32).sqrt().ceil() as usize;
-        let sprites_high = ((self.size() as f32) / sprites_wide as f32).ceil() as usize;
-        let sprite_width = self.dimensions().0;
-        let sprite_height = self.dimensions().1;
-        let texture_width = sprites_wide * sprite_width as usize;
-        let texture_height = sprites_high * sprite_height as usize;
+        let sprites_wide = (self.size() as f32).sqrt().ceil() as i32;
+        let sprites_high = ((self.size() as f32) / sprites_wide as f32).ceil() as i32;
+        let sprite_width = self.dimensions().w;
+        let sprite_height = self.dimensions().h;
+        let texture_width = sprites_wide * sprite_width;
+        let texture_height = sprites_high * sprite_height;
         // It's really unlikely these limits will be exceeded, but I'd rather crap out here than
         // when we try to use the texture in the renderer.
         // With 32x32px sprites, this allows you to have 65k individual sprites.
         assert!(texture_width <= 8192 && texture_height <= 8192);
-        let mut pixels = Vec::<u8>::with_capacity(texture_width * texture_height);
+        let mut pixels = Vec::<u8>::with_capacity((texture_width * texture_height) as usize);
         let mut id_map = HashMap::<usize, usize>::with_capacity(self.size());
         let mut i = 0;
-        for chunk in &self.iter().chunks(sprites_wide) {
+        for chunk in &self.iter().chunks(sprites_wide as usize) {
             let sprite_row: Vec<Sprite> = chunk.collect();
             for s in sprite_row.iter() {
                 id_map.insert(s.id, i);
@@ -153,20 +148,18 @@ pub trait SpriteCollection {
                         pixels.push(s.pixels[(y * sprite_width + x) as usize]);
                     }
                 }
-                if sprite_row.len() < sprites_wide {
+                if sprite_row.len() < sprites_wide as usize {
                     pixels.extend(vec![
                         0;
-                        (sprites_wide - sprite_row.len())
+                        (sprites_wide as usize - sprite_row.len())
                             * sprite_width as usize
                     ]);
                 }
             }
         }
         SpriteTexture {
-            width: texture_width,
-            height: texture_height,
-            sprite_width: self.dimensions().0 as usize,
-            sprite_height: self.dimensions().1 as usize,
+            texture_size: size![texture_width, texture_height],
+            sprite_size: self.dimensions(),
             pixels: pixels.into_boxed_slice(),
             id_map,
         }
@@ -176,6 +169,7 @@ pub trait SpriteCollection {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::size;
     use std;
 
     struct TestSpriteCollection {
@@ -186,8 +180,8 @@ mod tests {
 
     impl SpriteCollection for TestSpriteCollection {
         type Iter = std::vec::IntoIter<Sprite>;
-        fn dimensions(&self) -> (u32, u32) {
-            (self.sprite_width as u32, self.sprite_height as u32)
+        fn dimensions(&self) -> Size {
+            size![self.sprite_width as i32, self.sprite_height as i32]
         }
         fn size(&self) -> usize {
             self.sprites.len()
@@ -226,10 +220,8 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_eq!(texture.width, 8);
-        assert_eq!(texture.height, 4);
-        assert_eq!(texture.sprite_width, 4);
-        assert_eq!(texture.sprite_height, 4);
+        assert_eq!(texture.texture_size, size![8, 4]);
+        assert_eq!(texture.sprite_size, size![4, 4]);
 
         #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
@@ -274,10 +266,8 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_eq!(texture.width, 8);
-        assert_eq!(texture.height, 8);
-        assert_eq!(texture.sprite_width, 4);
-        assert_eq!(texture.sprite_height, 4);
+        assert_eq!(texture.texture_size, size![8, 8]);
+        assert_eq!(texture.sprite_size, size![4, 4]);
         #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
             vec![0, 0, 0, 0, 1, 1, 1, 1,
@@ -325,10 +315,8 @@ mod tests {
             sprite_height: 4,
         };
         let texture = collection.generate_sprite_texture();
-        assert_eq!(texture.width, 6);
-        assert_eq!(texture.height, 8);
-        assert_eq!(texture.sprite_width, 3);
-        assert_eq!(texture.sprite_height, 4);
+        assert_eq!(texture.texture_size, size![6, 8]);
+        assert_eq!(texture.sprite_size, size![3, 4]);
         #[rustfmt::skip]
         let expected_texture: Vec<u8> = {
             vec![1, 0, 1, 1, 1, 1,

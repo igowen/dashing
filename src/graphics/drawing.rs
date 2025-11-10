@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::geometry::{Point, Size};
+
 /// Encapsulation of a 16-element array mapping palette indices.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct PaletteMap([u8; 16]);
@@ -97,8 +99,8 @@ pub struct SpriteLayer<T = ()> {
 
 impl SpriteLayer<()> {
     /// Create a new `SpriteLayer` with the given width and height.
-    pub fn new(width: usize, height: usize) -> Self {
-        SpriteLayer::<()>::new_with_data(width, height)
+    pub fn new(size: Size) -> Self {
+        SpriteLayer::<()>::new_with_data(size)
     }
 }
 
@@ -124,6 +126,24 @@ impl<T> SpriteLayer<T> {
         self.height
     }
 
+    /// Returns a reference to the cell at `(p.x, p.y)`, if the coordinates are in bounds.
+    pub fn get(&self, p: Point) -> Option<&SpriteCell<T>> {
+        if p.x >= 0 && p.y >= 0 && (p.x as usize) < self.width && (p.y as usize) < self.height {
+            Some(&self.data[p.y as usize * self.width + p.x as usize])
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable reference to the cell at `(p.x, p.y)`, if the coordinates are in bounds.
+    pub fn get_mut(&mut self, p: Point) -> Option<&mut SpriteCell<T>> {
+        if p.x >= 0 && p.y >= 0 && (p.x as usize) < self.width && (p.y as usize) < self.height {
+            Some(&mut self.data[p.y as usize * self.width + p.x as usize])
+        } else {
+            None
+        }
+    }
+
     /// Get an iterator over all of the cells in the layer.
     pub fn iter(&self) -> std::slice::Iter<'_, SpriteCell<T>> {
         self.data.iter()
@@ -140,7 +160,9 @@ where
     T: Default + Copy,
 {
     /// Create a new `SpriteLayer` with the given width and height.
-    pub fn new_with_data(width: usize, height: usize) -> Self {
+    pub fn new_with_data(size: Size) -> Self {
+        let width = size.w.abs() as usize;
+        let height = size.h.abs() as usize;
         SpriteLayer {
             width,
             height,
@@ -243,10 +265,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::size;
     #[test]
     fn stamp_sprite_value() {
-        let mut l1 = SpriteLayer::new(4, 4);
-        let mut l2 = SpriteLayer::new(2, 3);
+        let mut l1 = SpriteLayer::new(size![4, 4]);
+        let mut l2 = SpriteLayer::new(size![2, 3]);
         for cell in l2.iter_mut() {
             cell.sprite = 2;
         }
@@ -268,8 +291,8 @@ mod tests {
     }
     #[test]
     fn stamp_transparency() {
-        let mut l1 = SpriteLayer::new(4, 4);
-        let mut l2 = SpriteLayer::new(2, 3);
+        let mut l1 = SpriteLayer::new(size![4, 4]);
+        let mut l2 = SpriteLayer::new(size![2, 3]);
         for cell in l2.iter_mut() {
             cell.sprite = 2;
         }

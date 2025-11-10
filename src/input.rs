@@ -17,13 +17,15 @@ pub use winit::{
     keyboard::*,
 };
 
+use crate::geometry::Point;
+
 /// Mouse event.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum MouseEvent {
     /// The cursor was moved to a new position.
     CursorMoved {
         /// Sprite-level position of the cursor.
-        sprite_position: (u32, u32),
+        sprite_position: Point,
         /* TODO: calculate this.
         /// Logical pixel location of the cursor (independent of the actual window size).
         pixel_position: (u32, u32),

@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use log::info;
 
+use crate::geometry::Size;
 use crate::graphics::render;
 use crate::resources::color::{Color, Palette};
 use crate::resources::sprite::SpriteTexture;
@@ -66,8 +67,7 @@ impl From<FilterMethod> for wgpu::FilterMode {
 /// Helper for constructing windows.
 pub struct WindowBuilder<'a> {
     window_title: &'a str,
-    width: u32,
-    height: u32,
+    size: Size,
     sprite_texture: &'a SpriteTexture,
     vsync: bool,
     resizable: bool,
@@ -88,16 +88,11 @@ impl<'a> WindowBuilder<'a> {
     ///   - Not full screen
     ///   - Clear color 100% green
     ///   - Trilinear filtering
-    pub fn new(
-        window_title: &'a str,
-        width: u32,
-        height: u32,
-        sprite_texture: &'a SpriteTexture,
-    ) -> Self {
+    pub fn new(window_title: &'a str, size: Size, sprite_texture: &'a SpriteTexture) -> Self {
+        let size = size.abs();
         WindowBuilder {
             window_title,
-            width,
-            height,
+            size,
             sprite_texture,
             vsync: true,
             resizable: false,
@@ -169,8 +164,9 @@ impl<'a> WindowBuilder<'a> {
     /// Build the window.
     pub fn build(self) -> Result<Window<'a>, WindowError> {
         // TODO: Don't create a window bigger than the display.
-        let screen_width = (self.width * self.sprite_texture.sprite_width() as u32) as f32;
-        let screen_height = (self.height * self.sprite_texture.sprite_height() as u32) as f32;
+        let screen_width = (self.size.w as u32 * self.sprite_texture.sprite_size().w as u32) as f32;
+        let screen_height =
+            (self.size.h as u32 * self.sprite_texture.sprite_size().h as u32) as f32;
         info!("Screen dimensions {}x{}", screen_width, screen_height);
         // TODO: Figure out how to deal with hidpi
         let screen_dimensions = winit::dpi::LogicalSize::<f32>::from_physical(
@@ -195,7 +191,7 @@ impl<'a> WindowBuilder<'a> {
 
         let renderer = crate::graphics::render::Renderer::new(
             Some(Arc::clone(&window)),
-            (self.width as _, self.height as _),
+            self.size,
             self.sprite_texture,
             self.clear_color,
             self.palette,
@@ -213,8 +209,7 @@ impl<'a> WindowBuilder<'a> {
         )?;
 
         Ok(Window {
-            width: self.width,
-            height: self.height,
+            dimensions: self.size,
             window,
             event_loop,
             renderer,
@@ -230,8 +225,7 @@ pub struct Window<'a> {
     pub(crate) event_loop: winit::event_loop::EventLoop<()>,
 
     // Width & height of the window (in sprites).
-    pub(crate) width: u32,
-    pub(crate) height: u32,
+    pub(crate) dimensions: Size,
 }
 
 impl<'a> Window<'a> {

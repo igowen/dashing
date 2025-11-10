@@ -20,6 +20,7 @@ use png;
 
 use super::*;
 use crate::resources::color::Palette;
+use crate::size;
 
 /// There's a lot of boilerplate in setting up the offscreen renderer and extracting the rendered
 /// image, so we use a separate support fixture to manage that.
@@ -27,12 +28,11 @@ struct RenderTestFixture<'a> {
     renderer: Renderer<'a>,
     sprite_width: u32,
     sprite_height: u32,
-    width: u32,
-    height: u32,
+    dimensions: Size,
 }
 
 impl<'a> RenderTestFixture<'a> {
-    fn new(width: u32, height: u32) -> RenderTestFixture<'a> {
+    fn new(size: Size) -> RenderTestFixture<'a> {
         // Load the test sprite texture.
         // TODO: get rid of this once the sprite-loading code is done.
         let img = include_bytes!("testdata/12x12.png");
@@ -42,22 +42,21 @@ impl<'a> RenderTestFixture<'a> {
         let mut reader = decoder.read_info().unwrap();
         let mut imgdata = vec![0u8; reader.output_buffer_size()];
         reader.next_frame(&mut imgdata[..]).unwrap();
+        let image_size = reader.info().size();
         let tex = SpriteTexture::new_from_pixels(
             &imgdata[..],
-            reader.info().size().0 as usize,
-            reader.info().size().1 as usize,
-            reader.info().size().0 as usize / 16,
-            reader.info().size().1 as usize / 16,
+            size![image_size.0 as i32, image_size.1 as i32],
+            size![image_size.0 as i32 / 16, image_size.1 as i32 / 16],
             256,
         )
         .unwrap();
 
-        let sprite_width = tex.sprite_width();
-        let sprite_height = tex.sprite_height();
+        let sprite_width = tex.sprite_size().w;
+        let sprite_height = tex.sprite_size().h;
 
         let renderer = Renderer::new(
             None,
-            (width, height),
+            size,
             &tex,
             [0, 255, 0].into(),
             Palette::new([
@@ -79,10 +78,9 @@ impl<'a> RenderTestFixture<'a> {
 
         RenderTestFixture {
             renderer,
-            width,
-            height,
             sprite_width: sprite_width as u32,
             sprite_height: sprite_height as u32,
+            dimensions: size,
         }
     }
 
@@ -95,7 +93,7 @@ impl<'a> RenderTestFixture<'a> {
 #[test]
 fn render_one_cell() {
     let actual_image = {
-        let mut fixture = RenderTestFixture::new(1, 1);
+        let mut fixture = RenderTestFixture::new(size![1, 1]);
 
         fixture.renderer.update(
             [SpriteCell {
@@ -122,7 +120,7 @@ fn render_one_cell() {
 
 #[test]
 fn render_one_cell_sprite_change() {
-    let mut fixture = RenderTestFixture::new(1, 1);
+    let mut fixture = RenderTestFixture::new(size![1, 1]);
 
     fixture.renderer.update(
         [SpriteCell {
@@ -169,7 +167,7 @@ fn render_one_cell_sprite_change() {
 #[test]
 fn render_2x2_with_color() {
     let actual_image = {
-        let mut fixture = RenderTestFixture::new(2, 2);
+        let mut fixture = RenderTestFixture::new(size![2, 2]);
 
         fixture.renderer.update(
             [
@@ -215,7 +213,7 @@ fn render_2x2_with_color() {
 #[test]
 fn gray() {
     let actual_image = {
-        let mut fixture = RenderTestFixture::new(1, 1);
+        let mut fixture = RenderTestFixture::new(size![1, 1]);
 
         fixture.renderer.update(
             [SpriteCell::<()> {
@@ -242,7 +240,7 @@ fn gray() {
 #[test]
 fn big() {
     let actual_image = {
-        let mut fixture = RenderTestFixture::new(680, 10);
+        let mut fixture = RenderTestFixture::new(size![680, 10]);
 
         fixture.renderer.update(
             vec![
@@ -279,12 +277,11 @@ fn full_palette() {
     let mut reader = decoder.read_info().unwrap();
     let mut imgdata = vec![0u8; reader.output_buffer_size()];
     reader.next_frame(&mut imgdata[..]).unwrap();
+    let image_size = reader.info().size();
     let tex = SpriteTexture::new_from_pixels(
         &imgdata[..],
-        reader.info().size().0 as usize,
-        reader.info().size().1 as usize,
-        reader.info().size().0 as usize,
-        reader.info().size().1 as usize,
+        size![image_size.0 as i32, image_size.1 as i32],
+        size![image_size.0 as i32, image_size.1 as i32],
         1,
     )
     .unwrap();
@@ -292,7 +289,7 @@ fn full_palette() {
     let actual_image = {
         let mut renderer = Renderer::new(
             None,
-            (1, 1),
+            size![1, 1],
             &tex,
             [0, 255, 0].into(),
             Palette::default(),

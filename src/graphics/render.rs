@@ -18,9 +18,11 @@ use std::sync::Arc;
 use itertools::Itertools;
 use log::{info, trace};
 
+use crate::geometry::Size;
 use crate::graphics::drawing::{PaletteMap, SpriteCell};
 use crate::resources::color::Palette;
 use crate::resources::sprite::SpriteTexture;
+use crate::size;
 use wgpu::util::DeviceExt;
 
 #[cfg(test)]
@@ -206,15 +208,15 @@ enum RenderOutput<'a> {
 }
 
 impl<'a> RenderOutput<'a> {
-    fn output_size(&self) -> (u32, u32) {
+    fn output_size(&self) -> Size {
         match self {
             RenderOutput::Surface {
                 current_screen_size: size,
                 ..
-            } => (size.width as _, size.height as _),
+            } => size![size.width as _, size.height as _],
             RenderOutput::Texture {
                 output_size: size, ..
-            } => (size.width as _, size.height as _),
+            } => size![size.width as _, size.height as _],
         }
     }
 
@@ -267,9 +269,9 @@ pub(crate) struct Renderer<'a> {
     palette_map_texture_data: Box<[u8]>,
     palette_map_texture_size: wgpu::Extent3d,
 
-    pub(crate) pixel_dimensions: (u32, u32),
-    pub(crate) aspect_ratio: (u32, u32),
-    pub(crate) dimensions: (u32, u32),
+    pub(crate) pixel_dimensions: Size,
+    pub(crate) aspect_ratio: Size,
+    pub(crate) dimensions: Size,
 
     clear_color: wgpu::Color,
 
@@ -283,7 +285,7 @@ pub(crate) struct Renderer<'a> {
 impl<'a> Renderer<'a> {
     pub(crate) fn new(
         window: Option<Arc<winit::window::Window>>,
-        dimensions: (u32, u32),
+        dimensions: Size,
         sprite_texture: &SpriteTexture,
         clear_color: crate::resources::color::Color,
         palette: Palette,
@@ -291,35 +293,31 @@ impl<'a> Renderer<'a> {
         present_mode: wgpu::PresentMode,
         instance_flags: wgpu::InstanceFlags,
     ) -> Result<Self, RenderError> {
-        let mut static_instances =
-            vec![InstanceStatic::default(); (dimensions.0 * dimensions.1) as usize];
-        let dynamic_instances =
-            vec![InstanceDynamic::default(); (dimensions.0 * dimensions.1) as usize];
+        let dimensions = dimensions.abs();
+        let mut static_instances = vec![InstanceStatic::default(); dimensions.area() as usize];
+        let dynamic_instances = vec![InstanceDynamic::default(); dimensions.area() as usize];
 
         let palette_texture_data = palette.as_texture_data();
-        let palette_map_texture_data = vec![
-            palette.size() as u8;
-            (dimensions.0 * dimensions.1) as usize
-                * (PaletteMap::MAX_SIZE + 1)
-        ]
-        .into_boxed_slice();
+        let palette_map_texture_data =
+            vec![palette.size() as u8; dimensions.area() as usize * (PaletteMap::MAX_SIZE + 1)]
+                .into_boxed_slice();
 
-        for y in 0..dimensions.1 {
-            for x in 0..dimensions.0 {
-                static_instances[(y * dimensions.0 + x) as usize] = InstanceStatic {
+        for y in 0..dimensions.h {
+            for x in 0..dimensions.w {
+                static_instances[(y * dimensions.w + x) as usize] = InstanceStatic {
                     translate: [
-                        -1.0 + (x as f32 * 2.0 / dimensions.0 as f32),
-                        1.0 - ((y as f32 + 1.0) * 2.0 / dimensions.1 as f32),
+                        -1.0 + (x as f32 * 2.0 / dimensions.w as f32),
+                        1.0 - ((y as f32 + 1.0) * 2.0 / dimensions.h as f32),
                     ],
                     cell_coords: [x as _, y as _],
-                    index: (y * dimensions.0 + x) as u32,
+                    index: (y * dimensions.w + x) as u32,
                     _padding: 0,
                 };
             }
         }
 
-        let screen_width = dimensions.0 * sprite_texture.sprite_width() as u32;
-        let screen_height = dimensions.1 * sprite_texture.sprite_height() as u32;
+        let screen_width = dimensions.w as u32 * sprite_texture.sprite_size().w as u32;
+        let screen_height = dimensions.h as u32 * sprite_texture.sprite_size().h as u32;
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
@@ -445,8 +443,8 @@ impl<'a> Renderer<'a> {
         for y in 0..sprite_texture.height() {
             trace!(
                 "{:?}",
-                &sprite_texture.pixels()[y * sprite_texture.width()
-                    ..y * sprite_texture.width() + sprite_texture.width()]
+                &sprite_texture.pixels()[((y * sprite_texture.width()) as usize)
+                    ..((y * sprite_texture.width() + sprite_texture.width()) as usize)]
                     .iter()
                     .map(|i| format!("{}", i))
                     .collect::<String>()
@@ -491,8 +489,8 @@ impl<'a> Renderer<'a> {
         let palette_texture_view = palette_texture.create_view(&Default::default());
 
         let palette_map_texture_size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
+            width: dimensions.w as u32,
+            height: dimensions.h as u32,
             depth_or_array_layers: PaletteMap::MAX_SIZE as u32 + 1,
         };
 
@@ -607,18 +605,18 @@ impl<'a> Renderer<'a> {
             });
 
         let cell_uniforms = CellGlobals {
-            screen_size_in_sprites: [dimensions.0 as _, dimensions.1 as _],
+            screen_size_in_sprites: [dimensions.w as _, dimensions.h as _],
             sprite_map_dimensions: [
-                (sprite_texture.width() / sprite_texture.sprite_width()) as u32,
-                (sprite_texture.height() / sprite_texture.sprite_height()) as u32,
+                (sprite_texture.width() / sprite_texture.sprite_size().w) as u32,
+                (sprite_texture.height() / sprite_texture.sprite_size().h) as u32,
             ],
             sprite_texture_dimensions: [
                 sprite_texture.width() as u32,
                 sprite_texture.height() as u32,
             ],
             sprite_dimensions: [
-                sprite_texture.sprite_width() as u32,
-                sprite_texture.sprite_height() as u32,
+                sprite_texture.sprite_size().w as u32,
+                sprite_texture.sprite_size().h as u32,
             ],
             palette_size: palette.size() as u32,
             _padding: 0,
@@ -803,8 +801,8 @@ impl<'a> Renderer<'a> {
 
         // Calculate aspect ratio. This is used for letterboxing the screen when the window's
         // aspect ratio doesn't match.
-        let (mut ax, mut ay) = (screen_width, screen_height);
-        fn gcd(mut a: u32, mut b: u32) -> u32 {
+        let (mut ax, mut ay) = (screen_width as i32, screen_height as i32);
+        fn gcd(mut a: i32, mut b: i32) -> i32 {
             while b != 0 {
                 let t = b;
                 b = a % b;
@@ -870,8 +868,8 @@ impl<'a> Renderer<'a> {
             palette_texture_size,
 
             render_target_view,
-            aspect_ratio: (ax, ay),
-            pixel_dimensions: (screen_width as _, screen_height as _),
+            aspect_ratio: size![ax, ay],
+            pixel_dimensions: size![screen_width as i32, screen_height as i32],
             dimensions,
 
             clear_color: clear_color.into(),
@@ -888,14 +886,21 @@ impl<'a> Renderer<'a> {
     }
 
     fn update_screen_uniforms(&mut self) {
-        let (screen_w, screen_h) = self.render_output.output_size();
-        let (ax, ay) = self.aspect_ratio;
+        let Size {
+            w: screen_w,
+            h: screen_h,
+        } = self.render_output.output_size();
+        let ax = self.aspect_ratio.w;
+        let ay = self.aspect_ratio.h;
         let target_w = std::cmp::min(screen_w, (screen_h * ax) / ay);
         let target_h = std::cmp::min(screen_h, (screen_w * ay) / ax);
 
         let screen_uniforms = ScreenGlobals {
             screen_size: [screen_w as _, screen_h as _],
-            screen_texture_dimensions: [self.pixel_dimensions.0 as _, self.pixel_dimensions.1 as _],
+            screen_texture_dimensions: [
+                self.pixel_dimensions.w as f32,
+                self.pixel_dimensions.h as f32,
+            ],
             scale_factor: [
                 target_w as f32 / screen_w as f32,
                 target_h as f32 / screen_h as f32,
@@ -927,8 +932,8 @@ impl<'a> Renderer<'a> {
                 &self.palette_map_texture_data[..],
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(self.dimensions.0),
-                    rows_per_image: Some(self.dimensions.1),
+                    bytes_per_row: Some(self.dimensions.w as u32),
+                    rows_per_image: Some(self.dimensions.h as u32),
                 },
                 self.palette_map_texture_size,
             );
@@ -1139,10 +1144,10 @@ impl RenderInterface for Renderer<'_> {
         {
             let c: &SpriteCell<_> = d.into();
             instance.sprite = c.sprite;
-            let x = i % self.dimensions.0 as usize;
-            let y = i / self.dimensions.0 as usize;
-            let width = self.dimensions.0 as usize;
-            let area = (self.dimensions.0 * self.dimensions.1) as usize;
+            let x = i % self.dimensions.w as usize;
+            let y = i / self.dimensions.w as usize;
+            let width = self.dimensions.w as usize;
+            let area = self.dimensions.area() as usize;
             for z in 0..PaletteMap::MAX_SIZE {
                 self.palette_map_texture_data[area * z + y * width + x] =
                     c.palette_map.map(z as u8);

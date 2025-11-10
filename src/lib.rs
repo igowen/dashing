@@ -51,10 +51,15 @@ pub mod input;
 /// Functionality for building in-game UIs.
 pub mod ui;
 
+/// Types and utilities for doing grid-based geometry.
+pub mod geometry;
+
 /// Stack-allocated, growable (but fixed-capacity) vector.
 mod inline_vec;
 
 use log::{debug, warn};
+
+use crate::geometry::Size;
 
 /// Signals to indicate whether the engine should keep running or halt.
 #[derive(PartialEq, Eq, Debug)]
@@ -112,8 +117,8 @@ where
         window.window.set_visible(true);
 
         let (width, height, mut renderer, winit_window, event_loop) = (
-            window.width,
-            window.height,
+            window.dimensions.w,
+            window.dimensions.h,
             window.renderer,
             window.window,
             window.event_loop,
@@ -143,7 +148,7 @@ where
                                 warn!("scale factor events not supported");
                             }
                             winit::event::WindowEvent::CursorMoved { position, .. } => {
-                                let (ax, ay) = renderer.aspect_ratio;
+                                let Size{w: ax, h: ay} = renderer.aspect_ratio;
                                 let winit::dpi::PhysicalPosition { x: xf, y: yf } = position;
                                 let (x, y) = (*xf as u32, *yf as u32);
                                 let winit::dpi::PhysicalSize {
@@ -151,8 +156,8 @@ where
                                     height: screen_h,
                                 } = winit_window.inner_size(); // = size.to_physical(scale_factor);
 
-                                let target_w = std::cmp::min(screen_w, (screen_h * ax) / ay);
-                                let target_h = std::cmp::min(screen_h, (screen_w * ay) / ax);
+                                let target_w = std::cmp::min(screen_w, (screen_h * ax as u32) / ay as u32);
+                                let target_h = std::cmp::min(screen_h, (screen_w * ay as u32) / ax as u32);
                                 let offs_x;
                                 let offs_y;
                                 if target_w < screen_w {
@@ -175,11 +180,11 @@ where
                                     let sx = target_w as f32 / width as f32;
                                     let sy = target_h as f32 / height as f32;
 
-                                    let xs = (xp / sx) as u32;
-                                    let ys = (yp / sy) as u32;
+                                    let xs = (xp / sx) as i32;
+                                    let ys = (yp / sy) as i32;
 
                                     let e = input::Event::Mouse(input::MouseEvent::CursorMoved {
-                                        sprite_position: (xs, ys),
+                                        sprite_position: point![xs, ys],
                                         absolute_position: (*xf, *yf),
                                     });
                                     debug!("{:?}", e);
