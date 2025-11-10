@@ -148,6 +148,7 @@ impl Vector {
         Self { dx, dy }
     }
 
+    /// Creates a new vector with length 0.
     pub const fn zero() -> Self {
         Self { dx: 0, dy: 0 }
     }
@@ -158,6 +159,7 @@ impl Vector {
         (Self { dx: self.dx, dy: 0 }, Self { dx: 0, dy: self.dy })
     }
 
+    /// Returns a vector consisting of the absolute values of this vector's components.
     pub const fn abs(self) -> Self {
         Self {
             dx: self.dx.abs(),
@@ -165,12 +167,14 @@ impl Vector {
         }
     }
 
+    /// Returns the square of the length of this vector.
     pub const fn len_squared(self) -> i64 {
         let dx = self.dx as i64;
         let dy = self.dy as i64;
         dx * dx + dy * dy
     }
 
+    /// Returns true iff this vector has length 0.
     pub const fn is_zero(self) -> bool {
         self.dx == 0 && self.dy == 0
     }
@@ -198,6 +202,7 @@ impl Size {
         self.w.unsigned_abs() as u64 * self.h.unsigned_abs() as u64
     }
 
+    /// Converts `self` to a `Vector` displacement.
     pub const fn as_displacement(self) -> Vector {
         Vector {
             dx: self.w - 1,
@@ -205,6 +210,7 @@ impl Size {
         }
     }
 
+    /// Returns true iff this size has zero area (i.e. at least one of its dimensions is zero).
     pub const fn is_empty(self) -> bool {
         self.w == 0 || self.h == 0
     }
@@ -252,6 +258,7 @@ impl Rect {
         Self::new(x1, y1, x2 - x1 + 1, y2 - y1 + 1)
     }
 
+    /// Returns two points that represent an equivalent bounding box to this Rect.
     pub const fn as_points(self) -> (Point, Point) {
         (
             Point {
@@ -265,6 +272,7 @@ impl Rect {
         )
     }
 
+    /// Creates the minimum bounding rectangle containing the segment's start and end points.
     pub const fn from_segment(s: Segment) -> Self {
         Self::from_points(s.start, s.end)
     }
@@ -369,6 +377,7 @@ impl Rect {
             && self.bottom() >= other.bottom()
     }
 
+    /// Returns true iff `segment` is fully contained in `self`.
     pub const fn contains_segment(self, segment: Segment) -> bool {
         self.contains(segment.start) && self.contains(segment.end)
     }
@@ -397,6 +406,7 @@ impl Rect {
         }
     }
 
+    /// Reduce the size of `self` by an equal length on all 4 sides.
     pub fn inset(mut self, n: usize) -> Self {
         self.size -= size![2, 2] * n as i32;
         self.origin += vector![1, 1] * n as i32;
@@ -408,7 +418,9 @@ impl Rect {
 /// A line segment between two points (inclusive).
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
 pub struct Segment {
+    /// Start point
     pub start: Point,
+    /// End point
     pub end: Point,
 }
 

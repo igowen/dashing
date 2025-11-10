@@ -1,6 +1,6 @@
 use crate::geometry::*;
 use crate::inline_vec::*;
-use crate::{point, vector};
+use crate::vector;
 
 /// Shorthand for `Cardinal::North`.
 pub const N: Cardinal = Cardinal::North;
@@ -28,27 +28,37 @@ pub const R: Rotation = Rotation::Cw;
 /// Represents the four cardinal directions.
 #[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Cardinal {
+    /// North
     #[default]
     North,
+    /// South
     South,
+    /// East
     East,
+    /// West
     West,
 }
 
 /// Represents the four ordinal/intercardinal directions.
 #[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Diagonal {
+    /// Northeast
     #[default]
     Northeast,
+    /// Northwest
     Northwest,
+    /// Southeast
     Southeast,
+    /// Southwest
     Southwest,
 }
 
 /// Represents a relative turn from the current orientation.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Rotation {
+    /// Counterclockwise / Left
     Ccw,
+    /// Clockwise / Right
     Cw,
 }
 
@@ -254,6 +264,7 @@ pub struct CardinalData<T> {
 }
 
 impl<T> CardinalData<T> {
+    /// Get the data corresponding to the given direction.
     pub fn get(&self, dir: Cardinal) -> &T {
         match dir {
             Cardinal::North => &self.n,
@@ -263,6 +274,7 @@ impl<T> CardinalData<T> {
         }
     }
 
+    /// Mutably get the data corresponding to the given direction.
     pub fn get_mut(&mut self, dir: Cardinal) -> &mut T {
         match dir {
             Cardinal::North => &mut self.n,
@@ -295,6 +307,7 @@ where
             + (self.w != T::default()) as u8
     }
 
+    /// Get the list of directions that have a non-default value.
     pub fn get_set_dirs(self) -> InlineVec<Cardinal, 4> {
         let mut result = InlineVec::new();
         if self.n != T::default() {
@@ -403,7 +416,9 @@ where
 /// Holds data for the two handed turn directions
 #[derive(Default, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct RotationData<T> {
+    /// Data for the clockwise/right side
     pub cw: T,
+    /// Data for the counterclockwise/left side
     pub ccw: T,
 }
 
