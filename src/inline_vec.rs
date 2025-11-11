@@ -21,6 +21,7 @@ impl<T, const N: usize> InlineVec<T, N> {
         }
     }
 
+    /// Attempt to push `item`, returning `CapacityExceededError` if there was not enough space.
     pub fn try_push(&mut self, item: T) -> Result<(), CapacityExceededError> {
         if self.len >= N {
             Err(CapacityExceededError)
@@ -76,6 +77,7 @@ impl<T, const N: usize> InlineVec<T, N> {
         self.len = new_len;
     }
 
+    /// Returns the capacity of this vector.
     pub const fn capacity(&self) -> usize {
         N
     }
@@ -298,6 +300,7 @@ impl<T, const N: usize> Extend<T> for InlineVec<T, N> {
     }
 }
 
+/// Iterator for InlineVec.
 pub struct IntoIter<T, const N: usize> {
     vec: std::mem::ManuallyDrop<InlineVec<T, N>>,
     pos: usize,

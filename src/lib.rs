@@ -55,7 +55,7 @@ pub mod ui;
 pub mod geometry;
 
 /// Stack-allocated, growable (but fixed-capacity) vector.
-mod inline_vec;
+pub mod inline_vec;
 
 use log::{debug, warn};
 
