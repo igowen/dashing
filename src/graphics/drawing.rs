@@ -15,7 +15,7 @@
 use crate::geometry::{Point, Size};
 
 /// Encapsulation of a 16-element array mapping palette indices.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PaletteMap([u8; 16]);
 
 impl PaletteMap {
@@ -24,8 +24,8 @@ impl PaletteMap {
 
     /// Returns a PaletteMap with all indices mapped to the same value (as opposed to the default
     /// palette, which maps `i` to `i`).
-    pub const fn mono(n: u8) -> Self {
-        Self([n; Self::MAX_SIZE])
+    pub fn mono<T: Into<u8>>(n: T) -> Self {
+        Self([n.into(); Self::MAX_SIZE])
     }
 
     /// Get the mapped index for `i`.
@@ -35,14 +35,14 @@ impl PaletteMap {
 
     /// Map index `i` to `n`, consuming `self` and returning `self` for builder-style construction.
     #[must_use]
-    pub fn set(mut self, i: u8, n: u8) -> Self {
-        self.0[i as usize] = n;
+    pub fn set<T: Into<u8>>(mut self, i: u8, n: T) -> Self {
+        self.0[i as usize] = n.into();
         self
     }
 
     /// Map index `i` to `n` in-place.
-    pub fn update(&mut self, i: u8, n: u8) {
-        self.0[i as usize] = n;
+    pub fn update<T: Into<u8>>(&mut self, i: u8, n: T) {
+        self.0[i as usize] = n.into();
     }
 
     /// Reset the map so that all indices map to themselves.
