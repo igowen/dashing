@@ -53,6 +53,52 @@ pub enum Diagonal {
     Southwest,
 }
 
+/// One of the 8 compass directions.
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CompassDirection {
+    /// N/S/E/W
+    Cardinal(Cardinal),
+    /// NE/NW/SE/SW
+    Diagonal(Diagonal),
+}
+
+impl Default for CompassDirection {
+    fn default() -> Self {
+        CompassDirection::Cardinal(Cardinal::North)
+    }
+}
+
+impl CompassDirection {
+    /// Returns the euclidean position offset representing the shortest move in the given
+    /// direction.
+    pub const fn offset(self) -> Vector {
+        match self {
+            CompassDirection::Cardinal(c) => c.offset(),
+            CompassDirection::Diagonal(d) => d.offset(),
+        }
+    }
+
+    /// Returns the direction 180 degress from `self`.
+    pub fn flip(self) -> Self {
+        match self {
+            CompassDirection::Cardinal(c) => c.flip().into(),
+            CompassDirection::Diagonal(d) => d.flip().into(),
+        }
+    }
+}
+
+impl From<Cardinal> for CompassDirection {
+    fn from(dir: Cardinal) -> Self {
+        Self::Cardinal(dir)
+    }
+}
+
+impl From<Diagonal> for CompassDirection {
+    fn from(dir: Diagonal) -> Self {
+        Self::Diagonal(dir)
+    }
+}
+
 /// Represents a relative turn from the current orientation.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Rotation {
@@ -160,6 +206,16 @@ impl Cardinal {
             Cardinal::West => [Cardinal::North, Cardinal::South, Cardinal::East],
         }
     }
+
+    /// Returns the two diagonal directions adjacent to `self`.
+    pub const fn diagonal_neighbors(self) -> (Diagonal, Diagonal) {
+        match self {
+            Cardinal::North => (Diagonal::Northeast, Diagonal::Northwest),
+            Cardinal::South => (Diagonal::Southeast, Diagonal::Southwest),
+            Cardinal::East => (Diagonal::Northeast, Diagonal::Southeast),
+            Cardinal::West => (Diagonal::Northwest, Diagonal::Southwest),
+        }
+    }
 }
 
 impl Diagonal {
@@ -246,6 +302,16 @@ impl Diagonal {
                 Diagonal::Northwest,
                 Diagonal::Southeast,
             ],
+        }
+    }
+
+    /// Returns the two cardinal directions adjacent to `self`.
+    pub const fn cardinal_neighbors(self) -> (Cardinal, Cardinal) {
+        match self {
+            Diagonal::Northeast => (Cardinal::North, Cardinal::East),
+            Diagonal::Northwest => (Cardinal::North, Cardinal::West),
+            Diagonal::Southeast => (Cardinal::South, Cardinal::East),
+            Diagonal::Southwest => (Cardinal::South, Cardinal::West),
         }
     }
 }
