@@ -418,6 +418,14 @@ impl Rect {
 
         self
     }
+
+    /// Returns an iterator over all of the points inside `self`.
+    pub fn iter(self) -> impl Iterator<Item = Point> {
+        let (p0, p1) = self.as_points();
+        (p0.y.min(p1.y)..=p0.y.max(p1.y))
+            .map(move |y| (p0.x.min(p1.x)..=p0.x.max(p1.x)).map(move |x| point![x, y]))
+            .flatten()
+    }
 }
 
 /// A line segment between two points (inclusive).
@@ -931,6 +939,24 @@ mod tests {
         assert_eq!(r1, rect![10, 20, 30, 40]);
         assert_eq!(r2, rect![10, 20, 30, 40]);
         assert_eq!(r1, r2);
+    }
+    #[test]
+    fn test_rect_iter() {
+        let r = rect![point![0, 0], size![3, 3]];
+        assert_eq!(
+            r.iter().collect::<Vec<_>>(),
+            [
+                point![0, 0],
+                point![1, 0],
+                point![2, 0],
+                point![0, 1],
+                point![1, 1],
+                point![2, 1],
+                point![0, 2],
+                point![1, 2],
+                point![2, 2]
+            ]
+        );
     }
 
     use proptest::prelude::*;
