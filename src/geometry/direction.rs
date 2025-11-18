@@ -402,6 +402,22 @@ impl<T> CardinalData<T> {
     pub fn to_tuple(self) -> (T, T, T, T) {
         (self.n, self.s, self.e, self.w)
     }
+
+    /// Returns true iff `predicate` returns true for any direction's data.
+    pub fn any<P>(&self, predicate: P) -> bool
+    where
+        P: Fn(&T) -> bool,
+    {
+        predicate(&self.n) || predicate(&self.s) || predicate(&self.e) || predicate(&self.w)
+    }
+
+    /// Returns true iff `predicate` returns true for all directions' data.
+    pub fn all<P>(&self, predicate: P) -> bool
+    where
+        P: Fn(&T) -> bool,
+    {
+        predicate(&self.n) && predicate(&self.s) && predicate(&self.e) && predicate(&self.w)
+    }
 }
 
 impl<T> CardinalData<T>
@@ -462,6 +478,24 @@ pub struct DiagonalData<T> {
 }
 
 impl<T> DiagonalData<T> {
+    /// Returns a reference to the data corresponding to the given direction.
+    pub fn get(&self, dir: Diagonal) -> &T {
+        match dir {
+            Diagonal::Northeast => &self.ne,
+            Diagonal::Northwest => &self.nw,
+            Diagonal::Southeast => &self.se,
+            Diagonal::Southwest => &self.sw,
+        }
+    }
+    /// Returns a mutable reference to the data corresponding to the given direction.
+    pub fn get_mut(&mut self, dir: Diagonal) -> &mut T {
+        match dir {
+            Diagonal::Northeast => &mut self.ne,
+            Diagonal::Northwest => &mut self.nw,
+            Diagonal::Southeast => &mut self.se,
+            Diagonal::Southwest => &mut self.sw,
+        }
+    }
     /// Returns the data for the two diagonal directions that are adjacent to the given cardinal
     /// direction (e.g., `side(Cardinal::North)` will return the data for Northeast and
     /// Northwest).
@@ -506,6 +540,22 @@ impl<T> DiagonalData<T> {
                 cw: &mut self.nw,
             },
         }
+    }
+
+    /// Returns true iff `predicate` returns true for any direction's data.
+    pub fn any<P>(&self, predicate: P) -> bool
+    where
+        P: Fn(&T) -> bool,
+    {
+        predicate(&self.ne) || predicate(&self.se) || predicate(&self.nw) || predicate(&self.sw)
+    }
+
+    /// Returns true iff `predicate` returns true for all directions' data.
+    pub fn all<P>(&self, predicate: P) -> bool
+    where
+        P: Fn(&T) -> bool,
+    {
+        predicate(&self.ne) && predicate(&self.se) && predicate(&self.nw) && predicate(&self.sw)
     }
 }
 
