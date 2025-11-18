@@ -68,7 +68,7 @@ macro_rules! segment {
 }
 
 /// A 2D point in a discrete grid.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash, PartialOrd, Ord)]
 pub struct Point {
     /// The x-coordinate.
     pub x: i32,
@@ -77,7 +77,7 @@ pub struct Point {
 }
 
 /// A 2D vector representing displacement or direction in a discrete grid.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash, PartialOrd, Ord)]
 pub struct Vector {
     /// The displacement along the x-axis.
     pub dx: i32,
@@ -86,7 +86,7 @@ pub struct Vector {
 }
 
 /// A 2D size with a width and height. Can be negative.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash, PartialOrd, Ord)]
 pub struct Size {
     /// The width component.
     pub w: i32,
@@ -97,7 +97,7 @@ pub struct Size {
 /// A rectangle defined by an origin point and a size.
 ///
 /// Geometric calculations are inclusive and robust to negative sizes.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Hash, PartialOrd, Ord)]
 pub struct Rect {
     /// The origin point of the rectangle (usually top-left).
     pub origin: Point,
@@ -724,6 +724,74 @@ impl SubAssign<Vector> for Segment {
         self.start -= v;
         self.end -= v;
     }
+}
+
+use rand::{
+    distr::uniform::{SampleBorrow, SampleUniform, UniformInt, UniformSampler},
+    prelude::*,
+};
+
+impl Distribution<Point> for rand::distr::StandardUniform {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Point {
+        point![rng.random::<i32>(), rng.random::<i32>()]
+    }
+}
+
+/// [rand::distr::UniformSampler] impl for generic geometry types.
+#[derive(Clone, Copy, Debug)]
+pub struct UniformTuple<T>(
+    UniformInt<i32>,
+    UniformInt<i32>,
+    std::marker::PhantomData<T>,
+);
+
+impl<T> UniformSampler for UniformTuple<T>
+where
+    (i32, i32): Into<T>,
+    T: Into<(i32, i32)> + Copy,
+{
+    type X = T;
+    fn new<B1, B2>(low: B1, high: B2) -> Result<Self, rand::distr::uniform::Error>
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
+    {
+        let low: (i32, i32) = (*low.borrow()).into();
+        let high: (i32, i32) = (*high.borrow()).into();
+        let x = UniformInt::<i32>::new(low.0, high.0)?;
+        let y = UniformInt::<i32>::new(low.1, high.1)?;
+
+        Ok(UniformTuple::<T>(x, y, Default::default()))
+    }
+
+    fn new_inclusive<B1, B2>(low: B1, high: B2) -> Result<Self, rand::distr::uniform::Error>
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
+    {
+        let low: (i32, i32) = (*low.borrow()).into();
+        let high: (i32, i32) = (*high.borrow()).into();
+        let x = UniformInt::<i32>::new_inclusive(low.0, high.0)?;
+        let y = UniformInt::<i32>::new_inclusive(low.1, high.1)?;
+
+        Ok(UniformTuple::<T>(x, y, Default::default()))
+    }
+
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::X {
+        (self.0.sample(rng), self.1.sample(rng)).into()
+    }
+}
+
+impl SampleUniform for Point {
+    type Sampler = UniformTuple<Point>;
+}
+
+impl SampleUniform for Vector {
+    type Sampler = UniformTuple<Vector>;
+}
+
+impl SampleUniform for Size {
+    type Sampler = UniformTuple<Size>;
 }
 
 #[cfg(test)]

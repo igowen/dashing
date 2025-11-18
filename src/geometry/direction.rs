@@ -218,6 +218,49 @@ impl Cardinal {
     }
 }
 
+use rand::prelude::*;
+impl Distribution<Cardinal> for rand::distr::StandardUniform {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Cardinal {
+        const CHOICES: [Cardinal; 4] = [
+            Cardinal::North,
+            Cardinal::South,
+            Cardinal::East,
+            Cardinal::West,
+        ];
+
+        *CHOICES.choose(rng).unwrap()
+    }
+}
+
+impl Distribution<Diagonal> for rand::distr::StandardUniform {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Diagonal {
+        const CHOICES: [Diagonal; 4] = [
+            Diagonal::Northeast,
+            Diagonal::Northwest,
+            Diagonal::Southeast,
+            Diagonal::Southwest,
+        ];
+        *CHOICES.choose(rng).unwrap()
+    }
+}
+
+impl Distribution<CompassDirection> for rand::distr::StandardUniform {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> CompassDirection {
+        const CHOICES: [CompassDirection; 8] = [
+            CompassDirection::Cardinal(Cardinal::North),
+            CompassDirection::Cardinal(Cardinal::South),
+            CompassDirection::Cardinal(Cardinal::East),
+            CompassDirection::Cardinal(Cardinal::West),
+            CompassDirection::Diagonal(Diagonal::Northeast),
+            CompassDirection::Diagonal(Diagonal::Northwest),
+            CompassDirection::Diagonal(Diagonal::Southeast),
+            CompassDirection::Diagonal(Diagonal::Southwest),
+        ];
+
+        *CHOICES.choose(rng).unwrap()
+    }
+}
+
 impl Diagonal {
     /// Returns the new direction after turning.
     pub const fn turn(self, t: Rotation) -> Self {
